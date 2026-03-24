@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>pysnap package &#8212; PySnap 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="pysnap.cli package" href="pysnap.cli.html" />
+    <link rel="prev" title="pysnap" href="modules.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-pysnap">
+<span id="pysnap-package"></span><h1>pysnap package<a class="headerlink" href="#module-pysnap" title="Link to this heading">¶</a></h1>
+<p>PySnap package.</p>
+<section id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pysnap.cli.html">pysnap.cli package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.cli.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.cli.html#module-pysnap.cli.app">pysnap.cli.app module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.app.ParserExit"><code class="docutils literal notranslate"><span class="pre">ParserExit</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.app.CliArgumentParser"><code class="docutils literal notranslate"><span class="pre">CliArgumentParser</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.app.CliArgumentParser.exit"><code class="docutils literal notranslate"><span class="pre">CliArgumentParser.exit()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.app.build_root_parser"><code class="docutils literal notranslate"><span class="pre">build_root_parser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.app.run_cli"><code class="docutils literal notranslate"><span class="pre">run_cli()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.app.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.cli.html#module-pysnap.cli.formatters">pysnap.cli.formatters module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.format_groups"><code class="docutils literal notranslate"><span class="pre">format_groups()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.format_vm_info"><code class="docutils literal notranslate"><span class="pre">format_vm_info()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.format_import_result"><code class="docutils literal notranslate"><span class="pre">format_import_result()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.format_integration_test_result"><code class="docutils literal notranslate"><span class="pre">format_integration_test_result()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pysnap.core.html">pysnap.core package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.core.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.core.html#module-pysnap.core.models">pysnap.core.models module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMReference"><code class="docutils literal notranslate"><span class="pre">VMReference</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMReference.name"><code class="docutils literal notranslate"><span class="pre">VMReference.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMReference.uuid"><code class="docutils literal notranslate"><span class="pre">VMReference.uuid</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.ImportCandidate"><code class="docutils literal notranslate"><span class="pre">ImportCandidate</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.ImportCandidate.vsys_index"><code class="docutils literal notranslate"><span class="pre">ImportCandidate.vsys_index</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.ImportCandidate.vm_name"><code class="docutils literal notranslate"><span class="pre">ImportCandidate.vm_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.ImportCandidate.group"><code class="docutils literal notranslate"><span class="pre">ImportCandidate.group</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.ImportCandidate.requires_eula_accept"><code class="docutils literal notranslate"><span class="pre">ImportCandidate.requires_eula_accept</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMInfo"><code class="docutils literal notranslate"><span class="pre">VMInfo</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMInfo.name"><code class="docutils literal notranslate"><span class="pre">VMInfo.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMInfo.uuid"><code class="docutils literal notranslate"><span class="pre">VMInfo.uuid</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMInfo.groups"><code class="docutils literal notranslate"><span class="pre">VMInfo.groups</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMInfo.serial_port"><code class="docutils literal notranslate"><span class="pre">VMInfo.serial_port</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMInfo.parent_name"><code class="docutils literal notranslate"><span class="pre">VMInfo.parent_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMInfo.managed"><code class="docutils literal notranslate"><span class="pre">VMInfo.managed</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMInfo.metadata"><code class="docutils literal notranslate"><span class="pre">VMInfo.metadata</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMInfo.primary_group"><code class="docutils literal notranslate"><span class="pre">VMInfo.primary_group</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMGroup"><code class="docutils literal notranslate"><span class="pre">VMGroup</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMGroup.name"><code class="docutils literal notranslate"><span class="pre">VMGroup.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMGroup.vm_names"><code class="docutils literal notranslate"><span class="pre">VMGroup.vm_names</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.IntegrationTestResult"><code class="docutils literal notranslate"><span class="pre">IntegrationTestResult</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.IntegrationTestResult.machines"><code class="docutils literal notranslate"><span class="pre">IntegrationTestResult.machines</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.IntegrationTestResult.deleted_vm_names"><code class="docutils literal notranslate"><span class="pre">IntegrationTestResult.deleted_vm_names</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.core.html#module-pysnap.core.service">pysnap.core.service module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.normalize_group_name"><code class="docutils literal notranslate"><span class="pre">normalize_group_name()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService"><code class="docutils literal notranslate"><span class="pre">PySnapService</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.SNAPSHOT_NAME"><code class="docutils literal notranslate"><span class="pre">PySnapService.SNAPSHOT_NAME</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.DEFAULT_SERIAL_TCP_PORT"><code class="docutils literal notranslate"><span class="pre">PySnapService.DEFAULT_SERIAL_TCP_PORT</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.import_image"><code class="docutils literal notranslate"><span class="pre">PySnapService.import_image()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.run_integration_test"><code class="docutils literal notranslate"><span class="pre">PySnapService.run_integration_test()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.list_groups"><code class="docutils literal notranslate"><span class="pre">PySnapService.list_groups()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.show_vm"><code class="docutils literal notranslate"><span class="pre">PySnapService.show_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.clone_vm"><code class="docutils literal notranslate"><span class="pre">PySnapService.clone_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.erase_vm"><code class="docutils literal notranslate"><span class="pre">PySnapService.erase_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.erase_group"><code class="docutils literal notranslate"><span class="pre">PySnapService.erase_group()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.erase_all"><code class="docutils literal notranslate"><span class="pre">PySnapService.erase_all()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pysnap.vbox.html">pysnap.vbox package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.vbox.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.vbox.html#module-pysnap.vbox.client">pysnap.vbox.client module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.RunnerProtocol"><code class="docutils literal notranslate"><span class="pre">RunnerProtocol</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.RunnerProtocol.run"><code class="docutils literal notranslate"><span class="pre">RunnerProtocol.run()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.SubprocessRunner"><code class="docutils literal notranslate"><span class="pre">SubprocessRunner</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.SubprocessRunner.run"><code class="docutils literal notranslate"><span class="pre">SubprocessRunner.run()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.list_vms"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.list_vms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.get_vm_info"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.get_vm_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.dry_run_import"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.dry_run_import()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.import_appliance"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.import_appliance()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.get_current_snapshot_name"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.get_current_snapshot_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.take_snapshot"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.take_snapshot()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.clone_linked"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.clone_linked()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.configure_serial_port"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.configure_serial_port()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.configure_internal_networks"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.configure_internal_networks()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.set_metadata"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.set_metadata()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.get_metadata"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.get_metadata()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.delete_vm"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.delete_vm()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.vbox.html#module-pysnap.vbox.parsers">pysnap.vbox.parsers module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.parsers.parse_list_vms"><code class="docutils literal notranslate"><span class="pre">parse_list_vms()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.parsers.parse_machine_readable"><code class="docutils literal notranslate"><span class="pre">parse_machine_readable()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.parsers.parse_extra_data"><code class="docutils literal notranslate"><span class="pre">parse_extra_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.parsers.parse_snapshot_names"><code class="docutils literal notranslate"><span class="pre">parse_snapshot_names()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.parsers.parse_import_candidates"><code class="docutils literal notranslate"><span class="pre">parse_import_candidates()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.parsers.split_groups"><code class="docutils literal notranslate"><span class="pre">split_groups()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading">¶</a></h2>
+</section>
+<section id="module-pysnap.errors">
+<span id="pysnap-errors-module"></span><h2>pysnap.errors module<a class="headerlink" href="#module-pysnap.errors" title="Link to this heading">¶</a></h2>
+<p>Custom exceptions used by PySnap.</p>
+<dl class="py exception">
+<dt class="sig sig-object py" id="pysnap.errors.PySnapError">
+<span class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.errors.</span></span><span class="sig-name descname"><span class="pre">PySnapError</span></span><a class="reference internal" href="../_modules/pysnap/errors.html#PySnapError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.errors.PySnapError" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
+<p>Base exception for application-level failures.</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="pysnap.errors.CommandExecutionError">
+<span class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.errors.</span></span><span class="sig-name descname"><span class="pre">CommandExecutionError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">command</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stdout</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stderr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/errors.html#CommandExecutionError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.errors.CommandExecutionError" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><code class="xref py py-class docutils literal notranslate"><span class="pre">PySnapError</span></code></a></p>
+<p>Represent a failed <code class="docutils literal notranslate"><span class="pre">VBoxManage</span></code> command execution.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>command</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>)</p></li>
+<li><p><strong>stdout</strong> (<em>str</em>)</p></li>
+<li><p><strong>stderr</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="pysnap.errors.VMNotFoundError">
+<span class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.errors.</span></span><span class="sig-name descname"><span class="pre">VMNotFoundError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/errors.html#VMNotFoundError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.errors.VMNotFoundError" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><code class="xref py py-class docutils literal notranslate"><span class="pre">PySnapError</span></code></a></p>
+<p>Report that a requested virtual machine does not exist.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vm_name</strong> (<em>str</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="pysnap.errors.VMDependencyError">
+<span class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.errors.</span></span><span class="sig-name descname"><span class="pre">VMDependencyError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dependents</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/errors.html#VMDependencyError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.errors.VMDependencyError" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><code class="xref py py-class docutils literal notranslate"><span class="pre">PySnapError</span></code></a></p>
+<p>Report that a VM cannot be deleted because dependent clones exist.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subject</strong> (<em>str</em>)</p></li>
+<li><p><strong>dependents</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">PySnap</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">pysnap</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">pysnap package</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">pysnap</a><ul>
+      <li>Previous: <a href="modules.html" title="previous chapter">pysnap</a></li>
+      <li>Next: <a href="pysnap.cli.html" title="next chapter">pysnap.cli package</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, PySnap Authors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/api/pysnap.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

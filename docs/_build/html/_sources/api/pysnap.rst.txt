@@ -1,0 +1,28 @@
+pysnap package
+==============
+
+.. automodule:: pysnap
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   pysnap.cli
+   pysnap.core
+   pysnap.vbox
+
+Submodules
+----------
+
+pysnap.errors module
+--------------------
+
+.. automodule:: pysnap.errors
+   :members:
+   :show-inheritance:
+   :undoc-members:

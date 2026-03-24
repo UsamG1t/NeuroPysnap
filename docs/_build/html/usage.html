@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Usage Guide &#8212; PySnap 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=01f34227"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Architecture" href="architecture.html" />
+    <link rel="prev" title="PySnap Documentation" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="usage-guide">
+<h1>Usage Guide<a class="headerlink" href="#usage-guide" title="Link to this heading">¶</a></h1>
+<p>PySnap exposes a single command line entry point named <code class="docutils literal notranslate"><span class="pre">pysnap</span></code>.</p>
+<section id="help">
+<h2>Help<a class="headerlink" href="#help" title="Link to this heading">¶</a></h2>
+<p>Running the command without arguments shows the built-in help:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap
+</pre></div>
+</div>
+</section>
+<section id="list-virtual-machines">
+<h2>List Virtual Machines<a class="headerlink" href="#list-virtual-machines" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">list</span></code> command prints all detected VirtualBox groups and the names of the
+virtual machines inside each group.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap list
+</pre></div>
+</div>
+</section>
+<section id="run-an-integration-test">
+<h2>Run an Integration Test<a class="headerlink" href="#run-an-integration-test" title="Link to this heading">¶</a></h2>
+<p>PySnap can run a real end-to-end VirtualBox integration scenario directly from
+the command line:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap --integration-test image.ova
+</pre></div>
+</div>
+<p>The integration scenario:</p>
+<ul class="simple">
+<li><p>imports the appliance as a temporary base VM</p></li>
+<li><p>creates three linked clones</p></li>
+<li><p>connects clone A and B with <code class="docutils literal notranslate"><span class="pre">intnet</span></code></p></li>
+<li><p>connects clone B and C with <code class="docutils literal notranslate"><span class="pre">deepnet</span></code></p></li>
+<li><p>connects clone C and A with <code class="docutils literal notranslate"><span class="pre">virtnet</span></code></p></li>
+<li><p>prints details for the base VM and all three clones</p></li>
+<li><p>removes the four VMs one by one</p></li>
+</ul>
+</section>
+<section id="import-an-appliance">
+<h2>Import an Appliance<a class="headerlink" href="#import-an-appliance" title="Link to this heading">¶</a></h2>
+<p>Import either an <code class="docutils literal notranslate"><span class="pre">.ova</span></code> or <code class="docutils literal notranslate"><span class="pre">.ovf</span></code> appliance.</p>
+<p>If the appliance already defines a group, PySnap keeps it. Otherwise, the
+virtual machine is placed into the <code class="docutils literal notranslate"><span class="pre">/Others</span></code> group.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap image.ova
+pysnap image.ovf
+</pre></div>
+</div>
+</section>
+<section id="show-virtual-machine-details">
+<h2>Show Virtual Machine Details<a class="headerlink" href="#show-virtual-machine-details" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">show</span></code> command prints the VM name, the assigned group, and the serial TCP
+port configured through <code class="docutils literal notranslate"><span class="pre">UART1</span></code>.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap show MyVM
+</pre></div>
+</div>
+</section>
+<section id="create-a-linked-clone">
+<h2>Create a Linked Clone<a class="headerlink" href="#create-a-linked-clone" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">clone</span></code> command creates a linked clone from a base VM. The clone inherits
+the base VM group.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">-p</span></code> is provided, its value is used as the host TCP port for
+<code class="docutils literal notranslate"><span class="pre">modifyvm</span> <span class="pre">&lt;VM&gt;</span> <span class="pre">--uart1</span> <span class="pre">0x3F8</span> <span class="pre">4</span> <span class="pre">--uartmode1</span> <span class="pre">tcpserver</span> <span class="pre">&lt;port&gt;</span></code>.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">-p</span></code> is omitted, PySnap scans existing VMs, finds the maximum already
+used serial TCP port, and assigns the next value. If no serial TCP ports are
+configured yet, the automatic sequence starts at <code class="docutils literal notranslate"><span class="pre">1024</span></code>.</p>
+<p>Up to three extra positional arguments configure internal networks for
+<code class="docutils literal notranslate"><span class="pre">nic1</span></code> through <code class="docutils literal notranslate"><span class="pre">nic3</span></code> with the <code class="docutils literal notranslate"><span class="pre">intnet</span></code> attachment type.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap clone BaseVM CloneVM -p 2345 intnet1 intnet2 intnet3
+pysnap clone BaseVM CloneVM intnet1
+</pre></div>
+</div>
+</section>
+<section id="erase-virtual-machines">
+<h2>Erase Virtual Machines<a class="headerlink" href="#erase-virtual-machines" title="Link to this heading">¶</a></h2>
+<p>PySnap supports three erase modes:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">erase</span> <span class="pre">VM</span></code> removes a single VM when no dependent linked clones exist.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">erase</span> <span class="pre">--group</span> <span class="pre">GROUP</span></code> removes all VMs inside one group.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">erase</span> <span class="pre">--all</span></code> removes all registered VirtualBox VMs.</p></li>
+</ul>
+<p>The single-VM erase mode refuses deletion when dependent clones still exist.
+The group erase mode refuses deletion when descendants outside the target group
+still depend on the selected VMs.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap erase BaseVM
+pysnap erase --group /Lab
+pysnap erase --all
+</pre></div>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">PySnap</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Usage Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#help">Help</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#list-virtual-machines">List Virtual Machines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#run-an-integration-test">Run an Integration Test</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#import-an-appliance">Import an Appliance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#show-virtual-machine-details">Show Virtual Machine Details</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#create-a-linked-clone">Create a Linked Clone</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#erase-virtual-machines">Erase Virtual Machines</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/modules.html">pysnap</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">PySnap Documentation</a></li>
+      <li>Next: <a href="architecture.html" title="next chapter">Architecture</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, PySnap Authors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/usage.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
