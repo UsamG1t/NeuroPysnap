@@ -41,6 +41,9 @@
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.cli</span></code> contains argument parsing and terminal output formatting.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.core</span></code> contains domain models and the main application service.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pysnap.runtime</span></code> contains the live-session registry shared by runtime tools.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pysnap.terminal</span></code> contains the built-in serial terminal transport, emulator,
+key mapping, and interactive UI session logic.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.vbox</span></code> contains the <code class="docutils literal notranslate"><span class="pre">VBoxManage</span></code> client and output parsers.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.tests</span></code> contains unit tests.</p></li>
 </ul>
@@ -52,6 +55,9 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">PySnapService</span></code> validates the request and coordinates the workflow.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">VBoxManageClient</span></code> executes VirtualBox commands.</p></li>
 <li><p>Parser helpers convert command output into Python models.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SessionRegistry</span></code> tracks active terminal attachments across processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">TerminalSession</span></code> starts the headless connection workflow when interactive
+serial access is requested.</p></li>
 <li><p>The CLI renders human-readable results.</p></li>
 </ol>
 </section>
@@ -70,6 +76,17 @@
 <p>PySnap uses <code class="docutils literal notranslate"><span class="pre">UART1</span></code> for the serial TCP endpoint of clones. If no explicit
 port is supplied, the service automatically assigns <code class="docutils literal notranslate"><span class="pre">max(used_ports)</span> <span class="pre">+</span> <span class="pre">1</span></code> or
 <code class="docutils literal notranslate"><span class="pre">1024</span></code> when no TCP serial port has been configured yet.</p>
+</section>
+<section id="runtime-state-strategy">
+<h2>Runtime State Strategy<a class="headerlink" href="#runtime-state-strategy" title="Link to this heading">¶</a></h2>
+<p>PySnap translates raw VirtualBox runtime states into compact monitor labels:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Working</span></code> for running VMs with an active PySnap terminal session</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Active</span></code> for running VMs without an attached PySnap terminal session</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Changing</span></code> for startup, shutdown, and other transitional states</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Paused</span></code> for paused VMs</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Error</span></code> for explicit error-like VirtualBox states</p></li>
+</ul>
 </section>
 </section>
 
@@ -107,6 +124,7 @@ port is supplied, the service automatically assigns <code class="docutils litera
 <li class="toctree-l2"><a class="reference internal" href="#execution-flow">Execution Flow</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#metadata-strategy">Metadata Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#serial-port-strategy">Serial Port Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#runtime-state-strategy">Runtime State Strategy</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="api/modules.html">pysnap</a></li>

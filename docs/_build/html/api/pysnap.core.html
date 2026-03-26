@@ -14,7 +14,7 @@
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="pysnap.vbox package" href="pysnap.vbox.html" />
+    <link rel="next" title="pysnap.runtime package" href="pysnap.runtime.html" />
     <link rel="prev" title="pysnap.cli package" href="pysnap.cli.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
@@ -106,7 +106,7 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="pysnap.core.models.VMInfo">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.models.</span></span><span class="sig-name descname"><span class="pre">VMInfo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uuid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">serial_port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parent_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">managed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/models.html#VMInfo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.models.VMInfo" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.models.</span></span><span class="sig-name descname"><span class="pre">VMInfo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uuid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">serial_port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vm_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parent_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">managed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/models.html#VMInfo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.models.VMInfo" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Represent the VM information required by the CLI.</p>
 <dl class="field-list simple">
@@ -116,6 +116,7 @@
 <li><p><strong>uuid</strong> (<em>str</em>)</p></li>
 <li><p><strong>groups</strong> (<em>tuple</em><em>[</em><em>str</em><em>, </em><em>...</em><em>]</em>)</p></li>
 <li><p><strong>serial_port</strong> (<em>int</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>vm_state</strong> (<em>str</em><em> | </em><em>None</em>)</p></li>
 <li><p><strong>parent_name</strong> (<em>str</em><em> | </em><em>None</em>)</p></li>
 <li><p><strong>managed</strong> (<em>bool</em>)</p></li>
 <li><p><strong>metadata</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>str</em><em>]</em>)</p></li>
@@ -140,6 +141,11 @@
 <dl class="py attribute">
 <dt class="sig sig-object py" id="pysnap.core.models.VMInfo.serial_port">
 <span class="sig-name descname"><span class="pre">serial_port</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#pysnap.core.models.VMInfo.serial_port" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.VMInfo.vm_state">
+<span class="sig-name descname"><span class="pre">vm_state</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#pysnap.core.models.VMInfo.vm_state" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -220,6 +226,49 @@
 
 </dd></dl>
 
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.core.models.VMMonitorRecord">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.models.</span></span><span class="sig-name descname"><span class="pre">VMMonitorRecord</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">display_state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">serial_port</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_state</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/models.html#VMMonitorRecord"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.models.VMMonitorRecord" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Represent a compact monitor record for a VM.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<em>str</em>)</p></li>
+<li><p><strong>display_state</strong> (<em>str</em>)</p></li>
+<li><p><strong>serial_port</strong> (<em>int</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>group</strong> (<em>str</em>)</p></li>
+<li><p><strong>raw_state</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.VMMonitorRecord.name">
+<span class="sig-name descname"><span class="pre">name</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#pysnap.core.models.VMMonitorRecord.name" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.VMMonitorRecord.display_state">
+<span class="sig-name descname"><span class="pre">display_state</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#pysnap.core.models.VMMonitorRecord.display_state" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.VMMonitorRecord.serial_port">
+<span class="sig-name descname"><span class="pre">serial_port</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#pysnap.core.models.VMMonitorRecord.serial_port" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.VMMonitorRecord.group">
+<span class="sig-name descname"><span class="pre">group</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#pysnap.core.models.VMMonitorRecord.group" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.VMMonitorRecord.raw_state">
+<span class="sig-name descname"><span class="pre">raw_state</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#pysnap.core.models.VMMonitorRecord.raw_state" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </section>
 <section id="module-pysnap.core.service">
 <span id="pysnap-core-service-module"></span><h2>pysnap.core.service module<a class="headerlink" href="#module-pysnap.core.service" title="Link to this heading">¶</a></h2>
@@ -243,12 +292,15 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="pysnap.core.service.PySnapService">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.service.</span></span><span class="sig-name descname"><span class="pre">PySnapService</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.service.</span></span><span class="sig-name descname"><span class="pre">PySnapService</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_registry</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Provide the main PySnap business operations.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>client</strong> (<a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient" title="pysnap.vbox.client.VBoxManageClient"><em>VBoxManageClient</em></a><em> | </em><em>None</em>)</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>client</strong> (<a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient" title="pysnap.vbox.client.VBoxManageClient"><em>VBoxManageClient</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>session_registry</strong> (<a class="reference internal" href="pysnap.runtime.html#pysnap.runtime.SessionRegistry" title="pysnap.runtime.SessionRegistry"><em>SessionRegistry</em></a><em> | </em><em>None</em>)</p></li>
+</ul>
 </dd>
 </dl>
 <dl class="py attribute">
@@ -259,6 +311,31 @@
 <dl class="py attribute">
 <dt class="sig sig-object py" id="pysnap.core.service.PySnapService.DEFAULT_SERIAL_TCP_PORT">
 <span class="sig-name descname"><span class="pre">DEFAULT_SERIAL_TCP_PORT</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1024</span></span><a class="headerlink" href="#pysnap.core.service.PySnapService.DEFAULT_SERIAL_TCP_PORT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.DEFAULT_START_TIMEOUT">
+<span class="sig-name descname"><span class="pre">DEFAULT_START_TIMEOUT</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">30.0</span></span><a class="headerlink" href="#pysnap.core.service.PySnapService.DEFAULT_START_TIMEOUT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.DEFAULT_STOP_TIMEOUT">
+<span class="sig-name descname"><span class="pre">DEFAULT_STOP_TIMEOUT</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">60.0</span></span><a class="headerlink" href="#pysnap.core.service.PySnapService.DEFAULT_STOP_TIMEOUT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.STOPPED_STATES">
+<span class="sig-name descname"><span class="pre">STOPPED_STATES</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'aborted',</span> <span class="pre">'poweroff',</span> <span class="pre">'saved'}</span></span><a class="headerlink" href="#pysnap.core.service.PySnapService.STOPPED_STATES" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.PAUSED_STATES">
+<span class="sig-name descname"><span class="pre">PAUSED_STATES</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'paused'}</span></span><a class="headerlink" href="#pysnap.core.service.PySnapService.PAUSED_STATES" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.ERROR_STATES">
+<span class="sig-name descname"><span class="pre">ERROR_STATES</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'gurumeditation',</span> <span class="pre">'stuck'}</span></span><a class="headerlink" href="#pysnap.core.service.PySnapService.ERROR_STATES" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -317,6 +394,97 @@ and removes all created VMs one by one.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>list[<a class="reference internal" href="#pysnap.core.models.VMGroup" title="pysnap.core.models.VMGroup"><em>VMGroup</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.list_monitored_vms">
+<span class="sig-name descname"><span class="pre">list_monitored_vms</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService.list_monitored_vms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService.list_monitored_vms" title="Link to this definition">¶</a></dt>
+<dd><p>List VMs that are running or changing state in a compact form.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Monitor records sorted by VM name.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[<a class="reference internal" href="#pysnap.core.models.VMMonitorRecord" title="pysnap.core.models.VMMonitorRecord"><em>VMMonitorRecord</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.get_monitor_state_label">
+<span class="sig-name descname"><span class="pre">get_monitor_state_label</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService.get_monitor_state_label"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService.get_monitor_state_label" title="Link to this definition">¶</a></dt>
+<dd><p>Return the user-facing runtime label for one VM.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vm_name</strong> (<em>str</em>) – VM name.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>User-facing monitor label.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.prepare_vm_connection">
+<span class="sig-name descname"><span class="pre">prepare_vm_connection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService.prepare_vm_connection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService.prepare_vm_connection" title="Link to this definition">¶</a></dt>
+<dd><p>Ensure that a VM is ready for an interactive serial connection.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vm_name</strong> (<em>str</em>) – VM name.</p></li>
+<li><p><strong>timeout</strong> (<em>float</em><em> | </em><em>None</em>) – Optional startup timeout in seconds.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Updated VM information.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="pysnap.html#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><strong>PySnapError</strong></a> – If the VM cannot be connected.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#pysnap.core.models.VMInfo" title="pysnap.core.models.VMInfo"><em>VMInfo</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.stop_runtime_vm">
+<span class="sig-name descname"><span class="pre">stop_runtime_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService.stop_runtime_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService.stop_runtime_vm" title="Link to this definition">¶</a></dt>
+<dd><p>Request a graceful stop for one running VM.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vm_name</strong> (<em>str</em>) – VM name.</p></li>
+<li><p><strong>timeout</strong> (<em>float</em><em> | </em><em>None</em>) – Optional timeout in seconds.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="pysnap.html#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><strong>PySnapError</strong></a> – If the VM is not in a stoppable state.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.stop_all_runtime_vms">
+<span class="sig-name descname"><span class="pre">stop_all_runtime_vms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService.stop_all_runtime_vms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService.stop_all_runtime_vms" title="Link to this definition">¶</a></dt>
+<dd><p>Stop all currently running VMs that are in a normal running state.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>timeout</strong> (<em>float</em><em> | </em><em>None</em>) – Optional per-VM timeout in seconds.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Names of VMs that received a stop request and stopped.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[str]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -465,7 +633,7 @@ and removes all created VMs one by one.</p>
   <li><a href="modules.html">pysnap</a><ul>
   <li><a href="pysnap.html">pysnap package</a><ul>
       <li>Previous: <a href="pysnap.cli.html" title="previous chapter">pysnap.cli package</a></li>
-      <li>Next: <a href="pysnap.vbox.html" title="next chapter">pysnap.vbox package</a></li>
+      <li>Next: <a href="pysnap.runtime.html" title="next chapter">pysnap.runtime package</a></li>
   </ul></li>
   </ul></li>
   </ul></li>

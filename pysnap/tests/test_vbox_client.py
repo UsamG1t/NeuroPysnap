@@ -64,6 +64,7 @@ class VBoxManageClientTests(unittest.TestCase):
                     'name="srv"\n'
                     'UUID="uuid-srv"\n'
                     'groups="/Lab"\n'
+                    'VMState="running"\n'
                     'uart1="0x3F8,4"\n'
                     'uartmode1="tcpserver,2345"\n'
                 ),
@@ -75,6 +76,25 @@ class VBoxManageClientTests(unittest.TestCase):
         vm_info = client.get_vm_info("srv")
 
         self.assertEqual(vm_info.serial_port, 2345)
+        self.assertEqual(vm_info.vm_state, "running")
+
+    def test_start_vm_headless_uses_headless_runtime(self) -> None:
+        """Start the VM through the VirtualBox headless runtime."""
+        runner = FakeRunner()
+        client = VBoxManageClient(runner=runner)
+
+        client.start_vm_headless("srv")
+
+        self.assertEqual(runner.commands, [("startvm", "srv", "--type=headless")])
+
+    def test_stop_vm_acpi_uses_power_button(self) -> None:
+        """Stop the VM through an ACPI power button event."""
+        runner = FakeRunner()
+        client = VBoxManageClient(runner=runner)
+
+        client.stop_vm_acpi("srv")
+
+        self.assertEqual(runner.commands, [("controlvm", "srv", "acpipowerbutton")])
 
     def test_import_appliance_passes_vmname_and_group(self) -> None:
         """Pass renamed VM metadata to ``VBoxManage import``."""

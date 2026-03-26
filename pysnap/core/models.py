@@ -31,6 +31,7 @@ class VMInfo:
     uuid: str
     groups: tuple[str, ...]
     serial_port: int | None = None
+    vm_state: str | None = None
     parent_name: str | None = None
     managed: bool = False
     metadata: dict[str, str] = field(default_factory=dict)
@@ -58,3 +59,14 @@ class IntegrationTestResult:
 
     machines: tuple[VMInfo, ...]
     deleted_vm_names: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class VMMonitorRecord:
+    """Represent a compact monitor record for a VM."""
+
+    name: str
+    display_state: str
+    serial_port: int | None
+    group: str
+    raw_state: str

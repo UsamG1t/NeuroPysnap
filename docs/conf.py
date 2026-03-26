@@ -25,6 +25,9 @@ language = "en"
 
 autodoc_member_order = "bysource"
 autodoc_typehints = "description"
+autodoc_type_aliases = {
+    "SessionRegistry": "pysnap.runtime.sessions.SessionRegistry",
+}
 
 html_theme = "alabaster"
 html_static_path = ["_static"]

@@ -11,10 +11,12 @@ from pysnap.cli.formatters import (
     format_groups,
     format_import_result,
     format_integration_test_result,
+    format_monitor_records,
     format_vm_info,
 )
 from pysnap.core.service import PySnapService
 from pysnap.errors import PySnapError
+from pysnap.terminal.session import TerminalSession
 
 
 class ParserExit(Exception):
@@ -99,6 +101,9 @@ def build_root_parser(
             "  pysnap --integration-test IMAGE.ova|IMAGE.ovf\n"
             "  pysnap IMAGE.ova|IMAGE.ovf\n"
             "  pysnap show VM\n"
+            "  pysnap connect VM\n"
+            "  pysnap monitor\n"
+            "  pysnap stop [VM | --all]\n"
             "  pysnap clone BASE_VM CLONE_VM [-p PORT] [INTNET1 [INTNET2 [INTNET3]]]\n"
             "  pysnap erase [--all | --group GROUP | VM]"
         ),
@@ -145,6 +150,12 @@ def run_cli(
             return 0
         if command == "show":
             return _run_show(arguments[1:], app_service, output, error_output)
+        if command == "connect":
+            return _run_connect(arguments[1:], app_service, output, error_output)
+        if command == "monitor":
+            return _run_monitor(arguments[1:], app_service, output, error_output)
+        if command == "stop":
+            return _run_stop(arguments[1:], app_service, output, error_output)
         if command == "clone":
             return _run_clone(arguments[1:], app_service, output, error_output)
         if command == "erase":
@@ -233,6 +244,82 @@ def _run_clone(
         networks=tuple(namespace.networks),
     )
     print(format_vm_info(vm_info), file=stdout)
+    return 0
+
+
+def _run_connect(
+    arguments: Sequence[str],
+    service: PySnapService,
+    stdout: TextIO,
+    stderr: TextIO,
+) -> int:
+    """Run the ``connect`` command.
+
+    :param arguments: Subcommand arguments.
+    :param service: Application service.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :returns: Process exit code.
+    """
+    parser = CliArgumentParser(prog="pysnap connect", stdout=stdout, stderr=stderr)
+    parser.add_argument("vm", help="Virtual machine name.")
+    namespace = parser.parse_args(list(arguments))
+    session = TerminalSession(service=service)
+    return session.run(namespace.vm)
+
+
+def _run_monitor(
+    arguments: Sequence[str],
+    service: PySnapService,
+    stdout: TextIO,
+    stderr: TextIO,
+) -> int:
+    """Run the ``monitor`` command.
+
+    :param arguments: Subcommand arguments.
+    :param service: Application service.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :returns: Process exit code.
+    """
+    parser = CliArgumentParser(prog="pysnap monitor", stdout=stdout, stderr=stderr)
+    parser.parse_args(list(arguments))
+    print(format_monitor_records(service.list_monitored_vms()), file=stdout)
+    return 0
+
+
+def _run_stop(
+    arguments: Sequence[str],
+    service: PySnapService,
+    stdout: TextIO,
+    stderr: TextIO,
+) -> int:
+    """Run the ``stop`` command.
+
+    :param arguments: Subcommand arguments.
+    :param service: Application service.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :returns: Process exit code.
+    """
+    parser = CliArgumentParser(prog="pysnap stop", stdout=stdout, stderr=stderr)
+    parser.add_argument("vm", nargs="?", help="Virtual machine name to stop.")
+    parser.add_argument("--all", action="store_true", help="Stop all running VMs.")
+    namespace = parser.parse_args(list(arguments))
+
+    if sum(bool(value) for value in (namespace.all, namespace.vm)) != 1:
+        parser.error('exactly one of "--all" or "VM" must be provided')
+
+    if namespace.all:
+        stopped = service.stop_all_runtime_vms()
+        print(
+            f"Stopped virtual machines: {', '.join(stopped) if stopped else 'none'}",
+            file=stdout,
+        )
+        return 0
+
+    service.stop_runtime_vm(namespace.vm)
+    print(f'Stopped virtual machine: {namespace.vm}', file=stdout)
     return 0
 
 

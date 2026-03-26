@@ -14,7 +14,7 @@
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="prev" title="pysnap.core package" href="pysnap.core.html" />
+    <link rel="prev" title="pysnap.terminal package" href="pysnap.terminal.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
@@ -68,7 +68,7 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="pysnap.vbox.client.SubprocessRunner">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.vbox.client.</span></span><span class="sig-name descname"><span class="pre">SubprocessRunner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">executable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'VBoxManage'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#SubprocessRunner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.SubprocessRunner" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dd><p>Bases: <a class="reference internal" href="#pysnap.vbox.client.RunnerProtocol" title="pysnap.vbox.client.RunnerProtocol"><code class="xref py py-class docutils literal notranslate"><span class="pre">RunnerProtocol</span></code></a></p>
 <p>Run <code class="docutils literal notranslate"><span class="pre">VBoxManage</span></code> commands using <code class="xref py py-mod docutils literal notranslate"><span class="pre">subprocess</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -221,6 +221,51 @@
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.vbox.client.VBoxManageClient.start_vm_headless">
+<span class="sig-name descname"><span class="pre">start_vm_headless</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#VBoxManageClient.start_vm_headless"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.VBoxManageClient.start_vm_headless" title="Link to this definition">¶</a></dt>
+<dd><p>Start a VM in headless mode.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vm_name</strong> (<em>str</em>) – VM name.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.vbox.client.VBoxManageClient.stop_vm_acpi">
+<span class="sig-name descname"><span class="pre">stop_vm_acpi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#VBoxManageClient.stop_vm_acpi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.VBoxManageClient.stop_vm_acpi" title="Link to this definition">¶</a></dt>
+<dd><p>Request a graceful ACPI shutdown for a running VM.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vm_name</strong> (<em>str</em>) – VM name.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.vbox.client.VBoxManageClient.get_vm_state">
+<span class="sig-name descname"><span class="pre">get_vm_state</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#VBoxManageClient.get_vm_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.VBoxManageClient.get_vm_state" title="Link to this definition">¶</a></dt>
+<dd><p>Return the current VirtualBox runtime state of a VM.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vm_name</strong> (<em>str</em>) – VM name.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Raw VirtualBox state string.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
 </dd>
 </dl>
 </dd></dl>
@@ -466,7 +511,7 @@
   <li><a href="../index.html">Documentation overview</a><ul>
   <li><a href="modules.html">pysnap</a><ul>
   <li><a href="pysnap.html">pysnap package</a><ul>
-      <li>Previous: <a href="pysnap.core.html" title="previous chapter">pysnap.core package</a></li>
+      <li>Previous: <a href="pysnap.terminal.html" title="previous chapter">pysnap.terminal package</a></li>
   </ul></li>
   </ul></li>
   </ul></li>

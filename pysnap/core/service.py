@@ -3,15 +3,23 @@
 from __future__ import annotations
 
 from pathlib import Path
+from time import monotonic, sleep
 from uuid import uuid4
 
-from pysnap.core.models import ImportCandidate, IntegrationTestResult, VMGroup, VMInfo
+from pysnap.core.models import (
+    ImportCandidate,
+    IntegrationTestResult,
+    VMGroup,
+    VMInfo,
+    VMMonitorRecord,
+)
 from pysnap.errors import (
     CommandExecutionError,
     PySnapError,
     VMDependencyError,
     VMNotFoundError,
 )
+from pysnap.runtime.sessions import SessionRegistry
 from pysnap.vbox.client import VBoxManageClient
 
 
@@ -31,13 +39,23 @@ class PySnapService:
 
     SNAPSHOT_NAME = "pysnap-base"
     DEFAULT_SERIAL_TCP_PORT = 1024
+    DEFAULT_START_TIMEOUT = 30.0
+    DEFAULT_STOP_TIMEOUT = 60.0
+    STOPPED_STATES = {"poweroff", "saved", "aborted"}
+    PAUSED_STATES = {"paused"}
+    ERROR_STATES = {"gurumeditation", "stuck"}
 
-    def __init__(self, client: VBoxManageClient | None = None) -> None:
+    def __init__(
+        self,
+        client: VBoxManageClient | None = None,
+        session_registry: SessionRegistry | None = None,
+    ) -> None:
         """Initialize the service.
 
         :param client: Optional VirtualBox client implementation.
         """
         self.client = client or VBoxManageClient()
+        self.session_registry = session_registry or SessionRegistry()
 
     def import_image(self, image_path: str) -> list[VMInfo]:
         """Import an OVA or OVF image into VirtualBox.
@@ -209,6 +227,134 @@ class PySnapService:
             for group_name, vm_names in sorted(groups.items())
         ]
 
+    def list_monitored_vms(self) -> list[VMMonitorRecord]:
+        """List VMs that are running or changing state in a compact form.
+
+        :returns: Monitor records sorted by VM name.
+        """
+        live_sessions = self.session_registry.list_live_sessions()
+        records: list[VMMonitorRecord] = []
+        for vm_info in self._collect_vm_infos():
+            display_state = self._display_state(
+                raw_state=(vm_info.vm_state or "").lower(),
+                has_live_session=vm_info.name in live_sessions,
+            )
+            if display_state == "Stopped":
+                continue
+            records.append(
+                VMMonitorRecord(
+                    name=vm_info.name,
+                    display_state=display_state,
+                    serial_port=vm_info.serial_port,
+                    group=vm_info.primary_group,
+                    raw_state=(vm_info.vm_state or "").lower(),
+                )
+            )
+        return sorted(records, key=lambda record: record.name)
+
+    def get_monitor_state_label(self, vm_name: str) -> str:
+        """Return the user-facing runtime label for one VM.
+
+        :param vm_name: VM name.
+        :returns: User-facing monitor label.
+        """
+        vm_info = self._require_vm(vm_name)
+        has_live_session = self.session_registry.get_live_session(vm_name) is not None
+        return self._display_state(
+            raw_state=(vm_info.vm_state or "").lower(),
+            has_live_session=has_live_session,
+        )
+
+    def prepare_vm_connection(
+        self,
+        vm_name: str,
+        timeout: float | None = None,
+    ) -> VMInfo:
+        """Ensure that a VM is ready for an interactive serial connection.
+
+        :param vm_name: VM name.
+        :param timeout: Optional startup timeout in seconds.
+        :returns: Updated VM information.
+        :raises PySnapError: If the VM cannot be connected.
+        """
+        vm_info = self._require_vm(vm_name)
+        if vm_info.serial_port is None:
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" does not have a TCP-backed serial port.'
+            )
+        if self.session_registry.get_live_session(vm_name) is not None:
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" already has an active terminal session.'
+            )
+
+        raw_state = (vm_info.vm_state or "").lower()
+        if raw_state == "running":
+            return vm_info
+        if raw_state in self.PAUSED_STATES:
+            raise PySnapError(f'Virtual machine "{vm_name}" is paused.')
+        if raw_state in self.ERROR_STATES:
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" is in an error state: {raw_state}.'
+            )
+
+        effective_timeout = timeout or self.DEFAULT_START_TIMEOUT
+        if raw_state in self.STOPPED_STATES:
+            self.client.start_vm_headless(vm_name)
+
+        return self._wait_for_vm_state(
+            vm_name=vm_name,
+            acceptable_states={"running"},
+            timeout=effective_timeout,
+            action_description="become ready for connection",
+        )
+
+    def stop_runtime_vm(
+        self,
+        vm_name: str,
+        timeout: float | None = None,
+    ) -> None:
+        """Request a graceful stop for one running VM.
+
+        :param vm_name: VM name.
+        :param timeout: Optional timeout in seconds.
+        :raises PySnapError: If the VM is not in a stoppable state.
+        """
+        vm_info = self._require_vm(vm_name)
+        display_state = self.get_monitor_state_label(vm_name)
+
+        if display_state == "Stopped":
+            raise PySnapError(f'Virtual machine "{vm_name}" is not running.')
+        if display_state == "Changing":
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" is changing state; try again later.'
+            )
+        if display_state not in {"Working", "Active"}:
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" cannot be stopped from state {display_state}.'
+            )
+
+        self.client.stop_vm_acpi(vm_name)
+        self._wait_for_vm_state(
+            vm_name=vm_name,
+            acceptable_states=self.STOPPED_STATES,
+            timeout=timeout or self.DEFAULT_STOP_TIMEOUT,
+            action_description="stop gracefully",
+        )
+
+    def stop_all_runtime_vms(self, timeout: float | None = None) -> list[str]:
+        """Stop all currently running VMs that are in a normal running state.
+
+        :param timeout: Optional per-VM timeout in seconds.
+        :returns: Names of VMs that received a stop request and stopped.
+        """
+        stopped: list[str] = []
+        for record in self.list_monitored_vms():
+            if record.display_state not in {"Working", "Active"}:
+                continue
+            self.stop_runtime_vm(record.name, timeout=timeout)
+            stopped.append(record.name)
+        return stopped
+
     def show_vm(self, vm_name: str) -> VMInfo:
         """Return details for a single VM.
 
@@ -362,6 +508,35 @@ class PySnapService:
         """
         return [self.client.get_vm_info(vm.name) for vm in self.client.list_vms()]
 
+    def _wait_for_vm_state(
+        self,
+        vm_name: str,
+        acceptable_states: set[str],
+        timeout: float,
+        action_description: str,
+    ) -> VMInfo:
+        """Wait until a VM reaches one of the acceptable VirtualBox states.
+
+        :param vm_name: VM name.
+        :param acceptable_states: States considered successful.
+        :param timeout: Timeout in seconds.
+        :param action_description: Human-readable action description.
+        :returns: Updated VM information once the state is acceptable.
+        :raises PySnapError: If the timeout expires.
+        """
+        deadline = monotonic() + timeout
+        while monotonic() < deadline:
+            vm_info = self.client.get_vm_info(vm_name)
+            raw_state = (vm_info.vm_state or "").lower()
+            if raw_state in acceptable_states:
+                return vm_info
+            sleep(0.5)
+        states = ", ".join(sorted(acceptable_states))
+        raise PySnapError(
+            f'Timed out while waiting for "{vm_name}" to {action_description} '
+            f"(expected states: {states})."
+        )
+
     def _require_vm(self, vm_name: str) -> VMInfo:
         """Return a VM or raise an error if it does not exist.
 
@@ -380,6 +555,24 @@ class PySnapService:
         :returns: ``True`` when the VM exists.
         """
         return any(vm.name == vm_name for vm in self.client.list_vms())
+
+    def _display_state(self, raw_state: str, has_live_session: bool) -> str:
+        """Map a raw VirtualBox state to a user-facing monitor label.
+
+        :param raw_state: Raw VirtualBox state.
+        :param has_live_session: Whether PySnap currently has a live session.
+        :returns: User-facing state label.
+        """
+        normalized = raw_state.lower()
+        if normalized == "running":
+            return "Working" if has_live_session else "Active"
+        if normalized in self.STOPPED_STATES:
+            return "Stopped"
+        if normalized in self.PAUSED_STATES:
+            return "Paused"
+        if normalized in self.ERROR_STATES:
+            return "Error"
+        return "Changing"
 
     def _find_managed_dependents(self, vm_name: str) -> list[str]:
         """Find all managed clone descendants of a VM.

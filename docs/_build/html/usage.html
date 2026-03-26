@@ -87,6 +87,48 @@ port configured through <code class="docutils literal notranslate"><span class="
 </pre></div>
 </div>
 </section>
+<section id="connect-to-a-headless-virtual-machine">
+<h2>Connect to a Headless Virtual Machine<a class="headerlink" href="#connect-to-a-headless-virtual-machine" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">connect</span></code> command ensures that the selected VM is running in headless
+mode and then attaches a built-in PySnap terminal interface to its <code class="docutils literal notranslate"><span class="pre">UART1</span></code>
+TCP console.</p>
+<p>The terminal session is detached with <code class="docutils literal notranslate"><span class="pre">Ctrl-Q</span></code>. Detaching does not stop the
+virtual machine. <code class="docutils literal notranslate"><span class="pre">Ctrl-L</span></code> redraws the local interface.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap connect MyVM
+</pre></div>
+</div>
+</section>
+<section id="monitor-active-virtual-machines">
+<h2>Monitor Active Virtual Machines<a class="headerlink" href="#monitor-active-virtual-machines" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">monitor</span></code> command prints compact runtime records in the form
+<code class="docutils literal notranslate"><span class="pre">&lt;VM&gt;</span> <span class="pre">(state:</span> <span class="pre">&lt;State&gt;</span> <span class="pre">;</span> <span class="pre">&lt;serial</span> <span class="pre">port&gt;</span> <span class="pre">;</span> <span class="pre">&lt;group&gt;)</span></code>.</p>
+<p>PySnap currently uses these runtime labels:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Working</span></code> when the VM is running and PySnap has an active attached session</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Active</span></code> when the VM is running in headless mode without an attached session</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Changing</span></code> when the VM is starting, stopping, or otherwise transitioning</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Paused</span></code> when VirtualBox reports a paused machine</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Error</span></code> when VirtualBox reports an error-like runtime state</p></li>
+</ul>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap monitor
+srv (state: Working ; 2345 ; /Lab)
+db (state: Active ; 2346 ; /Lab)
+router (state: Changing ; 2347 ; /Net)
+</pre></div>
+</div>
+</section>
+<section id="stop-running-virtual-machines">
+<h2>Stop Running Virtual Machines<a class="headerlink" href="#stop-running-virtual-machines" title="Link to this heading">¶</a></h2>
+<p>PySnap stops headless virtual machines through <code class="docutils literal notranslate"><span class="pre">VBoxManage</span> <span class="pre">controlvm</span>
+<span class="pre">&lt;VM&gt;</span> <span class="pre">acpipowerbutton</span></code> only. No automatic fallback to <code class="docutils literal notranslate"><span class="pre">savestate</span></code> or other
+shutdown modes is used.</p>
+<p>When a VM stops, any active <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code> session attached to it finishes
+automatically because the VM state changes and the serial connection is closed.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap stop MyVM
+pysnap stop --all
+</pre></div>
+</div>
+</section>
 <section id="create-a-linked-clone">
 <h2>Create a Linked Clone<a class="headerlink" href="#create-a-linked-clone" title="Link to this heading">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">clone</span></code> command creates a linked clone from a base VM. The clone inherits
@@ -156,6 +198,9 @@ pysnap erase --all
 <li class="toctree-l2"><a class="reference internal" href="#run-an-integration-test">Run an Integration Test</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#import-an-appliance">Import an Appliance</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#show-virtual-machine-details">Show Virtual Machine Details</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#connect-to-a-headless-virtual-machine">Connect to a Headless Virtual Machine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#monitor-active-virtual-machines">Monitor Active Virtual Machines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#stop-running-virtual-machines">Stop Running Virtual Machines</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#create-a-linked-clone">Create a Linked Clone</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#erase-virtual-machines">Erase Virtual Machines</a></li>
 </ul>

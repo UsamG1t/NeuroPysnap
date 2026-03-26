@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>pysnap.terminal package &#8212; PySnap 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="pysnap.vbox package" href="pysnap.vbox.html" />
+    <link rel="prev" title="pysnap.runtime package" href="pysnap.runtime.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-pysnap.terminal">
+<span id="pysnap-terminal-package"></span><h1>pysnap.terminal package<a class="headerlink" href="#module-pysnap.terminal" title="Link to this heading">¶</a></h1>
+<p>Terminal interface components for PySnap.</p>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading">¶</a></h2>
+</section>
+<section id="module-pysnap.terminal.emulator">
+<span id="pysnap-terminal-emulator-module"></span><h2>pysnap.terminal.emulator module<a class="headerlink" href="#module-pysnap.terminal.emulator" title="Link to this heading">¶</a></h2>
+<p>Terminal emulation utilities built on top of <code class="xref py py-mod docutils literal notranslate"><span class="pre">pyte</span></code>.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.TerminalEmulator">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.terminal.emulator.</span></span><span class="sig-name descname"><span class="pre">TerminalEmulator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">80</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lines</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">24</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#TerminalEmulator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.TerminalEmulator" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Wrap a <code class="xref py py-class docutils literal notranslate"><span class="pre">pyte.Screen</span></code> and render it for the TUI.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>columns</strong> (<em>int</em>)</p></li>
+<li><p><strong>lines</strong> (<em>int</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.TerminalEmulator.feed">
+<span class="sig-name descname"><span class="pre">feed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#TerminalEmulator.feed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.TerminalEmulator.feed" title="Link to this definition">¶</a></dt>
+<dd><p>Feed new bytes into the terminal parser.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> (<em>bytes</em>) – Raw bytes read from the VM serial socket.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.TerminalEmulator.resize">
+<span class="sig-name descname"><span class="pre">resize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">columns</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lines</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#TerminalEmulator.resize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.TerminalEmulator.resize" title="Link to this definition">¶</a></dt>
+<dd><p>Resize the virtual screen.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>columns</strong> (<em>int</em>) – New terminal width.</p></li>
+<li><p><strong>lines</strong> (<em>int</em>) – New terminal height.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.TerminalEmulator.as_formatted_text">
+<span class="sig-name descname"><span class="pre">as_formatted_text</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#TerminalEmulator.as_formatted_text"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.TerminalEmulator.as_formatted_text" title="Link to this definition">¶</a></dt>
+<dd><p>Render the current screen buffer as prompt_toolkit fragments.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A list of <code class="docutils literal notranslate"><span class="pre">(style,</span> <span class="pre">text)</span></code> fragments.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[tuple[str, str]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-pysnap.terminal.keymap">
+<span id="pysnap-terminal-keymap-module"></span><h2>pysnap.terminal.keymap module<a class="headerlink" href="#module-pysnap.terminal.keymap" title="Link to this heading">¶</a></h2>
+<p>Translate prompt_toolkit key presses into byte sequences for the guest.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.terminal.keymap.key_press_to_bytes">
+<span class="sig-prename descclassname"><span class="pre">pysnap.terminal.keymap.</span></span><span class="sig-name descname"><span class="pre">key_press_to_bytes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key_press</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/keymap.html#key_press_to_bytes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.keymap.key_press_to_bytes" title="Link to this definition">¶</a></dt>
+<dd><p>Translate one key press into bytes for the VM serial console.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>key_press</strong> (<em>KeyPress</em>) – Prompt-toolkit key press.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Bytes to send or <code class="docutils literal notranslate"><span class="pre">None</span></code> when the key is unsupported.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bytes | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-pysnap.terminal.session">
+<span id="pysnap-terminal-session-module"></span><h2>pysnap.terminal.session module<a class="headerlink" href="#module-pysnap.terminal.session" title="Link to this heading">¶</a></h2>
+<p>Interactive terminal session attached to a VM serial TCP console.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.terminal.session.SessionStatus">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.terminal.session.</span></span><span class="sig-name descname"><span class="pre">SessionStatus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vm_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Changing'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">serial_port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Connecting...'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/session.html#SessionStatus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.session.SessionStatus" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Mutable session status shown in the status bar.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vm_name</strong> (<em>str</em>)</p></li>
+<li><p><strong>vm_state</strong> (<em>str</em>)</p></li>
+<li><p><strong>serial_port</strong> (<em>int</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>message</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.terminal.session.SessionStatus.vm_name">
+<span class="sig-name descname"><span class="pre">vm_name</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#pysnap.terminal.session.SessionStatus.vm_name" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.terminal.session.SessionStatus.vm_state">
+<span class="sig-name descname"><span class="pre">vm_state</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Changing'</span></span><a class="headerlink" href="#pysnap.terminal.session.SessionStatus.vm_state" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.terminal.session.SessionStatus.serial_port">
+<span class="sig-name descname"><span class="pre">serial_port</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#pysnap.terminal.session.SessionStatus.serial_port" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.terminal.session.SessionStatus.message">
+<span class="sig-name descname"><span class="pre">message</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Connecting...'</span></span><a class="headerlink" href="#pysnap.terminal.session.SessionStatus.message" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.terminal.session.TerminalSession">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.terminal.session.</span></span><span class="sig-name descname"><span class="pre">TerminalSession</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">service</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/session.html#TerminalSession"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.session.TerminalSession" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Manage one interactive terminal connection to a VM.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>service</strong> (<a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService" title="pysnap.core.service.PySnapService"><em>PySnapService</em></a><em> | </em><em>None</em>)</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.session.TerminalSession.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/session.html#TerminalSession.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.session.TerminalSession.run" title="Link to this definition">¶</a></dt>
+<dd><p>Start or attach to a VM and launch the terminal interface.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vm_name</strong> (<em>str</em>) – Virtual machine name.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Exit code.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-pysnap.terminal.transport">
+<span id="pysnap-terminal-transport-module"></span><h2>pysnap.terminal.transport module<a class="headerlink" href="#module-pysnap.terminal.transport" title="Link to this heading">¶</a></h2>
+<p>TCP transport helpers for VM serial console connections.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.terminal.transport.open_serial_connection">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.terminal.transport.</span></span><span class="sig-name descname"><span class="pre">open_serial_connection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">host</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">retry_delay</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/transport.html#open_serial_connection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.transport.open_serial_connection" title="Link to this definition">¶</a></dt>
+<dd><p>Wait for and open a TCP connection to the VM serial port.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>host</strong> (<em>str</em>) – Target host name.</p></li>
+<li><p><strong>port</strong> (<em>int</em>) – Target TCP port.</p></li>
+<li><p><strong>timeout</strong> (<em>float</em>) – Maximum time to wait.</p></li>
+<li><p><strong>retry_delay</strong> (<em>float</em>) – Delay between connection attempts.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Reader and writer stream objects.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="pysnap.html#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><strong>PySnapError</strong></a> – If the TCP server does not become available in time.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple[<em>StreamReader</em>, <em>StreamWriter</em>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">PySnap</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">pysnap</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="pysnap.html">pysnap package</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">pysnap</a><ul>
+  <li><a href="pysnap.html">pysnap package</a><ul>
+      <li>Previous: <a href="pysnap.runtime.html" title="previous chapter">pysnap.runtime package</a></li>
+      <li>Next: <a href="pysnap.vbox.html" title="next chapter">pysnap.vbox package</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, PySnap Authors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/api/pysnap.terminal.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

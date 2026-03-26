@@ -36,15 +36,23 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">time</span><span class="w"> </span><span class="kn">import</span> <span class="n">monotonic</span><span class="p">,</span> <span class="n">sleep</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">uuid</span><span class="w"> </span><span class="kn">import</span> <span class="n">uuid4</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImportCandidate</span><span class="p">,</span> <span class="n">IntegrationTestResult</span><span class="p">,</span> <span class="n">VMGroup</span><span class="p">,</span> <span class="n">VMInfo</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ImportCandidate</span><span class="p">,</span>
+    <span class="n">IntegrationTestResult</span><span class="p">,</span>
+    <span class="n">VMGroup</span><span class="p">,</span>
+    <span class="n">VMInfo</span><span class="p">,</span>
+    <span class="n">VMMonitorRecord</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.errors</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">CommandExecutionError</span><span class="p">,</span>
     <span class="n">PySnapError</span><span class="p">,</span>
     <span class="n">VMDependencyError</span><span class="p">,</span>
     <span class="n">VMNotFoundError</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.runtime.sessions</span><span class="w"> </span><span class="kn">import</span> <span class="n">SessionRegistry</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.vbox.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">VBoxManageClient</span>
 
 
@@ -69,13 +77,23 @@
 
     <span class="n">SNAPSHOT_NAME</span> <span class="o">=</span> <span class="s2">&quot;pysnap-base&quot;</span>
     <span class="n">DEFAULT_SERIAL_TCP_PORT</span> <span class="o">=</span> <span class="mi">1024</span>
+    <span class="n">DEFAULT_START_TIMEOUT</span> <span class="o">=</span> <span class="mf">30.0</span>
+    <span class="n">DEFAULT_STOP_TIMEOUT</span> <span class="o">=</span> <span class="mf">60.0</span>
+    <span class="n">STOPPED_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;poweroff&quot;</span><span class="p">,</span> <span class="s2">&quot;saved&quot;</span><span class="p">,</span> <span class="s2">&quot;aborted&quot;</span><span class="p">}</span>
+    <span class="n">PAUSED_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;paused&quot;</span><span class="p">}</span>
+    <span class="n">ERROR_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;gurumeditation&quot;</span><span class="p">,</span> <span class="s2">&quot;stuck&quot;</span><span class="p">}</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client</span><span class="p">:</span> <span class="n">VBoxManageClient</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">client</span><span class="p">:</span> <span class="n">VBoxManageClient</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">session_registry</span><span class="p">:</span> <span class="n">SessionRegistry</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the service.</span>
 
 <span class="sd">        :param client: Optional VirtualBox client implementation.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">client</span> <span class="ow">or</span> <span class="n">VBoxManageClient</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session_registry</span> <span class="o">=</span> <span class="n">session_registry</span> <span class="ow">or</span> <span class="n">SessionRegistry</span><span class="p">()</span>
 
 <div class="viewcode-block" id="PySnapService.import_image">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.import_image">[docs]</a>
@@ -256,6 +274,149 @@
         <span class="p">]</span></div>
 
 
+<div class="viewcode-block" id="PySnapService.list_monitored_vms">
+<a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.list_monitored_vms">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">list_monitored_vms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">VMMonitorRecord</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List VMs that are running or changing state in a compact form.</span>
+
+<span class="sd">        :returns: Monitor records sorted by VM name.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">live_sessions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session_registry</span><span class="o">.</span><span class="n">list_live_sessions</span><span class="p">()</span>
+        <span class="n">records</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">VMMonitorRecord</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">vm_info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_vm_infos</span><span class="p">():</span>
+            <span class="n">display_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_display_state</span><span class="p">(</span>
+                <span class="n">raw_state</span><span class="o">=</span><span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
+                <span class="n">has_live_session</span><span class="o">=</span><span class="n">vm_info</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">live_sessions</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">&quot;Stopped&quot;</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">VMMonitorRecord</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">vm_info</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="n">display_state</span><span class="o">=</span><span class="n">display_state</span><span class="p">,</span>
+                    <span class="n">serial_port</span><span class="o">=</span><span class="n">vm_info</span><span class="o">.</span><span class="n">serial_port</span><span class="p">,</span>
+                    <span class="n">group</span><span class="o">=</span><span class="n">vm_info</span><span class="o">.</span><span class="n">primary_group</span><span class="p">,</span>
+                    <span class="n">raw_state</span><span class="o">=</span><span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">records</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">record</span><span class="p">:</span> <span class="n">record</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PySnapService.get_monitor_state_label">
+<a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.get_monitor_state_label">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_monitor_state_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the user-facing runtime label for one VM.</span>
+
+<span class="sd">        :param vm_name: VM name.</span>
+<span class="sd">        :returns: User-facing monitor label.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">vm_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_require_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="n">has_live_session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session_registry</span><span class="o">.</span><span class="n">get_live_session</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_display_state</span><span class="p">(</span>
+            <span class="n">raw_state</span><span class="o">=</span><span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
+            <span class="n">has_live_session</span><span class="o">=</span><span class="n">has_live_session</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PySnapService.prepare_vm_connection">
+<a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.prepare_vm_connection">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prepare_vm_connection</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMInfo</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ensure that a VM is ready for an interactive serial connection.</span>
+
+<span class="sd">        :param vm_name: VM name.</span>
+<span class="sd">        :param timeout: Optional startup timeout in seconds.</span>
+<span class="sd">        :returns: Updated VM information.</span>
+<span class="sd">        :raises PySnapError: If the VM cannot be connected.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">vm_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_require_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">vm_info</span><span class="o">.</span><span class="n">serial_port</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; does not have a TCP-backed serial port.&#39;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">session_registry</span><span class="o">.</span><span class="n">get_live_session</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; already has an active terminal session.&#39;</span>
+            <span class="p">)</span>
+
+        <span class="n">raw_state</span> <span class="o">=</span> <span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">raw_state</span> <span class="o">==</span> <span class="s2">&quot;running&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">vm_info</span>
+        <span class="k">if</span> <span class="n">raw_state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">PAUSED_STATES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; is paused.&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">raw_state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ERROR_STATES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; is in an error state: </span><span class="si">{</span><span class="n">raw_state</span><span class="si">}</span><span class="s1">.&#39;</span>
+            <span class="p">)</span>
+
+        <span class="n">effective_timeout</span> <span class="o">=</span> <span class="n">timeout</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_START_TIMEOUT</span>
+        <span class="k">if</span> <span class="n">raw_state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">STOPPED_STATES</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">start_vm_headless</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait_for_vm_state</span><span class="p">(</span>
+            <span class="n">vm_name</span><span class="o">=</span><span class="n">vm_name</span><span class="p">,</span>
+            <span class="n">acceptable_states</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;running&quot;</span><span class="p">},</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="n">effective_timeout</span><span class="p">,</span>
+            <span class="n">action_description</span><span class="o">=</span><span class="s2">&quot;become ready for connection&quot;</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PySnapService.stop_runtime_vm">
+<a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.stop_runtime_vm">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop_runtime_vm</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Request a graceful stop for one running VM.</span>
+
+<span class="sd">        :param vm_name: VM name.</span>
+<span class="sd">        :param timeout: Optional timeout in seconds.</span>
+<span class="sd">        :raises PySnapError: If the VM is not in a stoppable state.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">vm_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_require_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="n">display_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_monitor_state_label</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">&quot;Stopped&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; is not running.&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">&quot;Changing&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; is changing state; try again later.&#39;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">display_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Working&quot;</span><span class="p">,</span> <span class="s2">&quot;Active&quot;</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; cannot be stopped from state </span><span class="si">{</span><span class="n">display_state</span><span class="si">}</span><span class="s1">.&#39;</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">stop_vm_acpi</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_wait_for_vm_state</span><span class="p">(</span>
+            <span class="n">vm_name</span><span class="o">=</span><span class="n">vm_name</span><span class="p">,</span>
+            <span class="n">acceptable_states</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">STOPPED_STATES</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_STOP_TIMEOUT</span><span class="p">,</span>
+            <span class="n">action_description</span><span class="o">=</span><span class="s2">&quot;stop gracefully&quot;</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PySnapService.stop_all_runtime_vms">
+<a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.stop_all_runtime_vms">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop_all_runtime_vms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stop all currently running VMs that are in a normal running state.</span>
+
+<span class="sd">        :param timeout: Optional per-VM timeout in seconds.</span>
+<span class="sd">        :returns: Names of VMs that received a stop request and stopped.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">stopped</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_monitored_vms</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">display_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Working&quot;</span><span class="p">,</span> <span class="s2">&quot;Active&quot;</span><span class="p">}:</span>
+                <span class="k">continue</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stop_runtime_vm</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+            <span class="n">stopped</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">stopped</span></div>
+
+
 <div class="viewcode-block" id="PySnapService.show_vm">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.show_vm">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">show_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMInfo</span><span class="p">:</span>
@@ -424,6 +585,35 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_info</span><span class="p">(</span><span class="n">vm</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">list_vms</span><span class="p">()]</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_wait_for_vm_state</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">acceptable_states</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">action_description</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMInfo</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Wait until a VM reaches one of the acceptable VirtualBox states.</span>
+
+<span class="sd">        :param vm_name: VM name.</span>
+<span class="sd">        :param acceptable_states: States considered successful.</span>
+<span class="sd">        :param timeout: Timeout in seconds.</span>
+<span class="sd">        :param action_description: Human-readable action description.</span>
+<span class="sd">        :returns: Updated VM information once the state is acceptable.</span>
+<span class="sd">        :raises PySnapError: If the timeout expires.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">deadline</span> <span class="o">=</span> <span class="n">monotonic</span><span class="p">()</span> <span class="o">+</span> <span class="n">timeout</span>
+        <span class="k">while</span> <span class="n">monotonic</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">deadline</span><span class="p">:</span>
+            <span class="n">vm_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+            <span class="n">raw_state</span> <span class="o">=</span> <span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">raw_state</span> <span class="ow">in</span> <span class="n">acceptable_states</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">vm_info</span>
+            <span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="n">states</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">acceptable_states</span><span class="p">))</span>
+        <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;Timed out while waiting for &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; to </span><span class="si">{</span><span class="n">action_description</span><span class="si">}</span><span class="s1"> &#39;</span>
+            <span class="sa">f</span><span class="s2">&quot;(expected states: </span><span class="si">{</span><span class="n">states</span><span class="si">}</span><span class="s2">).&quot;</span>
+        <span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_require_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMInfo</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a VM or raise an error if it does not exist.</span>
 
@@ -442,6 +632,24 @@
 <span class="sd">        :returns: ``True`` when the VM exists.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">vm</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">vm_name</span> <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">list_vms</span><span class="p">())</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_display_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">raw_state</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">has_live_session</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Map a raw VirtualBox state to a user-facing monitor label.</span>
+
+<span class="sd">        :param raw_state: Raw VirtualBox state.</span>
+<span class="sd">        :param has_live_session: Whether PySnap currently has a live session.</span>
+<span class="sd">        :returns: User-facing state label.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">normalized</span> <span class="o">=</span> <span class="n">raw_state</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">normalized</span> <span class="o">==</span> <span class="s2">&quot;running&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;Working&quot;</span> <span class="k">if</span> <span class="n">has_live_session</span> <span class="k">else</span> <span class="s2">&quot;Active&quot;</span>
+        <span class="k">if</span> <span class="n">normalized</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">STOPPED_STATES</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;Stopped&quot;</span>
+        <span class="k">if</span> <span class="n">normalized</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">PAUSED_STATES</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;Paused&quot;</span>
+        <span class="k">if</span> <span class="n">normalized</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ERROR_STATES</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;Error&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;Changing&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_find_managed_dependents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Find all managed clone descendants of a VM.</span>

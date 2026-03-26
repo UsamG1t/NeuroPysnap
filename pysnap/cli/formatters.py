@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from pysnap.core.models import IntegrationTestResult, VMGroup, VMInfo
+from pysnap.core.models import (
+    IntegrationTestResult,
+    VMGroup,
+    VMInfo,
+    VMMonitorRecord,
+)
 
 
 def format_groups(groups: list[VMGroup]) -> str:
@@ -65,3 +70,19 @@ def format_integration_test_result(result: IntegrationTestResult) -> str:
     for vm_name in result.deleted_vm_names:
         lines.append(f"- {vm_name}")
     return "\n".join(lines).rstrip()
+
+
+def format_monitor_records(records: list[VMMonitorRecord]) -> str:
+    """Format compact runtime records for the ``monitor`` command.
+
+    :param records: Monitor records to format.
+    :returns: Human-readable text output.
+    """
+    if not records:
+        return "No active virtual machines found."
+    return "\n".join(
+        f"{record.name} (state: {record.display_state} ; "
+        f"{record.serial_port if record.serial_port is not None else 'none'} ; "
+        f"{record.group})"
+        for record in records
+    )

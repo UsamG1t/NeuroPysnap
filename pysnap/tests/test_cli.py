@@ -4,9 +4,15 @@ from __future__ import annotations
 
 import io
 import unittest
+from unittest.mock import patch
 
 from pysnap.cli.app import run_cli
-from pysnap.core.models import IntegrationTestResult, VMGroup, VMInfo
+from pysnap.core.models import (
+    IntegrationTestResult,
+    VMGroup,
+    VMInfo,
+    VMMonitorRecord,
+)
 
 
 class FakeService:
@@ -15,6 +21,8 @@ class FakeService:
     def __init__(self) -> None:
         """Initialize fake outputs and call tracking."""
         self.clone_args: tuple | None = None
+        self.stopped_vm: str | None = None
+        self.stop_all_requested = False
 
     def list_groups(self) -> list[VMGroup]:
         """Return a static group list."""
@@ -70,6 +78,34 @@ class FakeService:
 
     def erase_all(self) -> list[str]:
         """Pretend to erase all VMs."""
+        return ["base-vm", "clone-vm"]
+
+    def list_monitored_vms(self) -> list[VMMonitorRecord]:
+        """Return compact runtime monitor data."""
+        return [
+            VMMonitorRecord(
+                name="base-vm",
+                display_state="Working",
+                serial_port=2345,
+                group="/Lab",
+                raw_state="running",
+            ),
+            VMMonitorRecord(
+                name="clone-vm",
+                display_state="Changing",
+                serial_port=2346,
+                group="/Lab",
+                raw_state="starting",
+            ),
+        ]
+
+    def stop_runtime_vm(self, vm_name: str) -> None:
+        """Record one runtime stop request."""
+        self.stopped_vm = vm_name
+
+    def stop_all_runtime_vms(self) -> list[str]:
+        """Record a global runtime stop request."""
+        self.stop_all_requested = True
         return ["base-vm", "clone-vm"]
 
 
@@ -164,6 +200,76 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn("Integration test completed successfully.", stdout.getvalue())
         self.assertIn("Deletion order:", stdout.getvalue())
+        self.assertEqual("", stderr.getvalue())
+
+    def test_connect_command_runs_terminal_session(self) -> None:
+        """Create a terminal session and hand control to it."""
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with patch("pysnap.cli.app.TerminalSession") as session_class:
+            session_class.return_value.run.return_value = 0
+
+            exit_code = run_cli(
+                ["connect", "base-vm"],
+                service=FakeService(),
+                stdout=stdout,
+                stderr=stderr,
+            )
+
+        self.assertEqual(exit_code, 0)
+        session_class.assert_called_once()
+        session_class.return_value.run.assert_called_once_with("base-vm")
+        self.assertEqual("", stdout.getvalue())
+        self.assertEqual("", stderr.getvalue())
+
+    def test_monitor_command_formats_runtime_records(self) -> None:
+        """Render compact runtime monitor output."""
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        exit_code = run_cli(["monitor"], service=FakeService(), stdout=stdout, stderr=stderr)
+
+        self.assertEqual(exit_code, 0)
+        output = stdout.getvalue()
+        self.assertIn("base-vm (state: Working ; 2345 ; /Lab)", output)
+        self.assertIn("clone-vm (state: Changing ; 2346 ; /Lab)", output)
+        self.assertEqual("", stderr.getvalue())
+
+    def test_stop_command_invokes_single_vm_stop(self) -> None:
+        """Stop one named VM through the service."""
+        service = FakeService()
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        exit_code = run_cli(
+            ["stop", "base-vm"],
+            service=service,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(service.stopped_vm, "base-vm")
+        self.assertIn("Stopped virtual machine: base-vm", stdout.getvalue())
+        self.assertEqual("", stderr.getvalue())
+
+    def test_stop_all_command_invokes_global_stop(self) -> None:
+        """Stop all runtime VMs through the service."""
+        service = FakeService()
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        exit_code = run_cli(
+            ["stop", "--all"],
+            service=service,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(service.stop_all_requested)
+        self.assertIn("Stopped virtual machines: base-vm, clone-vm", stdout.getvalue())
         self.assertEqual("", stderr.getvalue())
 
 

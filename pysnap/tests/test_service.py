@@ -8,6 +8,23 @@ import unittest
 from pysnap.core.models import ImportCandidate, VMInfo, VMReference
 from pysnap.core.service import PySnapService
 from pysnap.errors import VMDependencyError
+from pysnap.runtime.sessions import SessionRecord
+
+
+class FakeSessionRegistry:
+    """Provide an in-memory registry for runtime session tests."""
+
+    def __init__(self, live_sessions: dict[str, SessionRecord] | None = None) -> None:
+        """Initialize the fake registry."""
+        self.live_sessions = live_sessions or {}
+
+    def list_live_sessions(self) -> dict[str, SessionRecord]:
+        """Return configured live sessions."""
+        return dict(self.live_sessions)
+
+    def get_live_session(self, vm_name: str) -> SessionRecord | None:
+        """Return a configured live session for one VM."""
+        return self.live_sessions.get(vm_name)
 
 
 class FakeClient:
@@ -21,6 +38,7 @@ class FakeClient:
         self.snapshot_names: dict[str, str | None] = {}
         self.deleted: list[str] = []
         self.calls: list[tuple] = []
+        self.state_sequences: dict[str, list[str]] = {}
 
     def list_vms(self) -> list[VMReference]:
         """Return known VM references."""
@@ -28,7 +46,21 @@ class FakeClient:
 
     def get_vm_info(self, vm_name: str) -> VMInfo:
         """Return detailed VM information."""
-        return self.infos[vm_name]
+        current = self.infos[vm_name]
+        if vm_name in self.state_sequences and self.state_sequences[vm_name]:
+            next_state = self.state_sequences[vm_name].pop(0)
+            current = VMInfo(
+                name=current.name,
+                uuid=current.uuid,
+                groups=current.groups,
+                serial_port=current.serial_port,
+                vm_state=next_state,
+                parent_name=current.parent_name,
+                managed=current.managed,
+                metadata=current.metadata,
+            )
+            self.infos[vm_name] = current
+        return current
 
     def dry_run_import(self, image_path: str) -> list[ImportCandidate]:
         """Return configured dry-run candidates."""
@@ -47,6 +79,7 @@ class FakeClient:
                 name=candidate.vm_name,
                 uuid=f"uuid-{candidate.vm_name}",
                 groups=(candidate.group,),
+                vm_state="poweroff",
             )
 
     def set_metadata(self, vm_name: str, metadata: dict[str, str]) -> None:
@@ -60,6 +93,7 @@ class FakeClient:
             uuid=current.uuid,
             groups=current.groups,
             serial_port=current.serial_port,
+            vm_state=current.vm_state,
             parent_name=merged_metadata.get("pysnap/parent"),
             managed=merged_metadata.get("pysnap/managed") == "true",
             metadata=merged_metadata,
@@ -84,6 +118,7 @@ class FakeClient:
             name=clone_vm,
             uuid=f"uuid-{clone_vm}",
             groups=(group,),
+            vm_state="poweroff",
         )
 
     def configure_serial_port(self, vm_name: str, serial_port: int) -> None:
@@ -95,6 +130,7 @@ class FakeClient:
             uuid=current.uuid,
             groups=current.groups,
             serial_port=serial_port,
+            vm_state=current.vm_state,
             parent_name=current.parent_name,
             managed=current.managed,
             metadata=current.metadata,
@@ -110,6 +146,38 @@ class FakeClient:
         self.deleted.append(vm_name)
         self.references.pop(vm_name, None)
         self.infos.pop(vm_name, None)
+
+    def start_vm_headless(self, vm_name: str) -> None:
+        """Record a headless start request."""
+        self.calls.append(("start_vm_headless", vm_name))
+        current = self.infos[vm_name]
+        self.infos[vm_name] = VMInfo(
+            name=current.name,
+            uuid=current.uuid,
+            groups=current.groups,
+            serial_port=current.serial_port,
+            vm_state="starting",
+            parent_name=current.parent_name,
+            managed=current.managed,
+            metadata=current.metadata,
+        )
+        self.state_sequences.setdefault(vm_name, ["running"])
+
+    def stop_vm_acpi(self, vm_name: str) -> None:
+        """Record an ACPI stop request."""
+        self.calls.append(("stop_vm_acpi", vm_name))
+        current = self.infos[vm_name]
+        self.infos[vm_name] = VMInfo(
+            name=current.name,
+            uuid=current.uuid,
+            groups=current.groups,
+            serial_port=current.serial_port,
+            vm_state="stopping",
+            parent_name=current.parent_name,
+            managed=current.managed,
+            metadata=current.metadata,
+        )
+        self.state_sequences.setdefault(vm_name, ["poweroff"])
 
 
 class ServiceTests(unittest.TestCase):
@@ -303,6 +371,87 @@ class ServiceTests(unittest.TestCase):
                 "pysnap-it-case1234-base",
             ),
         )
+
+    def test_list_monitored_vms_distinguishes_working_active_and_changing(self) -> None:
+        """Map raw VirtualBox runtime states to compact monitor states."""
+        client = FakeClient()
+        client.references["working-vm"] = VMReference("working-vm", "uuid-working")
+        client.references["active-vm"] = VMReference("active-vm", "uuid-active")
+        client.references["changing-vm"] = VMReference("changing-vm", "uuid-changing")
+        client.infos["working-vm"] = VMInfo(
+            name="working-vm",
+            uuid="uuid-working",
+            groups=("/Lab",),
+            serial_port=2201,
+            vm_state="running",
+        )
+        client.infos["active-vm"] = VMInfo(
+            name="active-vm",
+            uuid="uuid-active",
+            groups=("/Lab",),
+            serial_port=2202,
+            vm_state="running",
+        )
+        client.infos["changing-vm"] = VMInfo(
+            name="changing-vm",
+            uuid="uuid-changing",
+            groups=("/Lab",),
+            serial_port=2203,
+            vm_state="starting",
+        )
+        registry = FakeSessionRegistry(
+            live_sessions={
+                "working-vm": SessionRecord(
+                    vm_name="working-vm",
+                    serial_port=2201,
+                    pid=1,
+                    attached_at="2026-03-26T00:00:00+00:00",
+                )
+            }
+        )
+
+        service = PySnapService(client=client, session_registry=registry)
+        records = service.list_monitored_vms()
+
+        states = {record.name: record.display_state for record in records}
+        self.assertEqual(states["working-vm"], "Working")
+        self.assertEqual(states["active-vm"], "Active")
+        self.assertEqual(states["changing-vm"], "Changing")
+
+    def test_prepare_vm_connection_starts_headless_vm(self) -> None:
+        """Start a powered-off VM before attaching to its serial console."""
+        client = FakeClient()
+        client.references["srv"] = VMReference("srv", "uuid-srv")
+        client.infos["srv"] = VMInfo(
+            name="srv",
+            uuid="uuid-srv",
+            groups=("/Lab",),
+            serial_port=2345,
+            vm_state="poweroff",
+        )
+
+        service = PySnapService(client=client, session_registry=FakeSessionRegistry())
+        vm_info = service.prepare_vm_connection("srv", timeout=2.0)
+
+        self.assertEqual(vm_info.vm_state, "running")
+        self.assertIn(("start_vm_headless", "srv"), client.calls)
+
+    def test_stop_runtime_vm_uses_acpi_shutdown(self) -> None:
+        """Stop one active VM through an ACPI power button request."""
+        client = FakeClient()
+        client.references["srv"] = VMReference("srv", "uuid-srv")
+        client.infos["srv"] = VMInfo(
+            name="srv",
+            uuid="uuid-srv",
+            groups=("/Lab",),
+            serial_port=2345,
+            vm_state="running",
+        )
+
+        service = PySnapService(client=client, session_registry=FakeSessionRegistry())
+        service.stop_runtime_vm("srv", timeout=2.0)
+
+        self.assertIn(("stop_vm_acpi", "srv"), client.calls)
 
 
 if __name__ == "__main__":

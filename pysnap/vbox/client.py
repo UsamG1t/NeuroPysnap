@@ -25,9 +25,10 @@ class RunnerProtocol(Protocol):
         :param arguments: Arguments passed to ``VBoxManage``.
         :returns: Standard output.
         """
+        pass
 
 
-class SubprocessRunner:
+class SubprocessRunner(RunnerProtocol):
     """Run ``VBoxManage`` commands using :mod:`subprocess`."""
 
     def __init__(self, executable: str = "VBoxManage") -> None:
@@ -94,6 +95,7 @@ class VBoxManageClient:
             uuid=properties.get("UUID", ""),
             groups=split_groups(properties.get("groups", "")),
             serial_port=self._parse_serial_port(properties),
+            vm_state=properties.get("VMState", "") or None,
             parent_name=metadata.get("pysnap/parent") or None,
             managed=metadata.get("pysnap/managed") == "true",
             metadata=metadata,
@@ -176,6 +178,28 @@ class VBoxManageClient:
                 "--register",
             ]
         )
+
+    def start_vm_headless(self, vm_name: str) -> None:
+        """Start a VM in headless mode.
+
+        :param vm_name: VM name.
+        """
+        self.runner.run(["startvm", vm_name, "--type=headless"])
+
+    def stop_vm_acpi(self, vm_name: str) -> None:
+        """Request a graceful ACPI shutdown for a running VM.
+
+        :param vm_name: VM name.
+        """
+        self.runner.run(["controlvm", vm_name, "acpipowerbutton"])
+
+    def get_vm_state(self, vm_name: str) -> str:
+        """Return the current VirtualBox runtime state of a VM.
+
+        :param vm_name: VM name.
+        :returns: Raw VirtualBox state string.
+        """
+        return (self._get_vm_properties(vm_name).get("VMState", "") or "").lower()
 
     def configure_serial_port(self, vm_name: str, serial_port: int) -> None:
         """Configure ``UART1`` as a TCP server on the provided host port.

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pysnap.terminal.session &#8212; PySnap 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for pysnap.terminal.session</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Interactive terminal session attached to a VM serial TCP console.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">prompt_toolkit.application</span><span class="w"> </span><span class="kn">import</span> <span class="n">Application</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">prompt_toolkit.application.current</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_app</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">prompt_toolkit.key_binding</span><span class="w"> </span><span class="kn">import</span> <span class="n">KeyBindings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">prompt_toolkit.keys</span><span class="w"> </span><span class="kn">import</span> <span class="n">Keys</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">prompt_toolkit.layout</span><span class="w"> </span><span class="kn">import</span> <span class="n">HSplit</span><span class="p">,</span> <span class="n">Layout</span><span class="p">,</span> <span class="n">Window</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">prompt_toolkit.layout.controls</span><span class="w"> </span><span class="kn">import</span> <span class="n">FormattedTextControl</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.service</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapService</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.terminal.emulator</span><span class="w"> </span><span class="kn">import</span> <span class="n">TerminalEmulator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.terminal.keymap</span><span class="w"> </span><span class="kn">import</span> <span class="n">key_press_to_bytes</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.terminal.transport</span><span class="w"> </span><span class="kn">import</span> <span class="n">open_serial_connection</span>
+
+
+<div class="viewcode-block" id="SessionStatus">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.SessionStatus">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SessionStatus</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mutable session status shown in the status bar.&quot;&quot;&quot;</span>
+
+    <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">vm_state</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Changing&quot;</span>
+    <span class="n">serial_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Connecting...&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="TerminalSession">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.TerminalSession">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TerminalSession</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Manage one interactive terminal connection to a VM.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service</span><span class="p">:</span> <span class="n">PySnapService</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the terminal session helper.</span>
+
+<span class="sd">        :param service: Optional application service.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">service</span> <span class="o">=</span> <span class="n">service</span> <span class="ow">or</span> <span class="n">PySnapService</span><span class="p">()</span>
+
+<div class="viewcode-block" id="TerminalSession.run">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.TerminalSession.run">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Start or attach to a VM and launch the terminal interface.</span>
+
+<span class="sd">        :param vm_name: Virtual machine name.</span>
+<span class="sd">        :returns: Exit code.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">vm_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="o">.</span><span class="n">prepare_vm_connection</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">vm_info</span><span class="o">.</span><span class="n">serial_port</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; does not expose a serial TCP port.&#39;</span><span class="p">)</span>
+        <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_run_async</span><span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">vm_info</span><span class="o">.</span><span class="n">serial_port</span><span class="p">))</span>
+        <span class="k">return</span> <span class="mi">0</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_run_async</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">serial_port</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the asynchronous terminal session.</span>
+
+<span class="sd">        :param vm_name: Virtual machine name.</span>
+<span class="sd">        :param serial_port: Serial TCP port.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">reader</span><span class="p">,</span> <span class="n">writer</span> <span class="o">=</span> <span class="k">await</span> <span class="n">open_serial_connection</span><span class="p">(</span><span class="s2">&quot;127.0.0.1&quot;</span><span class="p">,</span> <span class="n">serial_port</span><span class="p">)</span>
+        <span class="n">columns</span><span class="p">,</span> <span class="n">rows</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">get_terminal_size</span><span class="p">(</span><span class="n">fallback</span><span class="o">=</span><span class="p">(</span><span class="mi">80</span><span class="p">,</span> <span class="mi">24</span><span class="p">))</span>
+        <span class="n">emulator</span> <span class="o">=</span> <span class="n">TerminalEmulator</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span> <span class="n">lines</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">rows</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="n">SessionStatus</span><span class="p">(</span>
+            <span class="n">vm_name</span><span class="o">=</span><span class="n">vm_name</span><span class="p">,</span>
+            <span class="n">vm_state</span><span class="o">=</span><span class="s2">&quot;Working&quot;</span><span class="p">,</span>
+            <span class="n">serial_port</span><span class="o">=</span><span class="n">serial_port</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">=</span><span class="s2">&quot;Connected. Ctrl-Q detaches.&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">stop_event</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">render_terminal</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
+            <span class="n">app</span> <span class="o">=</span> <span class="n">get_app</span><span class="p">()</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">get_size</span><span class="p">()</span>
+            <span class="n">emulator</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">size</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">size</span><span class="o">.</span><span class="n">rows</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">emulator</span><span class="o">.</span><span class="n">as_formatted_text</span><span class="p">()</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">render_status</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
+            <span class="n">text</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">vm_name</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">vm_state</span><span class="si">}</span><span class="s2"> | &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;UART1:</span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">serial_port</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2"> &quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="p">[(</span><span class="s2">&quot;reverse&quot;</span><span class="p">,</span> <span class="n">text</span><span class="p">)]</span>
+
+        <span class="n">terminal_control</span> <span class="o">=</span> <span class="n">FormattedTextControl</span><span class="p">(</span>
+            <span class="n">text</span><span class="o">=</span><span class="n">render_terminal</span><span class="p">,</span>
+            <span class="n">focusable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">show_cursor</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">status_control</span> <span class="o">=</span> <span class="n">FormattedTextControl</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="n">render_status</span><span class="p">)</span>
+        <span class="n">layout</span> <span class="o">=</span> <span class="n">Layout</span><span class="p">(</span>
+            <span class="n">HSplit</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">Window</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="n">terminal_control</span><span class="p">,</span> <span class="n">wrap_lines</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                    <span class="n">Window</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="n">status_control</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">bindings</span> <span class="o">=</span> <span class="n">KeyBindings</span><span class="p">()</span>
+
+        <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">ControlQ</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_detach</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Detach from the VM without stopping it.&quot;&quot;&quot;</span>
+            <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Detached.&quot;</span>
+            <span class="n">stop_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+            <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
+
+        <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">ControlL</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_redraw</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Force a redraw of the terminal interface.&quot;&quot;&quot;</span>
+            <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Screen refreshed.&quot;</span>
+            <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+
+        <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">Any</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_forward_key</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Forward arbitrary key input to the serial transport.&quot;&quot;&quot;</span>
+            <span class="n">key_press</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">key_sequence</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">payload</span> <span class="o">=</span> <span class="n">key_press_to_bytes</span><span class="p">(</span><span class="n">key_press</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">payload</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span>
+            <span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+
+        <span class="n">app</span> <span class="o">=</span> <span class="n">Application</span><span class="p">(</span>
+            <span class="n">layout</span><span class="o">=</span><span class="n">layout</span><span class="p">,</span>
+            <span class="n">key_bindings</span><span class="o">=</span><span class="n">bindings</span><span class="p">,</span>
+            <span class="n">full_screen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">mouse_support</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">reader_loop</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">while</span> <span class="ow">not</span> <span class="n">stop_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+                    <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">reader</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">4096</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="p">:</span>
+                        <span class="n">status</span><span class="o">.</span><span class="n">vm_state</span> <span class="o">=</span> <span class="s2">&quot;Changing&quot;</span>
+                        <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Serial connection closed.&quot;</span>
+                        <span class="n">stop_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+                        <span class="n">app</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
+                        <span class="k">return</span>
+                    <span class="n">emulator</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+                    <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+                <span class="n">status</span><span class="o">.</span><span class="n">vm_state</span> <span class="o">=</span> <span class="s2">&quot;Changing&quot;</span>
+                <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Connection error: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">stop_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+                <span class="n">app</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
+
+        <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">watcher_loop</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">while</span> <span class="ow">not</span> <span class="n">stop_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+                    <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+                    <span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="o">.</span><span class="n">get_monitor_state_label</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+                    <span class="n">status</span><span class="o">.</span><span class="n">vm_state</span> <span class="o">=</span> <span class="n">current_state</span>
+                    <span class="k">if</span> <span class="n">current_state</span> <span class="o">!=</span> <span class="s2">&quot;Working&quot;</span><span class="p">:</span>
+                        <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;VM state changed to </span><span class="si">{</span><span class="n">current_state</span><span class="si">}</span><span class="s2">.&quot;</span>
+                    <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">current_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Working&quot;</span><span class="p">,</span> <span class="s2">&quot;Active&quot;</span><span class="p">}:</span>
+                        <span class="n">stop_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+                        <span class="n">app</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
+                        <span class="k">return</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+                <span class="n">status</span><span class="o">.</span><span class="n">vm_state</span> <span class="o">=</span> <span class="s2">&quot;Changing&quot;</span>
+                <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Watcher error: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">stop_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+                <span class="n">app</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="o">.</span><span class="n">session_registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">serial_port</span><span class="p">):</span>
+                <span class="n">app</span><span class="o">.</span><span class="n">create_background_task</span><span class="p">(</span><span class="n">reader_loop</span><span class="p">())</span>
+                <span class="n">app</span><span class="o">.</span><span class="n">create_background_task</span><span class="p">(</span><span class="n">watcher_loop</span><span class="p">())</span>
+                <span class="k">await</span> <span class="n">app</span><span class="o">.</span><span class="n">run_async</span><span class="p">()</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">stop_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+            <span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">await</span> <span class="n">writer</span><span class="o">.</span><span class="n">wait_closed</span><span class="p">()</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">PySnap</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/modules.html">pysnap</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, PySnap Authors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
