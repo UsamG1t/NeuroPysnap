@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import os
 import unittest
+from unittest.mock import patch
 
 from pysnap.core.models import ImportCandidate
-from pysnap.vbox.client import VBoxManageClient
+from pysnap.vbox.client import SubprocessRunner, VBoxManageClient
 
 
 class FakeRunner:
@@ -32,6 +34,40 @@ class FakeRunner:
 
 class VBoxManageClientTests(unittest.TestCase):
     """Verify VirtualBox client behavior."""
+
+    def test_subprocess_runner_uses_macos_bundle_path_when_not_in_path(self) -> None:
+        """Resolve the documented macOS VBoxManage bundle path automatically."""
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("pysnap.vbox.client.shutil.which", return_value=None),
+            patch("pysnap.vbox.client.sys.platform", "darwin"),
+            patch.object(
+                SubprocessRunner.MACOS_APP_BUNDLE_EXECUTABLE.__class__,
+                "is_file",
+                return_value=True,
+            ),
+        ):
+            runner = SubprocessRunner()
+
+        self.assertEqual(
+            runner.executable,
+            "/Applications/VirtualBox.app/Contents/MacOS/VBoxManage",
+        )
+
+    def test_subprocess_runner_prefers_environment_override(self) -> None:
+        """Honor an explicit environment override for VBoxManage."""
+        with (
+            patch.dict(
+                os.environ,
+                {"VBOXMANAGE_EXECUTABLE": "/custom/VBoxManage"},
+                clear=True,
+            ),
+            patch("pysnap.vbox.client.shutil.which", return_value=None),
+            patch("pysnap.vbox.client.Path.is_file", return_value=True),
+        ):
+            runner = SubprocessRunner()
+
+        self.assertEqual(runner.executable, "/custom/VBoxManage")
 
     def test_configure_serial_port_uses_uart1_tcpserver(self) -> None:
         """Configure UART1 as a TCP server on the requested host port."""

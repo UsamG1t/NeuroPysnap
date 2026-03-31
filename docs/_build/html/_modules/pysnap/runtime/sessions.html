@@ -47,7 +47,7 @@
 
 
 <div class="viewcode-block" id="SessionRecord">
-<a class="viewcode-back" href="../../../api/pysnap.runtime.html#pysnap.runtime.SessionRecord">[docs]</a>
+<a class="viewcode-back" href="../../../api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRecord">[docs]</a>
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">SessionRecord</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represent one live terminal session.&quot;&quot;&quot;</span>
@@ -60,7 +60,7 @@
 
 
 <div class="viewcode-block" id="SessionRegistry">
-<a class="viewcode-back" href="../../../api/pysnap.runtime.html#pysnap.runtime.SessionRegistry">[docs]</a>
+<a class="viewcode-back" href="../../../api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRegistry">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">SessionRegistry</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Store terminal session metadata in a temp-directory registry.&quot;&quot;&quot;</span>
 
@@ -73,7 +73,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">root_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 <div class="viewcode-block" id="SessionRegistry.list_live_sessions">
-<a class="viewcode-back" href="../../../api/pysnap.runtime.html#pysnap.runtime.SessionRegistry.list_live_sessions">[docs]</a>
+<a class="viewcode-back" href="../../../api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRegistry.list_live_sessions">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">list_live_sessions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">SessionRecord</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return live session records keyed by VM name.</span>
 
@@ -92,7 +92,7 @@
 
 
 <div class="viewcode-block" id="SessionRegistry.get_live_session">
-<a class="viewcode-back" href="../../../api/pysnap.runtime.html#pysnap.runtime.SessionRegistry.get_live_session">[docs]</a>
+<a class="viewcode-back" href="../../../api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRegistry.get_live_session">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_live_session</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SessionRecord</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return one live session for the specified VM.</span>
 
@@ -103,7 +103,7 @@
 
 
 <div class="viewcode-block" id="SessionRegistry.register">
-<a class="viewcode-back" href="../../../api/pysnap.runtime.html#pysnap.runtime.SessionRegistry.register">[docs]</a>
+<a class="viewcode-back" href="../../../api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRegistry.register">[docs]</a>
     <span class="nd">@contextmanager</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">serial_port</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">SessionRecord</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Register a session for the duration of a context manager.</span>

@@ -67,14 +67,19 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="pysnap.vbox.client.SubprocessRunner">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.vbox.client.</span></span><span class="sig-name descname"><span class="pre">SubprocessRunner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">executable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'VBoxManage'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#SubprocessRunner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.SubprocessRunner" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.vbox.client.</span></span><span class="sig-name descname"><span class="pre">SubprocessRunner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">executable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#SubprocessRunner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.SubprocessRunner" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#pysnap.vbox.client.RunnerProtocol" title="pysnap.vbox.client.RunnerProtocol"><code class="xref py py-class docutils literal notranslate"><span class="pre">RunnerProtocol</span></code></a></p>
 <p>Run <code class="docutils literal notranslate"><span class="pre">VBoxManage</span></code> commands using <code class="xref py py-mod docutils literal notranslate"><span class="pre">subprocess</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>executable</strong> (<em>str</em>)</p>
+<dd class="field-odd"><p><strong>executable</strong> (<em>str</em><em> | </em><em>None</em>)</p>
 </dd>
 </dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.vbox.client.SubprocessRunner.MACOS_APP_BUNDLE_EXECUTABLE">
+<span class="sig-name descname"><span class="pre">MACOS_APP_BUNDLE_EXECUTABLE</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">PosixPath('/Applications/VirtualBox.app/Contents/MacOS/VBoxManage')</span></span><a class="headerlink" href="#pysnap.vbox.client.SubprocessRunner.MACOS_APP_BUNDLE_EXECUTABLE" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="pysnap.vbox.client.SubprocessRunner.run">
 <span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arguments</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#SubprocessRunner.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.SubprocessRunner.run" title="Link to this definition">¶</a></dt>

@@ -35,7 +35,11 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">Sequence</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImportCandidate</span><span class="p">,</span> <span class="n">VMInfo</span><span class="p">,</span> <span class="n">VMReference</span>
@@ -72,12 +76,20 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">SubprocessRunner</span><span class="p">(</span><span class="n">RunnerProtocol</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run ``VBoxManage`` commands using :mod:`subprocess`.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">executable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;VBoxManage&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">MACOS_APP_BUNDLE_EXECUTABLE</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span>
+        <span class="s2">&quot;/Applications/VirtualBox.app/Contents/MacOS/VBoxManage&quot;</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">executable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the subprocess runner.</span>
 
-<span class="sd">        :param executable: VirtualBox command line executable.</span>
+<span class="sd">        The runner first checks an explicit executable path, then the</span>
+<span class="sd">        ``VBOXMANAGE_EXECUTABLE`` environment variable, then ``PATH``.</span>
+<span class="sd">        On macOS it also falls back to the standard VirtualBox app-bundle path.</span>
+
+<span class="sd">        :param executable: Optional VirtualBox command line executable.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">executable</span> <span class="o">=</span> <span class="n">executable</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">executable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_executable</span><span class="p">(</span><span class="n">executable</span><span class="p">)</span>
 
 <div class="viewcode-block" id="SubprocessRunner.run">
 <a class="viewcode-back" href="../../../api/pysnap.vbox.html#pysnap.vbox.client.SubprocessRunner.run">[docs]</a>
@@ -102,7 +114,38 @@
         <span class="k">if</span> <span class="n">completed</span><span class="o">.</span><span class="n">returncode</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CommandExecutionError</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">completed</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span> <span class="n">completed</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">completed</span><span class="o">.</span><span class="n">stdout</span></div>
-</div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_executable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">executable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve the executable path for ``VBoxManage``.</span>
+
+<span class="sd">        :param executable: Explicit executable override, if any.</span>
+<span class="sd">        :returns: Resolved executable path or command name.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">requested</span> <span class="o">=</span> <span class="n">executable</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;VBOXMANAGE_EXECUTABLE&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;VBoxManage&quot;</span>
+        <span class="n">explicit_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">requested</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_looks_like_filesystem_path</span><span class="p">(</span><span class="n">requested</span><span class="p">)</span> <span class="ow">and</span> <span class="n">explicit_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+            <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">explicit_path</span><span class="p">)</span>
+
+        <span class="n">resolved</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="n">requested</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">resolved</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">resolved</span>
+
+        <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">&quot;darwin&quot;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">MACOS_APP_BUNDLE_EXECUTABLE</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+            <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MACOS_APP_BUNDLE_EXECUTABLE</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">requested</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_looks_like_filesystem_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether a command value looks like a filesystem path.</span>
+
+<span class="sd">        :param value: Requested command value.</span>
+<span class="sd">        :returns: ``True`` when the value should be checked as a path.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">separators</span> <span class="o">=</span> <span class="p">{</span><span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">altsep</span><span class="p">:</span>
+            <span class="n">separators</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">altsep</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;~&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">separator</span> <span class="ow">in</span> <span class="n">value</span> <span class="k">for</span> <span class="n">separator</span> <span class="ow">in</span> <span class="n">separators</span><span class="p">)</span></div>
 
 
 

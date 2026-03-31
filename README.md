@@ -17,6 +17,8 @@ terminal, and removing virtual machines with dependency checks.
   cross-platform Python terminal interface.
 - Monitor active and changing virtual machines with compact runtime states.
 - Stop one running VM or all running VMs through `acpipowerbutton`.
+- Discover `VBoxManage` automatically on macOS through the standard
+  `/Applications/VirtualBox.app/...` bundle path when needed.
 - Delete one VM, a group of VMs, or all registered VMs with dependency checks.
 
 ## Command Summary

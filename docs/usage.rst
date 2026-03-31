@@ -75,6 +75,9 @@ TCP console.
 The terminal session is detached with ``Ctrl-Q``. Detaching does not stop the
 virtual machine. ``Ctrl-L`` redraws the local interface.
 
+On macOS, PySnap also checks the standard VirtualBox application-bundle path
+for ``VBoxManage`` when the command is not exported in ``PATH``.
+
 .. code-block:: text
 
    pysnap connect MyVM

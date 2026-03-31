@@ -59,7 +59,7 @@ class TerminalSession:
         :param vm_name: Virtual machine name.
         :param serial_port: Serial TCP port.
         """
-        reader, writer = await open_serial_connection("127.0.0.1", serial_port)
+        reader, writer = await open_serial_connection("localhost", serial_port)
         columns, rows = shutil.get_terminal_size(fallback=(80, 24))
         emulator = TerminalEmulator(columns=columns, lines=max(rows - 1, 1))
         status = SessionStatus(

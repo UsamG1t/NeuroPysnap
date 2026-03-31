@@ -94,6 +94,8 @@ mode and then attaches a built-in PySnap terminal interface to its <code class="
 TCP console.</p>
 <p>The terminal session is detached with <code class="docutils literal notranslate"><span class="pre">Ctrl-Q</span></code>. Detaching does not stop the
 virtual machine. <code class="docutils literal notranslate"><span class="pre">Ctrl-L</span></code> redraws the local interface.</p>
+<p>On macOS, PySnap also checks the standard VirtualBox application-bundle path
+for <code class="docutils literal notranslate"><span class="pre">VBoxManage</span></code> when the command is not exported in <code class="docutils literal notranslate"><span class="pre">PATH</span></code>.</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap connect MyVM
 </pre></div>
 </div>

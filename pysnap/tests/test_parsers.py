@@ -36,6 +36,28 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(properties["name"], "base-vm")
         self.assertEqual(parse_snapshot_names(properties), ["current-snapshot", "older-snapshot"])
 
+    def test_parse_machine_readable_accepts_nested_snapshot_names(self) -> None:
+        """Parse nested VirtualBox snapshot keys without raising errors."""
+        output = (
+            'name="base-vm"\n'
+            'SnapshotName="current-snapshot"\n'
+            'SnapshotName-1="older-snapshot"\n'
+            'SnapshotName-1-1="nested-snapshot"\n'
+            'SnapshotName-2="another-branch"\n'
+        )
+
+        properties = parse_machine_readable(output)
+
+        self.assertEqual(
+            parse_snapshot_names(properties),
+            [
+                "current-snapshot",
+                "older-snapshot",
+                "nested-snapshot",
+                "another-branch",
+            ],
+        )
+
     def test_parse_extra_data(self) -> None:
         """Parse extra data entries returned by VirtualBox."""
         output = (

@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+import shutil
 import subprocess
+import sys
 from typing import Protocol, Sequence
 
 from pysnap.core.models import ImportCandidate, VMInfo, VMReference
@@ -31,12 +35,20 @@ class RunnerProtocol(Protocol):
 class SubprocessRunner(RunnerProtocol):
     """Run ``VBoxManage`` commands using :mod:`subprocess`."""
 
-    def __init__(self, executable: str = "VBoxManage") -> None:
+    MACOS_APP_BUNDLE_EXECUTABLE = Path(
+        "/Applications/VirtualBox.app/Contents/MacOS/VBoxManage"
+    )
+
+    def __init__(self, executable: str | None = None) -> None:
         """Initialize the subprocess runner.
 
-        :param executable: VirtualBox command line executable.
+        The runner first checks an explicit executable path, then the
+        ``VBOXMANAGE_EXECUTABLE`` environment variable, then ``PATH``.
+        On macOS it also falls back to the standard VirtualBox app-bundle path.
+
+        :param executable: Optional VirtualBox command line executable.
         """
-        self.executable = executable
+        self.executable = self._resolve_executable(executable)
 
     def run(self, arguments: Sequence[str]) -> str:
         """Execute ``VBoxManage`` and return standard output.
@@ -59,6 +71,37 @@ class SubprocessRunner(RunnerProtocol):
         if completed.returncode != 0:
             raise CommandExecutionError(command, completed.stdout, completed.stderr)
         return completed.stdout
+
+    def _resolve_executable(self, executable: str | None) -> str:
+        """Resolve the executable path for ``VBoxManage``.
+
+        :param executable: Explicit executable override, if any.
+        :returns: Resolved executable path or command name.
+        """
+        requested = executable or os.environ.get("VBOXMANAGE_EXECUTABLE") or "VBoxManage"
+        explicit_path = Path(requested).expanduser()
+        if self._looks_like_filesystem_path(requested) and explicit_path.is_file():
+            return str(explicit_path)
+
+        resolved = shutil.which(requested)
+        if resolved:
+            return resolved
+
+        if sys.platform == "darwin" and self.MACOS_APP_BUNDLE_EXECUTABLE.is_file():
+            return str(self.MACOS_APP_BUNDLE_EXECUTABLE)
+
+        return requested
+
+    def _looks_like_filesystem_path(self, value: str) -> bool:
+        """Return whether a command value looks like a filesystem path.
+
+        :param value: Requested command value.
+        :returns: ``True`` when the value should be checked as a path.
+        """
+        separators = {os.sep}
+        if os.altsep:
+            separators.add(os.altsep)
+        return value.startswith("~") or any(separator in value for separator in separators)
 
 
 class VBoxManageClient:

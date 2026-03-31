@@ -70,18 +70,34 @@ def parse_snapshot_names(properties: dict[str, str]) -> list[str]:
     :param properties: Parsed machine-readable VM properties.
     :returns: Snapshot names ordered with the current snapshot first when possible.
     """
-    snapshot_entries: list[tuple[tuple[int, int], str]] = []
+    snapshot_entries: list[tuple[tuple[int, ...], str]] = []
     for key, value in properties.items():
         if not key.startswith("SnapshotName"):
             continue
         suffix = key.removeprefix("SnapshotName")
-        if not suffix:
-            order = (0, 0)
-        else:
-            order = (1, int(suffix.removeprefix("-")))
+        order = _snapshot_order(suffix)
         snapshot_entries.append((order, value))
     snapshot_entries.sort(key=lambda item: item[0])
     return [value for _, value in snapshot_entries]
+
+
+def _snapshot_order(suffix: str) -> tuple[int, ...]:
+    """Convert a VirtualBox snapshot suffix into a sortable numeric key.
+
+    VirtualBox can emit snapshot keys like ``SnapshotName-1`` and nested forms
+    like ``SnapshotName-1-1`` for descendant snapshots.
+
+    :param suffix: Raw suffix following ``SnapshotName``.
+    :returns: Sortable numeric key with the current snapshot first.
+    """
+    if not suffix:
+        return (0,)
+
+    numeric_parts = [part for part in suffix.split("-") if part]
+    if numeric_parts and all(part.isdigit() for part in numeric_parts):
+        return (1, *(int(part) for part in numeric_parts))
+
+    return (2,)
 
 
 def parse_import_candidates(output: str) -> list[ImportCandidate]:
