@@ -65,6 +65,10 @@ the command line:</p>
 <li><p>connects clone A and B with <code class="docutils literal notranslate"><span class="pre">intnet</span></code></p></li>
 <li><p>connects clone B and C with <code class="docutils literal notranslate"><span class="pre">deepnet</span></code></p></li>
 <li><p>connects clone C and A with <code class="docutils literal notranslate"><span class="pre">virtnet</span></code></p></li>
+<li><p>attaches a serial terminal probe to clone A</p></li>
+<li><p>starts clone B in headless mode without attaching to it</p></li>
+<li><p>captures <code class="docutils literal notranslate"><span class="pre">monitor</span></code> output and verifies that clone A is <code class="docutils literal notranslate"><span class="pre">Working</span></code> while
+clone B is <code class="docutils literal notranslate"><span class="pre">Active</span></code></p></li>
 <li><p>prints details for the base VM and all three clones</p></li>
 <li><p>removes the four VMs one by one</p></li>
 </ul>
@@ -74,8 +78,10 @@ the command line:</p>
 <p>Import either an <code class="docutils literal notranslate"><span class="pre">.ova</span></code> or <code class="docutils literal notranslate"><span class="pre">.ovf</span></code> appliance.</p>
 <p>If the appliance already defines a group, PySnap keeps it. Otherwise, the
 virtual machine is placed into the <code class="docutils literal notranslate"><span class="pre">/Others</span></code> group.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap image.ova
-pysnap image.ovf
+<p>During the import, PySnap renders a live progress bar based on the percentage
+output reported by <code class="docutils literal notranslate"><span class="pre">VBoxManage</span> <span class="pre">import</span></code>.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap import image.ova
+pysnap import image.ovf
 </pre></div>
 </div>
 </section>

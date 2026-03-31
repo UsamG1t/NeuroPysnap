@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
-from typing import Protocol, Sequence
+from typing import Callable, Protocol, Sequence
 
 from pysnap.core.models import ImportCandidate, VMInfo, VMReference
 from pysnap.errors import CommandExecutionError, PySnapError
@@ -28,6 +29,19 @@ class RunnerProtocol(Protocol):
 
         :param arguments: Arguments passed to ``VBoxManage``.
         :returns: Standard output.
+        """
+        pass
+
+    def run_streaming(
+        self,
+        arguments: Sequence[str],
+        output_callback: Callable[[str], None],
+    ) -> str:
+        """Execute a command and stream textual output chunks.
+
+        :param arguments: Arguments passed to ``VBoxManage``.
+        :param output_callback: Callback for output chunks.
+        :returns: Combined command output.
         """
         pass
 
@@ -72,6 +86,44 @@ class SubprocessRunner(RunnerProtocol):
             raise CommandExecutionError(command, completed.stdout, completed.stderr)
         return completed.stdout
 
+    def run_streaming(
+        self,
+        arguments: Sequence[str],
+        output_callback: Callable[[str], None],
+    ) -> str:
+        """Execute ``VBoxManage`` and stream merged output chunks.
+
+        :param arguments: Arguments passed to ``VBoxManage``.
+        :param output_callback: Callback for output chunks.
+        :returns: Combined command output.
+        :raises CommandExecutionError: If the command exits unsuccessfully.
+        """
+        command = [self.executable, *arguments]
+        try:
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        except FileNotFoundError as error:
+            raise CommandExecutionError(command, "", str(error)) from error
+
+        assert process.stdout is not None
+        chunks: list[str] = []
+        while True:
+            chunk = process.stdout.read(1)
+            if not chunk:
+                break
+            text = chunk.decode("utf-8", errors="replace")
+            chunks.append(text)
+            output_callback(text)
+
+        process.wait()
+        output = "".join(chunks)
+        if process.returncode != 0:
+            raise CommandExecutionError(command, output, "")
+        return output
+
     def _resolve_executable(self, executable: str | None) -> str:
         """Resolve the executable path for ``VBoxManage``.
 
@@ -106,6 +158,8 @@ class SubprocessRunner(RunnerProtocol):
 
 class VBoxManageClient:
     """Expose the subset of VirtualBox operations required by PySnap."""
+
+    IMPORT_PROGRESS_PATTERN = re.compile(r"(?P<percent>\d{1,3})%")
 
     def __init__(self, runner: RunnerProtocol | None = None) -> None:
         """Initialize the VirtualBox client.
@@ -154,12 +208,16 @@ class VBoxManageClient:
         return parse_import_candidates(output)
 
     def import_appliance(
-        self, image_path: str, candidates: list[ImportCandidate]
+        self,
+        image_path: str,
+        candidates: list[ImportCandidate],
+        progress_callback: Callable[[int], None] | None = None,
     ) -> None:
         """Import an appliance using the supplied dry-run candidates.
 
         :param image_path: Appliance path.
         :param candidates: Normalized import candidates.
+        :param progress_callback: Optional import progress callback.
         """
         arguments: list[str] = ["import", image_path]
         for candidate in candidates:
@@ -177,7 +235,28 @@ class VBoxManageClient:
                 arguments.extend(
                     ["--vsys", str(candidate.vsys_index), "--eula", "accept"]
                 )
-        self.runner.run(arguments)
+        if progress_callback is None:
+            self.runner.run(arguments)
+            return
+
+        progress_callback(0)
+        last_percent = 0
+        buffer = ""
+
+        def handle_output(chunk: str) -> None:
+            nonlocal buffer, last_percent
+            buffer = (buffer + chunk)[-128:]
+            matches = list(self.IMPORT_PROGRESS_PATTERN.finditer(buffer))
+            if not matches:
+                return
+            percent = min(int(matches[-1].group("percent")), 100)
+            if percent > last_percent:
+                last_percent = percent
+                progress_callback(percent)
+
+        self.runner.run_streaming(arguments, handle_output)
+        if last_percent < 100:
+            progress_callback(100)
 
     def get_current_snapshot_name(self, vm_name: str) -> str | None:
         """Return a snapshot name suitable for linked cloning.

@@ -37,7 +37,10 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">time</span><span class="w"> </span><span class="kn">import</span> <span class="n">monotonic</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">contextmanager</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">socket</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">time</span><span class="w"> </span><span class="kn">import</span> <span class="n">monotonic</span><span class="p">,</span> <span class="n">sleep</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapError</span>
 
@@ -72,6 +75,83 @@
         <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span>
         <span class="n">ordered</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span>
     <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">ordered</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="open_serial_socket">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.transport.open_serial_socket">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">open_serial_socket</span><span class="p">(</span>
+    <span class="n">host</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">port</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
+    <span class="n">retry_delay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wait for and open a blocking TCP socket to the VM serial port.</span>
+
+<span class="sd">    :param host: Target host name.</span>
+<span class="sd">    :param port: Target TCP port.</span>
+<span class="sd">    :param timeout: Maximum time to wait.</span>
+<span class="sd">    :param retry_delay: Delay between connection attempts.</span>
+<span class="sd">    :returns: Connected socket object.</span>
+<span class="sd">    :raises PySnapError: If the TCP server does not become available in time.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">deadline</span> <span class="o">=</span> <span class="n">monotonic</span><span class="p">()</span> <span class="o">+</span> <span class="n">timeout</span>
+    <span class="n">last_error</span><span class="p">:</span> <span class="ne">OSError</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">while</span> <span class="n">monotonic</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">deadline</span><span class="p">:</span>
+        <span class="n">remaining</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">deadline</span> <span class="o">-</span> <span class="n">monotonic</span><span class="p">(),</span> <span class="mf">0.1</span><span class="p">)</span>
+        <span class="n">connect_timeout</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">remaining</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">retry_delay</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">),</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">candidate_host</span> <span class="ow">in</span> <span class="n">_candidate_hosts</span><span class="p">(</span><span class="n">host</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">connection</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">create_connection</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">candidate_host</span><span class="p">,</span> <span class="n">port</span><span class="p">),</span>
+                    <span class="n">timeout</span><span class="o">=</span><span class="n">connect_timeout</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">connection</span><span class="o">.</span><span class="n">settimeout</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">connection</span>
+            <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+                <span class="n">last_error</span> <span class="o">=</span> <span class="n">error</span>
+        <span class="n">sleep</span><span class="p">(</span><span class="n">retry_delay</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">last_error</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Timed out while waiting for serial TCP port </span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Timed out while waiting for serial TCP port </span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">last_error</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="serial_connection_probe">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.transport.serial_connection_probe">[docs]</a>
+<span class="nd">@contextmanager</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">serial_connection_probe</span><span class="p">(</span>
+    <span class="n">host</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">port</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
+    <span class="n">retry_delay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Open a short-lived serial TCP connection for automated checks.</span>
+
+<span class="sd">    The probe writes one newline to verify that the transport accepts client</span>
+<span class="sd">    output and then keeps the connection open for the caller-managed context.</span>
+
+<span class="sd">    :param host: Target host name.</span>
+<span class="sd">    :param port: Target TCP port.</span>
+<span class="sd">    :param timeout: Maximum time to wait.</span>
+<span class="sd">    :param retry_delay: Delay between connection attempts.</span>
+<span class="sd">    :yields: Connected socket object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">connection</span> <span class="o">=</span> <span class="n">open_serial_socket</span><span class="p">(</span>
+        <span class="n">host</span><span class="o">=</span><span class="n">host</span><span class="p">,</span>
+        <span class="n">port</span><span class="o">=</span><span class="n">port</span><span class="p">,</span>
+        <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
+        <span class="n">retry_delay</span><span class="o">=</span><span class="n">retry_delay</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">connection</span><span class="o">.</span><span class="n">sendall</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">yield</span> <span class="n">connection</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
 
 
 <div class="viewcode-block" id="open_serial_connection">

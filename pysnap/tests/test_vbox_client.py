@@ -31,6 +31,15 @@ class FakeRunner:
         self.commands.append(command)
         return self.outputs.get(command, "")
 
+    def run_streaming(self, arguments, output_callback) -> str:
+        """Record a streaming command and replay configured output."""
+        command = tuple(arguments)
+        self.commands.append(command)
+        output = self.outputs.get(command, "")
+        for character in output:
+            output_callback(character)
+        return output
+
 
 class VBoxManageClientTests(unittest.TestCase):
     """Verify VirtualBox client behavior."""
@@ -168,6 +177,32 @@ class VBoxManageClientTests(unittest.TestCase):
                 )
             ],
         )
+
+    def test_import_appliance_reports_streamed_progress(self) -> None:
+        """Translate VBoxManage percentage output into progress callbacks."""
+        runner = FakeRunner(
+            outputs={
+                ("import", "/tmp/test.ova", "--vsys", "0", "--vmname", "renamed-base", "--group", "/Lab"): (
+                    "0%...10%...55%...100%"
+                )
+            }
+        )
+        client = VBoxManageClient(runner=runner)
+        progress_updates: list[int] = []
+
+        client.import_appliance(
+            "/tmp/test.ova",
+            [
+                ImportCandidate(
+                    vsys_index=0,
+                    vm_name="renamed-base",
+                    group="/Lab",
+                )
+            ],
+            progress_callback=progress_updates.append,
+        )
+
+        self.assertEqual(progress_updates, [0, 10, 55, 100])
 
 
 if __name__ == "__main__":

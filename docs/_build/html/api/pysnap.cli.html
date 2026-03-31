@@ -157,6 +157,74 @@
 <section id="module-pysnap.cli.formatters">
 <span id="pysnap-cli-formatters-module"></span><h2>pysnap.cli.formatters module<a class="headerlink" href="#module-pysnap.cli.formatters" title="Link to this heading">¶</a></h2>
 <p>Output formatters used by the PySnap CLI.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.cli.formatters.ImportProgressBar">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.cli.formatters.</span></span><span class="sig-name descname"><span class="pre">ImportProgressBar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stream</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Importing'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">current_percent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">started</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/cli/formatters.html#ImportProgressBar"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.cli.formatters.ImportProgressBar" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Render a live import progress bar to a text stream.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stream</strong> (<em>TextIO</em>)</p></li>
+<li><p><strong>label</strong> (<em>str</em>)</p></li>
+<li><p><strong>width</strong> (<em>int</em>)</p></li>
+<li><p><strong>current_percent</strong> (<em>int</em>)</p></li>
+<li><p><strong>started</strong> (<em>bool</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.cli.formatters.ImportProgressBar.stream">
+<span class="sig-name descname"><span class="pre">stream</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">TextIO</span></span><a class="headerlink" href="#pysnap.cli.formatters.ImportProgressBar.stream" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.cli.formatters.ImportProgressBar.label">
+<span class="sig-name descname"><span class="pre">label</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Importing'</span></span><a class="headerlink" href="#pysnap.cli.formatters.ImportProgressBar.label" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.cli.formatters.ImportProgressBar.width">
+<span class="sig-name descname"><span class="pre">width</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></span><a class="headerlink" href="#pysnap.cli.formatters.ImportProgressBar.width" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.cli.formatters.ImportProgressBar.current_percent">
+<span class="sig-name descname"><span class="pre">current_percent</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></span><a class="headerlink" href="#pysnap.cli.formatters.ImportProgressBar.current_percent" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.cli.formatters.ImportProgressBar.started">
+<span class="sig-name descname"><span class="pre">started</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></span><a class="headerlink" href="#pysnap.cli.formatters.ImportProgressBar.started" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.cli.formatters.ImportProgressBar.update">
+<span class="sig-name descname"><span class="pre">update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">percent</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/cli/formatters.html#ImportProgressBar.update"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.cli.formatters.ImportProgressBar.update" title="Link to this definition">¶</a></dt>
+<dd><p>Update the progress bar.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>percent</strong> (<em>int</em>) – Percentage reported by VBoxManage.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.cli.formatters.ImportProgressBar.finish">
+<span class="sig-name descname"><span class="pre">finish</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/cli/formatters.html#ImportProgressBar.finish"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.cli.formatters.ImportProgressBar.finish" title="Link to this definition">¶</a></dt>
+<dd><p>Terminate the progress-bar line when it was shown.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 <dl class="py function">
 <dt class="sig sig-object py" id="pysnap.cli.formatters.format_groups">
 <span class="sig-prename descclassname"><span class="pre">pysnap.cli.formatters.</span></span><span class="sig-name descname"><span class="pre">format_groups</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">groups</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/cli/formatters.html#format_groups"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.cli.formatters.format_groups" title="Link to this definition">¶</a></dt>

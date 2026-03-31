@@ -21,6 +21,7 @@ class FakeService:
     def __init__(self) -> None:
         """Initialize fake outputs and call tracking."""
         self.clone_args: tuple | None = None
+        self.import_args: tuple | None = None
         self.stopped_vm: str | None = None
         self.stop_all_requested = False
 
@@ -49,8 +50,13 @@ class FakeService:
             parent_name=base_vm,
         )
 
-    def import_image(self, image_path: str) -> list[VMInfo]:
+    def import_image(self, image_path: str, progress_callback=None) -> list[VMInfo]:
         """Return a static import result."""
+        self.import_args = (image_path,)
+        if progress_callback is not None:
+            progress_callback(5)
+            progress_callback(55)
+            progress_callback(100)
         return [VMInfo(name="base-vm", uuid="uuid", groups=("/Others",))]
 
     def run_integration_test(self, image_path: str) -> IntegrationTestResult:
@@ -200,6 +206,43 @@ class CliTests(unittest.TestCase):
         self.assertIn("Group: /Lab", stdout.getvalue())
         self.assertIn("- base-vm", stdout.getvalue())
         self.assertEqual("", stderr.getvalue())
+
+    def test_import_command_formats_result_and_progress(self) -> None:
+        """Render import progress and final import output."""
+        service = FakeService()
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        exit_code = run_cli(
+            ["import", "~/Downloads/test.ova"],
+            service=service,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(service.import_args, ("~/Downloads/test.ova",))
+        output = stdout.getvalue()
+        self.assertIn("Importing [", output)
+        self.assertIn("100%", output)
+        self.assertIn("Imported virtual machines:", output)
+        self.assertEqual("", stderr.getvalue())
+
+    def test_bare_image_argument_is_rejected(self) -> None:
+        """Require the explicit ``import`` subcommand for appliance imports."""
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        exit_code = run_cli(
+            ["~/Downloads/test.ova"],
+            service=FakeService(),
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual("", stdout.getvalue())
+        self.assertIn("unknown command", stderr.getvalue())
 
     def test_integration_test_command_formats_result(self) -> None:
         """Render integration-test output through the CLI."""

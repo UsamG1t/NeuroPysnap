@@ -63,6 +63,26 @@
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.vbox.client.RunnerProtocol.run_streaming">
+<span class="sig-name descname"><span class="pre">run_streaming</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arguments</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_callback</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#RunnerProtocol.run_streaming"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.RunnerProtocol.run_streaming" title="Link to this definition">¶</a></dt>
+<dd><p>Execute a command and stream textual output chunks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>arguments</strong> (<em>Sequence</em><em>[</em><em>str</em><em>]</em>) – Arguments passed to <code class="docutils literal notranslate"><span class="pre">VBoxManage</span></code>.</p></li>
+<li><p><strong>output_callback</strong> (<em>Callable</em><em>[</em><em>[</em><em>str</em><em>]</em><em>, </em><em>None</em><em>]</em>) – Callback for output chunks.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Combined command output.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
@@ -100,6 +120,29 @@
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.vbox.client.SubprocessRunner.run_streaming">
+<span class="sig-name descname"><span class="pre">run_streaming</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arguments</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_callback</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#SubprocessRunner.run_streaming"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.SubprocessRunner.run_streaming" title="Link to this definition">¶</a></dt>
+<dd><p>Execute <code class="docutils literal notranslate"><span class="pre">VBoxManage</span></code> and stream merged output chunks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>arguments</strong> (<em>Sequence</em><em>[</em><em>str</em><em>]</em>) – Arguments passed to <code class="docutils literal notranslate"><span class="pre">VBoxManage</span></code>.</p></li>
+<li><p><strong>output_callback</strong> (<em>Callable</em><em>[</em><em>[</em><em>str</em><em>]</em><em>, </em><em>None</em><em>]</em>) – Callback for output chunks.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Combined command output.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="pysnap.html#pysnap.errors.CommandExecutionError" title="pysnap.errors.CommandExecutionError"><strong>CommandExecutionError</strong></a> – If the command exits unsuccessfully.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
@@ -112,6 +155,11 @@
 <dd class="field-odd"><p><strong>runner</strong> (<a class="reference internal" href="#pysnap.vbox.client.RunnerProtocol" title="pysnap.vbox.client.RunnerProtocol"><em>RunnerProtocol</em></a><em> | </em><em>None</em>)</p>
 </dd>
 </dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.vbox.client.VBoxManageClient.IMPORT_PROGRESS_PATTERN">
+<span class="sig-name descname"><span class="pre">IMPORT_PROGRESS_PATTERN</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">re.compile('(?P&lt;percent&gt;\\d{1,3})%')</span></span><a class="headerlink" href="#pysnap.vbox.client.VBoxManageClient.IMPORT_PROGRESS_PATTERN" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="pysnap.vbox.client.VBoxManageClient.list_vms">
 <span class="sig-name descname"><span class="pre">list_vms</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#VBoxManageClient.list_vms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.VBoxManageClient.list_vms" title="Link to this definition">¶</a></dt>
@@ -162,13 +210,14 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pysnap.vbox.client.VBoxManageClient.import_appliance">
-<span class="sig-name descname"><span class="pre">import_appliance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#VBoxManageClient.import_appliance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.VBoxManageClient.import_appliance" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">import_appliance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress_callback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#VBoxManageClient.import_appliance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.VBoxManageClient.import_appliance" title="Link to this definition">¶</a></dt>
 <dd><p>Import an appliance using the supplied dry-run candidates.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>image_path</strong> (<em>str</em>) – Appliance path.</p></li>
 <li><p><strong>candidates</strong> (<em>list</em><em>[</em><a class="reference internal" href="pysnap.core.html#pysnap.core.models.ImportCandidate" title="pysnap.core.models.ImportCandidate"><em>ImportCandidate</em></a><em>]</em>) – Normalized import candidates.</p></li>
+<li><p><strong>progress_callback</strong> (<em>Callable</em><em>[</em><em>[</em><em>int</em><em>]</em><em>, </em><em>None</em><em>] </em><em>| </em><em>None</em>) – Optional import progress callback.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>

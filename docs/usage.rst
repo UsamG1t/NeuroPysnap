@@ -54,10 +54,13 @@ Import either an ``.ova`` or ``.ovf`` appliance.
 If the appliance already defines a group, PySnap keeps it. Otherwise, the
 virtual machine is placed into the ``/Others`` group.
 
+During the import, PySnap renders a live progress bar based on the percentage
+output reported by ``VBoxManage import``.
+
 .. code-block:: text
 
-   pysnap image.ova
-   pysnap image.ovf
+   pysnap import image.ova
+   pysnap import image.ovf
 
 Show Virtual Machine Details
 ----------------------------

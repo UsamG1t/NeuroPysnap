@@ -26,6 +26,7 @@ from pysnap.terminal.transport import serial_connection_probe
 from pysnap.vbox.client import VBoxManageClient
 
 SerialProbeFactory = Callable[[str, int], ContextManager[object]]
+ImportProgressCallback = Callable[[int], None]
 
 
 def normalize_group_name(group: str | None) -> str:
@@ -65,10 +66,15 @@ class PySnapService:
         self.session_registry = session_registry or SessionRegistry()
         self.serial_probe_factory = serial_probe_factory or serial_connection_probe
 
-    def import_image(self, image_path: str) -> list[VMInfo]:
+    def import_image(
+        self,
+        image_path: str,
+        progress_callback: ImportProgressCallback | None = None,
+    ) -> list[VMInfo]:
         """Import an OVA or OVF image into VirtualBox.
 
         :param image_path: Path to the OVA or OVF appliance.
+        :param progress_callback: Optional import progress callback.
         :returns: Imported VM information objects.
         :raises PySnapError: If the file is invalid or import does not create VMs.
         """
@@ -93,7 +99,11 @@ class PySnapService:
         ]
 
         before_names = {vm.name for vm in self.client.list_vms()}
-        self.client.import_appliance(str(image), normalized_imports)
+        self.client.import_appliance(
+            str(image),
+            normalized_imports,
+            progress_callback=progress_callback,
+        )
         after_references = self.client.list_vms()
         after_names = {vm.name for vm in after_references}
         imported_names = sorted(after_names - before_names)

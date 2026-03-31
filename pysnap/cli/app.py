@@ -8,6 +8,7 @@ import sys
 from typing import Sequence, TextIO
 
 from pysnap.cli.formatters import (
+    ImportProgressBar,
     format_groups,
     format_import_result,
     format_integration_test_result,
@@ -98,8 +99,8 @@ def build_root_parser(
         epilog=(
             "Commands:\n"
             "  pysnap list\n"
+            "  pysnap import IMAGE.ova|IMAGE.ovf\n"
             "  pysnap --integration-test IMAGE.ova|IMAGE.ovf\n"
-            "  pysnap IMAGE.ova|IMAGE.ovf\n"
             "  pysnap show VM\n"
             "  pysnap connect VM\n"
             "  pysnap monitor\n"
@@ -148,6 +149,8 @@ def run_cli(
         if command == "list":
             print(format_groups(app_service.list_groups()), file=output)
             return 0
+        if command == "import":
+            return _run_import(arguments[1:], app_service, output, error_output)
         if command == "show":
             return _run_show(arguments[1:], app_service, output, error_output)
         if command == "connect":
@@ -160,13 +163,7 @@ def run_cli(
             return _run_clone(arguments[1:], app_service, output, error_output)
         if command == "erase":
             return _run_erase(arguments[1:], app_service, output, error_output)
-        if _looks_like_image(command):
-            print(format_import_result(app_service.import_image(command)), file=output)
-            return 0
-
-        root_parser.error(
-            "unknown command or image path. Expected a subcommand or .ova/.ovf file."
-        )
+        root_parser.error("unknown command. Run `pysnap --help` to see available commands.")
     except ParserExit as error:
         return error.status
     except PySnapError as error:
@@ -203,6 +200,35 @@ def _run_show(
     parser.add_argument("vm", help="Virtual machine name.")
     namespace = parser.parse_args(list(arguments))
     print(format_vm_info(service.show_vm(namespace.vm)), file=stdout)
+    return 0
+
+
+def _run_import(
+    arguments: Sequence[str],
+    service: PySnapService,
+    stdout: TextIO,
+    stderr: TextIO,
+) -> int:
+    """Run the ``import`` subcommand.
+
+    :param arguments: Subcommand arguments.
+    :param service: Application service.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :returns: Process exit code.
+    """
+    parser = CliArgumentParser(prog="pysnap import", stdout=stdout, stderr=stderr)
+    parser.add_argument("image", help="Path to the OVA or OVF appliance.")
+    namespace = parser.parse_args(list(arguments))
+    progress_bar = ImportProgressBar(stream=stdout)
+    try:
+        imported = service.import_image(
+            namespace.image,
+            progress_callback=progress_bar.update,
+        )
+    finally:
+        progress_bar.finish()
+    print(format_import_result(imported), file=stdout)
     return 0
 
 
@@ -384,12 +410,3 @@ def _run_integration_test(
     result = service.run_integration_test(str(Path(namespace.image).expanduser()))
     print(format_integration_test_result(result), file=stdout)
     return 0
-
-
-def _looks_like_image(argument: str) -> bool:
-    """Check whether a command line argument looks like an appliance path.
-
-    :param argument: Raw command line argument.
-    :returns: ``True`` when the argument ends with ``.ova`` or ``.ovf``.
-    """
-    return argument.lower().endswith((".ova", ".ovf"))

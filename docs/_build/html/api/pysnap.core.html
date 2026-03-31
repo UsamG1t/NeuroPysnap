@@ -203,7 +203,7 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="pysnap.core.models.IntegrationTestResult">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.models.</span></span><span class="sig-name descname"><span class="pre">IntegrationTestResult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">machines</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deleted_vm_names</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/models.html#IntegrationTestResult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.models.IntegrationTestResult" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.models.</span></span><span class="sig-name descname"><span class="pre">IntegrationTestResult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">machines</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deleted_vm_names</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">monitor_records</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">()</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/models.html#IntegrationTestResult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.models.IntegrationTestResult" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Represent the outcome of an integration test run.</p>
 <dl class="field-list simple">
@@ -211,6 +211,7 @@
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>machines</strong> (<em>tuple</em><em>[</em><a class="reference internal" href="#pysnap.core.models.VMInfo" title="pysnap.core.models.VMInfo"><em>VMInfo</em></a><em>, </em><em>...</em><em>]</em>)</p></li>
 <li><p><strong>deleted_vm_names</strong> (<em>tuple</em><em>[</em><em>str</em><em>, </em><em>...</em><em>]</em>)</p></li>
+<li><p><strong>monitor_records</strong> (<em>tuple</em><em>[</em><a class="reference internal" href="#pysnap.core.models.VMMonitorRecord" title="pysnap.core.models.VMMonitorRecord"><em>VMMonitorRecord</em></a><em>, </em><em>...</em><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -222,6 +223,11 @@
 <dl class="py attribute">
 <dt class="sig sig-object py" id="pysnap.core.models.IntegrationTestResult.deleted_vm_names">
 <span class="sig-name descname"><span class="pre">deleted_vm_names</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#pysnap.core.models.IntegrationTestResult.deleted_vm_names" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.IntegrationTestResult.monitor_records">
+<span class="sig-name descname"><span class="pre">monitor_records</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#pysnap.core.models.VMMonitorRecord" title="pysnap.core.models.VMMonitorRecord"><span class="pre">VMMonitorRecord</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">()</span></span><a class="headerlink" href="#pysnap.core.models.IntegrationTestResult.monitor_records" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -292,7 +298,7 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="pysnap.core.service.PySnapService">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.service.</span></span><span class="sig-name descname"><span class="pre">PySnapService</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_registry</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.service.</span></span><span class="sig-name descname"><span class="pre">PySnapService</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_registry</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">serial_probe_factory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Provide the main PySnap business operations.</p>
 <dl class="field-list simple">
@@ -300,6 +306,7 @@
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>client</strong> (<a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient" title="pysnap.vbox.client.VBoxManageClient"><em>VBoxManageClient</em></a><em> | </em><em>None</em>)</p></li>
 <li><p><strong>session_registry</strong> (<a class="reference internal" href="pysnap.runtime.html#pysnap.runtime.sessions.SessionRegistry" title="pysnap.runtime.sessions.SessionRegistry"><em>SessionRegistry</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>serial_probe_factory</strong> (<em>SerialProbeFactory</em><em> | </em><em>None</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -324,6 +331,11 @@
 <dd></dd></dl>
 
 <dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.DEFAULT_INTEGRATION_STOP_TIMEOUT">
+<span class="sig-name descname"><span class="pre">DEFAULT_INTEGRATION_STOP_TIMEOUT</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">180.0</span></span><a class="headerlink" href="#pysnap.core.service.PySnapService.DEFAULT_INTEGRATION_STOP_TIMEOUT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="pysnap.core.service.PySnapService.STOPPED_STATES">
 <span class="sig-name descname"><span class="pre">STOPPED_STATES</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'aborted',</span> <span class="pre">'poweroff',</span> <span class="pre">'saved'}</span></span><a class="headerlink" href="#pysnap.core.service.PySnapService.STOPPED_STATES" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -340,11 +352,14 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pysnap.core.service.PySnapService.import_image">
-<span class="sig-name descname"><span class="pre">import_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService.import_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService.import_image" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">import_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress_callback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService.import_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService.import_image" title="Link to this definition">¶</a></dt>
 <dd><p>Import an OVA or OVF image into VirtualBox.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>image_path</strong> (<em>str</em>) – Path to the OVA or OVF appliance.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image_path</strong> (<em>str</em>) – Path to the OVA or OVF appliance.</p></li>
+<li><p><strong>progress_callback</strong> (<em>Callable</em><em>[</em><em>[</em><em>int</em><em>]</em><em>, </em><em>None</em><em>] </em><em>| </em><em>None</em>) – Optional import progress callback.</p></li>
+</ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Imported VM information objects.</p>
@@ -364,7 +379,8 @@
 <dd><p>Run an end-to-end integration scenario on an appliance.</p>
 <p>The scenario imports one appliance VM, creates three linked clones
 connected in a triangle of internal networks, captures machine details,
-and removes all created VMs one by one.</p>
+validates runtime monitoring by attaching to one clone and starting a
+second clone headlessly, and removes all created VMs one by one.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

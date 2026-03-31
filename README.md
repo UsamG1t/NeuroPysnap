@@ -28,8 +28,8 @@ terminal, and removing virtual machines with dependency checks.
 ```text
 pysnap
 pysnap list
+pysnap import IMAGE.ova|IMAGE.ovf
 pysnap --integration-test IMAGE.ova|IMAGE.ovf
-pysnap IMAGE.ova|IMAGE.ovf
 pysnap show <VM>
 pysnap connect <VM>
 pysnap monitor
@@ -56,6 +56,13 @@ Typical workflow:
 ```
 
 ## Runtime Examples
+
+Import an appliance with a live progress bar:
+
+```bash
+pysnap import image.ova
+Importing [############################....]  87%
+```
 
 Start a VM in headless mode and attach to its serial console:
 

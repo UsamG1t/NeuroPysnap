@@ -54,6 +54,16 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="pysnap.cli.html#module-pysnap.cli.formatters">pysnap.cli.formatters module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.ImportProgressBar"><code class="docutils literal notranslate"><span class="pre">ImportProgressBar</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.ImportProgressBar.stream"><code class="docutils literal notranslate"><span class="pre">ImportProgressBar.stream</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.ImportProgressBar.label"><code class="docutils literal notranslate"><span class="pre">ImportProgressBar.label</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.ImportProgressBar.width"><code class="docutils literal notranslate"><span class="pre">ImportProgressBar.width</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.ImportProgressBar.current_percent"><code class="docutils literal notranslate"><span class="pre">ImportProgressBar.current_percent</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.ImportProgressBar.started"><code class="docutils literal notranslate"><span class="pre">ImportProgressBar.started</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.ImportProgressBar.update"><code class="docutils literal notranslate"><span class="pre">ImportProgressBar.update()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.ImportProgressBar.finish"><code class="docutils literal notranslate"><span class="pre">ImportProgressBar.finish()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.format_groups"><code class="docutils literal notranslate"><span class="pre">format_groups()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.format_vm_info"><code class="docutils literal notranslate"><span class="pre">format_vm_info()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.format_import_result"><code class="docutils literal notranslate"><span class="pre">format_import_result()</span></code></a></li>
@@ -98,6 +108,7 @@
 <li class="toctree-l3"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.IntegrationTestResult"><code class="docutils literal notranslate"><span class="pre">IntegrationTestResult</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.IntegrationTestResult.machines"><code class="docutils literal notranslate"><span class="pre">IntegrationTestResult.machines</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.IntegrationTestResult.deleted_vm_names"><code class="docutils literal notranslate"><span class="pre">IntegrationTestResult.deleted_vm_names</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.IntegrationTestResult.monitor_records"><code class="docutils literal notranslate"><span class="pre">IntegrationTestResult.monitor_records</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="pysnap.core.html#pysnap.core.models.VMMonitorRecord"><code class="docutils literal notranslate"><span class="pre">VMMonitorRecord</span></code></a><ul>
@@ -117,6 +128,7 @@
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.DEFAULT_SERIAL_TCP_PORT"><code class="docutils literal notranslate"><span class="pre">PySnapService.DEFAULT_SERIAL_TCP_PORT</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.DEFAULT_START_TIMEOUT"><code class="docutils literal notranslate"><span class="pre">PySnapService.DEFAULT_START_TIMEOUT</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.DEFAULT_STOP_TIMEOUT"><code class="docutils literal notranslate"><span class="pre">PySnapService.DEFAULT_STOP_TIMEOUT</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.DEFAULT_INTEGRATION_STOP_TIMEOUT"><code class="docutils literal notranslate"><span class="pre">PySnapService.DEFAULT_INTEGRATION_STOP_TIMEOUT</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.STOPPED_STATES"><code class="docutils literal notranslate"><span class="pre">PySnapService.STOPPED_STATES</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.PAUSED_STATES"><code class="docutils literal notranslate"><span class="pre">PySnapService.PAUSED_STATES</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.ERROR_STATES"><code class="docutils literal notranslate"><span class="pre">PySnapService.ERROR_STATES</span></code></a></li>
@@ -189,6 +201,8 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="pysnap.terminal.html#module-pysnap.terminal.transport">pysnap.terminal.transport module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.transport.open_serial_socket"><code class="docutils literal notranslate"><span class="pre">open_serial_socket()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.transport.serial_connection_probe"><code class="docutils literal notranslate"><span class="pre">serial_connection_probe()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.transport.open_serial_connection"><code class="docutils literal notranslate"><span class="pre">open_serial_connection()</span></code></a></li>
 </ul>
 </li>
@@ -199,14 +213,17 @@
 <li class="toctree-l2"><a class="reference internal" href="pysnap.vbox.html#module-pysnap.vbox.client">pysnap.vbox.client module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.RunnerProtocol"><code class="docutils literal notranslate"><span class="pre">RunnerProtocol</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.RunnerProtocol.run"><code class="docutils literal notranslate"><span class="pre">RunnerProtocol.run()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.RunnerProtocol.run_streaming"><code class="docutils literal notranslate"><span class="pre">RunnerProtocol.run_streaming()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.SubprocessRunner"><code class="docutils literal notranslate"><span class="pre">SubprocessRunner</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.SubprocessRunner.MACOS_APP_BUNDLE_EXECUTABLE"><code class="docutils literal notranslate"><span class="pre">SubprocessRunner.MACOS_APP_BUNDLE_EXECUTABLE</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.SubprocessRunner.run"><code class="docutils literal notranslate"><span class="pre">SubprocessRunner.run()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.SubprocessRunner.run_streaming"><code class="docutils literal notranslate"><span class="pre">SubprocessRunner.run_streaming()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.IMPORT_PROGRESS_PATTERN"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.IMPORT_PROGRESS_PATTERN</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.list_vms"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.list_vms()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.get_vm_info"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.get_vm_info()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.dry_run_import"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.dry_run_import()</span></code></a></li>

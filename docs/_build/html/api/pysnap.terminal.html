@@ -198,6 +198,55 @@
 <span id="pysnap-terminal-transport-module"></span><h2>pysnap.terminal.transport module<a class="headerlink" href="#module-pysnap.terminal.transport" title="Link to this heading">¶</a></h2>
 <p>TCP transport helpers for VM serial console connections.</p>
 <dl class="py function">
+<dt class="sig sig-object py" id="pysnap.terminal.transport.open_serial_socket">
+<span class="sig-prename descclassname"><span class="pre">pysnap.terminal.transport.</span></span><span class="sig-name descname"><span class="pre">open_serial_socket</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">host</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">retry_delay</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/transport.html#open_serial_socket"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.transport.open_serial_socket" title="Link to this definition">¶</a></dt>
+<dd><p>Wait for and open a blocking TCP socket to the VM serial port.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>host</strong> (<em>str</em>) – Target host name.</p></li>
+<li><p><strong>port</strong> (<em>int</em>) – Target TCP port.</p></li>
+<li><p><strong>timeout</strong> (<em>float</em>) – Maximum time to wait.</p></li>
+<li><p><strong>retry_delay</strong> (<em>float</em>) – Delay between connection attempts.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Connected socket object.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="pysnap.html#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><strong>PySnapError</strong></a> – If the TCP server does not become available in time.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>socket</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.terminal.transport.serial_connection_probe">
+<span class="sig-prename descclassname"><span class="pre">pysnap.terminal.transport.</span></span><span class="sig-name descname"><span class="pre">serial_connection_probe</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">host</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">retry_delay</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/transport.html#serial_connection_probe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.transport.serial_connection_probe" title="Link to this definition">¶</a></dt>
+<dd><p>Open a short-lived serial TCP connection for automated checks.</p>
+<p>The probe writes one newline to verify that the transport accepts client
+output and then keeps the connection open for the caller-managed context.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>host</strong> (<em>str</em>) – Target host name.</p></li>
+<li><p><strong>port</strong> (<em>int</em>) – Target TCP port.</p></li>
+<li><p><strong>timeout</strong> (<em>float</em>) – Maximum time to wait.</p></li>
+<li><p><strong>retry_delay</strong> (<em>float</em>) – Delay between connection attempts.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Yields<span class="colon">:</span></dt>
+<dd class="field-even"><p>Connected socket object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Iterator</em>[<em>socket</em>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="pysnap.terminal.transport.open_serial_connection">
 <span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.terminal.transport.</span></span><span class="sig-name descname"><span class="pre">open_serial_connection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">host</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">retry_delay</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/transport.html#open_serial_connection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.transport.open_serial_connection" title="Link to this definition">¶</a></dt>
 <dd><p>Wait for and open a TCP connection to the VM serial port.</p>

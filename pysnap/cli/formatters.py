@@ -2,12 +2,50 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import TextIO
+
 from pysnap.core.models import (
     IntegrationTestResult,
     VMGroup,
     VMInfo,
     VMMonitorRecord,
 )
+
+
+@dataclass
+class ImportProgressBar:
+    """Render a live import progress bar to a text stream."""
+
+    stream: TextIO
+    label: str = "Importing"
+    width: int = 32
+    current_percent: int = 0
+    started: bool = False
+
+    def update(self, percent: int) -> None:
+        """Update the progress bar.
+
+        :param percent: Percentage reported by VBoxManage.
+        """
+        bounded_percent = max(0, min(percent, 100))
+        if bounded_percent < self.current_percent:
+            return
+        self.started = True
+        self.current_percent = bounded_percent
+        filled = round((bounded_percent / 100) * self.width)
+        bar = "#" * filled + "." * (self.width - filled)
+        self.stream.write(
+            f"\r{self.label} [{bar}] {bounded_percent:3d}%"
+        )
+        self.stream.flush()
+
+    def finish(self) -> None:
+        """Terminate the progress-bar line when it was shown."""
+        if not self.started:
+            return
+        self.stream.write("\n")
+        self.stream.flush()
 
 
 def format_groups(groups: list[VMGroup]) -> str:
