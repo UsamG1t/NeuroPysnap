@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from contextlib import contextmanager
 
-from pysnap.core.models import ImportCandidate, VMInfo, VMReference
+from pysnap.core.models import ImportCandidate, VMInfo, VMMonitorRecord, VMReference
 from pysnap.core.service import PySnapService
 from pysnap.errors import VMDependencyError
 from pysnap.runtime.sessions import SessionRecord
@@ -25,6 +26,21 @@ class FakeSessionRegistry:
     def get_live_session(self, vm_name: str) -> SessionRecord | None:
         """Return a configured live session for one VM."""
         return self.live_sessions.get(vm_name)
+
+    @contextmanager
+    def register(self, vm_name: str, serial_port: int):
+        """Register a temporary live session for one VM."""
+        record = SessionRecord(
+            vm_name=vm_name,
+            serial_port=serial_port,
+            pid=1,
+            attached_at="2026-03-31T00:00:00+00:00",
+        )
+        self.live_sessions[vm_name] = record
+        try:
+            yield record
+        finally:
+            self.live_sessions.pop(vm_name, None)
 
 
 class FakeClient:
@@ -161,7 +177,8 @@ class FakeClient:
             managed=current.managed,
             metadata=current.metadata,
         )
-        self.state_sequences.setdefault(vm_name, ["running"])
+        if not self.state_sequences.get(vm_name):
+            self.state_sequences[vm_name] = ["running"]
 
     def stop_vm_acpi(self, vm_name: str) -> None:
         """Record an ACPI stop request."""
@@ -177,7 +194,8 @@ class FakeClient:
             managed=current.managed,
             metadata=current.metadata,
         )
-        self.state_sequences.setdefault(vm_name, ["poweroff"])
+        if not self.state_sequences.get(vm_name):
+            self.state_sequences[vm_name] = ["poweroff"]
 
 
 class ServiceTests(unittest.TestCase):
@@ -320,8 +338,19 @@ class ServiceTests(unittest.TestCase):
         client.import_candidates = [
             ImportCandidate(vsys_index=0, vm_name="original-base", group="/Lab")
         ]
+        probe_calls: list[tuple[str, int]] = []
 
-        service = PySnapService(client=client)
+        @contextmanager
+        def fake_serial_probe(host: str, port: int):
+            """Simulate a successful serial probe connection."""
+            probe_calls.append((host, port))
+            yield object()
+
+        service = PySnapService(
+            client=client,
+            session_registry=FakeSessionRegistry(),
+            serial_probe_factory=fake_serial_probe,
+        )
         with tempfile.NamedTemporaryFile(suffix=".ova") as appliance:
             result = service.run_integration_test(
                 appliance.name,
@@ -371,6 +400,19 @@ class ServiceTests(unittest.TestCase):
                 "pysnap-it-case1234-base",
             ),
         )
+        self.assertEqual(
+            probe_calls,
+            [("localhost", 1024)],
+        )
+        monitor_states = {
+            record.name: record.display_state for record in result.monitor_records
+        }
+        self.assertEqual(monitor_states["pysnap-it-case1234-clone-a"], "Working")
+        self.assertEqual(monitor_states["pysnap-it-case1234-clone-b"], "Active")
+        self.assertIn(("start_vm_headless", "pysnap-it-case1234-clone-a"), client.calls)
+        self.assertIn(("start_vm_headless", "pysnap-it-case1234-clone-b"), client.calls)
+        self.assertIn(("stop_vm_acpi", "pysnap-it-case1234-clone-a"), client.calls)
+        self.assertIn(("stop_vm_acpi", "pysnap-it-case1234-clone-b"), client.calls)
 
     def test_list_monitored_vms_distinguishes_working_active_and_changing(self) -> None:
         """Map raw VirtualBox runtime states to compact monitor states."""

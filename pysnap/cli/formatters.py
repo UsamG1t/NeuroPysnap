@@ -66,6 +66,10 @@ def format_integration_test_result(result: IntegrationTestResult) -> str:
     for vm_info in result.machines:
         lines.append(format_vm_info(vm_info))
         lines.append("")
+    if result.monitor_records:
+        lines.append("Monitor:")
+        lines.extend(format_monitor_records(list(result.monitor_records)).splitlines())
+        lines.append("")
     lines.append("Deletion order:")
     for vm_name in result.deleted_vm_names:
         lines.append(f"- {vm_name}")

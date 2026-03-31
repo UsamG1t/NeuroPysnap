@@ -39,6 +39,10 @@ The integration scenario:
 - connects clone A and B with ``intnet``
 - connects clone B and C with ``deepnet``
 - connects clone C and A with ``virtnet``
+- attaches a serial terminal probe to clone A
+- starts clone B in headless mode without attaching to it
+- captures ``monitor`` output and verifies that clone A is ``Working`` while
+  clone B is ``Active``
 - prints details for the base VM and all three clones
 - removes the four VMs one by one
 

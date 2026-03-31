@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Callable, ContextManager, Iterator
 from time import monotonic, sleep
 from uuid import uuid4
 
@@ -20,7 +22,10 @@ from pysnap.errors import (
     VMNotFoundError,
 )
 from pysnap.runtime.sessions import SessionRegistry
+from pysnap.terminal.transport import serial_connection_probe
 from pysnap.vbox.client import VBoxManageClient
+
+SerialProbeFactory = Callable[[str, int], ContextManager[object]]
 
 
 def normalize_group_name(group: str | None) -> str:
@@ -41,6 +46,7 @@ class PySnapService:
     DEFAULT_SERIAL_TCP_PORT = 1024
     DEFAULT_START_TIMEOUT = 30.0
     DEFAULT_STOP_TIMEOUT = 60.0
+    DEFAULT_INTEGRATION_STOP_TIMEOUT = 180.0
     STOPPED_STATES = {"poweroff", "saved", "aborted"}
     PAUSED_STATES = {"paused"}
     ERROR_STATES = {"gurumeditation", "stuck"}
@@ -49,6 +55,7 @@ class PySnapService:
         self,
         client: VBoxManageClient | None = None,
         session_registry: SessionRegistry | None = None,
+        serial_probe_factory: SerialProbeFactory | None = None,
     ) -> None:
         """Initialize the service.
 
@@ -56,6 +63,7 @@ class PySnapService:
         """
         self.client = client or VBoxManageClient()
         self.session_registry = session_registry or SessionRegistry()
+        self.serial_probe_factory = serial_probe_factory or serial_connection_probe
 
     def import_image(self, image_path: str) -> list[VMInfo]:
         """Import an OVA or OVF image into VirtualBox.
@@ -120,7 +128,8 @@ class PySnapService:
 
         The scenario imports one appliance VM, creates three linked clones
         connected in a triangle of internal networks, captures machine details,
-        and removes all created VMs one by one.
+        validates runtime monitoring by attaching to one clone and starting a
+        second clone headlessly, and removes all created VMs one by one.
 
         :param image_path: Path to the appliance used for the test.
         :param name_token: Optional deterministic suffix for generated VM names.
@@ -156,6 +165,7 @@ class PySnapService:
 
         created_vm_names: list[str] = []
         machines: list[VMInfo] = []
+        monitor_records: list[VMMonitorRecord] = []
         deleted_vm_names: list[str] = []
 
         try:
@@ -192,6 +202,14 @@ class PySnapService:
             created_vm_names.append(clone_names[2])
 
             machines = [self.show_vm(vm_name) for vm_name in created_vm_names]
+            monitor_records = self._run_integration_runtime_checks(
+                connected_vm_name=clone_names[0],
+                active_vm_name=clone_names[1],
+            )
+            self._stop_integration_runtime_vms(
+                (clone_names[0], clone_names[1]),
+                timeout=self.DEFAULT_INTEGRATION_STOP_TIMEOUT,
+            )
 
             for vm_name in clone_names:
                 self.erase_vm(vm_name)
@@ -202,6 +220,7 @@ class PySnapService:
             return IntegrationTestResult(
                 machines=tuple(machines),
                 deleted_vm_names=tuple(deleted_vm_names),
+                monitor_records=tuple(monitor_records),
             )
         except Exception as error:
             cleanup_errors = self._cleanup_integration_vms(created_vm_names, deleted_vm_names)
@@ -451,11 +470,21 @@ class PySnapService:
         if not pending:
             return []
 
+        cleanup_errors: list[str] = []
+        try:
+            self._stop_integration_runtime_vms(
+                tuple(pending),
+                timeout=self.DEFAULT_INTEGRATION_STOP_TIMEOUT,
+            )
+        except PySnapError as error:
+            cleanup_errors.append(str(error))
+
         try:
             self._delete_with_retries(pending)
-            return []
+            return cleanup_errors
         except PySnapError as error:
-            return [str(error)]
+            cleanup_errors.append(str(error))
+            return cleanup_errors
 
     def erase_vm(self, vm_name: str) -> None:
         """Erase one VM when no dependent clones exist.
@@ -536,6 +565,75 @@ class PySnapService:
             f'Timed out while waiting for "{vm_name}" to {action_description} '
             f"(expected states: {states})."
         )
+
+    def _run_integration_runtime_checks(
+        self,
+        connected_vm_name: str,
+        active_vm_name: str,
+    ) -> list[VMMonitorRecord]:
+        """Run runtime checks for the integration scenario.
+
+        :param connected_vm_name: VM attached through a serial terminal probe.
+        :param active_vm_name: VM started without an attached session.
+        :returns: Monitor records captured during the runtime check.
+        :raises PySnapError: If the monitor output does not match expectations.
+        """
+        with self._integration_terminal_attachment(connected_vm_name):
+            self.prepare_vm_connection(active_vm_name)
+            monitor_records = self.list_monitored_vms()
+
+        monitor_states = {
+            record.name: record.display_state for record in monitor_records
+        }
+        expected_states = {
+            connected_vm_name: "Working",
+            active_vm_name: "Active",
+        }
+        for vm_name, expected_state in expected_states.items():
+            observed_state = monitor_states.get(vm_name)
+            if observed_state != expected_state:
+                raise PySnapError(
+                    f'Integration monitor expected "{vm_name}" to be {expected_state}, '
+                    f"but observed {observed_state or 'no entry'}."
+                )
+        return monitor_records
+
+    @contextmanager
+    def _integration_terminal_attachment(self, vm_name: str) -> Iterator[VMInfo]:
+        """Attach a non-interactive serial probe for integration testing.
+
+        :param vm_name: VM attached through the terminal probe.
+        :yields: VM information for the attached VM.
+        """
+        vm_info = self.prepare_vm_connection(vm_name)
+        if vm_info.serial_port is None:
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" does not have a TCP-backed serial port.'
+            )
+
+        with self.serial_probe_factory("localhost", vm_info.serial_port):
+            with self.session_registry.register(vm_name, vm_info.serial_port):
+                yield vm_info
+
+    def _stop_integration_runtime_vms(
+        self,
+        vm_names: tuple[str, ...],
+        timeout: float | None = None,
+    ) -> None:
+        """Best-effort stop for VMs started during the integration scenario.
+
+        :param vm_names: VM names to stop if they are currently running.
+        :param timeout: Optional per-VM graceful stop timeout.
+        """
+        for vm_name in vm_names:
+            if not self._vm_exists(vm_name):
+                continue
+            try:
+                display_state = self.get_monitor_state_label(vm_name)
+            except PySnapError:
+                continue
+            if display_state in {"Working", "Active"}:
+                self.stop_runtime_vm(vm_name, timeout=timeout)
 
     def _require_vm(self, vm_name: str) -> VMInfo:
         """Return a VM or raise an error if it does not exist.

@@ -20,6 +20,8 @@ terminal, and removing virtual machines with dependency checks.
 - Discover `VBoxManage` automatically on macOS through the standard
   `/Applications/VirtualBox.app/...` bundle path when needed.
 - Delete one VM, a group of VMs, or all registered VMs with dependency checks.
+- Run an end-to-end integration test that now verifies VM startup and monitor
+  state transitions in addition to creation and cleanup.
 
 ## Command Summary
 

@@ -59,6 +59,7 @@ class IntegrationTestResult:
 
     machines: tuple[VMInfo, ...]
     deleted_vm_names: tuple[str, ...]
+    monitor_records: tuple[VMMonitorRecord, ...] = ()
 
 
 @dataclass(frozen=True)

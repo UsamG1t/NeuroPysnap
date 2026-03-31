@@ -67,6 +67,22 @@ class FakeService:
                 ),
             ),
             deleted_vm_names=("clone-a", "base-vm"),
+            monitor_records=(
+                VMMonitorRecord(
+                    name="clone-a",
+                    display_state="Working",
+                    serial_port=1025,
+                    group="/Lab",
+                    raw_state="running",
+                ),
+                VMMonitorRecord(
+                    name="clone-b",
+                    display_state="Active",
+                    serial_port=1026,
+                    group="/Lab",
+                    raw_state="running",
+                ),
+            ),
         )
 
     def erase_vm(self, vm_name: str) -> None:
@@ -199,6 +215,8 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Integration test completed successfully.", stdout.getvalue())
+        self.assertIn("Monitor:", stdout.getvalue())
+        self.assertIn("clone-a (state: Working ; 1025 ; /Lab)", stdout.getvalue())
         self.assertIn("Deletion order:", stdout.getvalue())
         self.assertEqual("", stderr.getvalue())
 
