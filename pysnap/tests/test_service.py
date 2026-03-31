@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import tempfile
 import unittest
 from contextlib import contextmanager
@@ -494,6 +495,197 @@ class ServiceTests(unittest.TestCase):
         service.stop_runtime_vm("srv", timeout=2.0)
 
         self.assertIn(("stop_vm_acpi", "srv"), client.calls)
+
+    def test_stop_all_runtime_vms_issues_acpi_requests_in_parallel(self) -> None:
+        """Send ACPI shutdown requests for all running VMs before waiting."""
+
+        class ParallelStopClient(FakeClient):
+            """Require parallel ACPI stop requests for the first stop wave."""
+
+            def __init__(self) -> None:
+                """Initialize synchronization helpers for stop requests."""
+                super().__init__()
+                self.stop_started: set[str] = set()
+                self.stop_lock = threading.Lock()
+                self.all_stops_started = threading.Event()
+
+            def stop_vm_acpi(self, vm_name: str) -> None:
+                """Require both stop requests to be issued concurrently."""
+                super().stop_vm_acpi(vm_name)
+                with self.stop_lock:
+                    self.stop_started.add(vm_name)
+                    if len(self.stop_started) == 2:
+                        self.all_stops_started.set()
+                if not self.all_stops_started.wait(0.5):
+                    raise AssertionError("ACPI stop requests were not issued in parallel.")
+
+        client = ParallelStopClient()
+        client.references["base-vm"] = VMReference("base-vm", "uuid-base")
+        client.references["clone-vm"] = VMReference("clone-vm", "uuid-clone")
+        client.infos["base-vm"] = VMInfo(
+            name="base-vm",
+            uuid="uuid-base",
+            groups=("/Lab",),
+            serial_port=2201,
+            vm_state="running",
+        )
+        client.infos["clone-vm"] = VMInfo(
+            name="clone-vm",
+            uuid="uuid-clone",
+            groups=("/Lab",),
+            serial_port=2202,
+            vm_state="running",
+        )
+
+        service = PySnapService(client=client, session_registry=FakeSessionRegistry())
+        stopped = service.stop_all_runtime_vms(timeout=2.0)
+
+        self.assertEqual(stopped, ["base-vm", "clone-vm"])
+        self.assertEqual(client.stop_started, {"base-vm", "clone-vm"})
+
+    def test_erase_all_deletes_independent_leaves_in_parallel_waves(self) -> None:
+        """Delete independent descendants together before touching parents."""
+
+        class ParallelDeleteClient(FakeClient):
+            """Require first-wave deletions to start in parallel."""
+
+            def __init__(self) -> None:
+                """Initialize synchronization helpers for delete requests."""
+                super().__init__()
+                self.first_wave = {"clone-a", "clone-b"}
+                self.first_wave_started: set[str] = set()
+                self.first_wave_lock = threading.Lock()
+                self.all_first_wave_started = threading.Event()
+
+            def delete_vm(self, vm_name: str) -> None:
+                """Require the initial leaf deletions to run together."""
+                if vm_name in self.first_wave:
+                    with self.first_wave_lock:
+                        self.first_wave_started.add(vm_name)
+                        if self.first_wave_started == self.first_wave:
+                            self.all_first_wave_started.set()
+                    if not self.all_first_wave_started.wait(0.5):
+                        raise AssertionError(
+                            "Independent leaf deletions were not started in parallel."
+                        )
+                super().delete_vm(vm_name)
+
+        client = ParallelDeleteClient()
+        client.references["base-a"] = VMReference("base-a", "uuid-base-a")
+        client.references["clone-a"] = VMReference("clone-a", "uuid-clone-a")
+        client.references["base-b"] = VMReference("base-b", "uuid-base-b")
+        client.references["clone-b"] = VMReference("clone-b", "uuid-clone-b")
+        client.infos["base-a"] = VMInfo(
+            name="base-a",
+            uuid="uuid-base-a",
+            groups=("/Lab",),
+            managed=True,
+        )
+        client.infos["clone-a"] = VMInfo(
+            name="clone-a",
+            uuid="uuid-clone-a",
+            groups=("/Lab",),
+            parent_name="base-a",
+            managed=True,
+        )
+        client.infos["base-b"] = VMInfo(
+            name="base-b",
+            uuid="uuid-base-b",
+            groups=("/Lab",),
+            managed=True,
+        )
+        client.infos["clone-b"] = VMInfo(
+            name="clone-b",
+            uuid="uuid-clone-b",
+            groups=("/Lab",),
+            parent_name="base-b",
+            managed=True,
+        )
+
+        service = PySnapService(client=client)
+        deleted = service.erase_all()
+
+        self.assertEqual(deleted, ["base-a", "base-b", "clone-a", "clone-b"])
+        delete_names = [call[1] for call in client.calls if call[0] == "delete_vm"]
+        first_parent_index = min(delete_names.index("base-a"), delete_names.index("base-b"))
+        last_clone_index = max(delete_names.index("clone-a"), delete_names.index("clone-b"))
+        self.assertLess(last_clone_index, first_parent_index)
+
+    def test_erase_group_deletes_independent_leaves_in_parallel_waves(self) -> None:
+        """Delete the selected group in parallel waves while preserving cascade order."""
+
+        class ParallelDeleteClient(FakeClient):
+            """Require first-wave group deletions to start in parallel."""
+
+            def __init__(self) -> None:
+                """Initialize synchronization helpers for group delete requests."""
+                super().__init__()
+                self.first_wave = {"clone-a", "clone-b"}
+                self.first_wave_started: set[str] = set()
+                self.first_wave_lock = threading.Lock()
+                self.all_first_wave_started = threading.Event()
+
+            def delete_vm(self, vm_name: str) -> None:
+                """Require the selected leaf deletions to run together."""
+                if vm_name in self.first_wave:
+                    with self.first_wave_lock:
+                        self.first_wave_started.add(vm_name)
+                        if self.first_wave_started == self.first_wave:
+                            self.all_first_wave_started.set()
+                    if not self.all_first_wave_started.wait(0.5):
+                        raise AssertionError(
+                            "Independent group deletions were not started in parallel."
+                        )
+                super().delete_vm(vm_name)
+
+        client = ParallelDeleteClient()
+        client.references["base-a"] = VMReference("base-a", "uuid-base-a")
+        client.references["clone-a"] = VMReference("clone-a", "uuid-clone-a")
+        client.references["base-b"] = VMReference("base-b", "uuid-base-b")
+        client.references["clone-b"] = VMReference("clone-b", "uuid-clone-b")
+        client.references["other-vm"] = VMReference("other-vm", "uuid-other")
+        client.infos["base-a"] = VMInfo(
+            name="base-a",
+            uuid="uuid-base-a",
+            groups=("/Lab",),
+            managed=True,
+        )
+        client.infos["clone-a"] = VMInfo(
+            name="clone-a",
+            uuid="uuid-clone-a",
+            groups=("/Lab",),
+            parent_name="base-a",
+            managed=True,
+        )
+        client.infos["base-b"] = VMInfo(
+            name="base-b",
+            uuid="uuid-base-b",
+            groups=("/Lab",),
+            managed=True,
+        )
+        client.infos["clone-b"] = VMInfo(
+            name="clone-b",
+            uuid="uuid-clone-b",
+            groups=("/Lab",),
+            parent_name="base-b",
+            managed=True,
+        )
+        client.infos["other-vm"] = VMInfo(
+            name="other-vm",
+            uuid="uuid-other",
+            groups=("/Other",),
+            managed=True,
+        )
+
+        service = PySnapService(client=client)
+        deleted = service.erase_group("/Lab")
+
+        self.assertEqual(deleted, ["base-a", "base-b", "clone-a", "clone-b"])
+        self.assertIn("other-vm", client.references)
+        delete_names = [call[1] for call in client.calls if call[0] == "delete_vm"]
+        first_parent_index = min(delete_names.index("base-a"), delete_names.index("base-b"))
+        last_clone_index = max(delete_names.index("clone-a"), delete_names.index("clone-b"))
+        self.assertLess(last_clone_index, first_parent_index)
 
 
 if __name__ == "__main__":

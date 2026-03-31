@@ -35,10 +35,11 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span><span class="p">,</span> <span class="n">as_completed</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">contextmanager</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">ContextManager</span><span class="p">,</span> <span class="n">Iterator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">time</span><span class="w"> </span><span class="kn">import</span> <span class="n">monotonic</span><span class="p">,</span> <span class="n">sleep</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">ContextManager</span><span class="p">,</span> <span class="n">Iterator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">uuid</span><span class="w"> </span><span class="kn">import</span> <span class="n">uuid4</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -437,13 +438,12 @@
 <span class="sd">        :param timeout: Optional per-VM timeout in seconds.</span>
 <span class="sd">        :returns: Names of VMs that received a stop request and stopped.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">stopped</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_monitored_vms</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">display_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Working&quot;</span><span class="p">,</span> <span class="s2">&quot;Active&quot;</span><span class="p">}:</span>
-                <span class="k">continue</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">stop_runtime_vm</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
-            <span class="n">stopped</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">stopped</span></div>
+        <span class="n">stoppable_names</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">name</span>
+            <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_monitored_vms</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">display_state</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Working&quot;</span><span class="p">,</span> <span class="s2">&quot;Active&quot;</span><span class="p">}</span>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_runtime_vm_names</span><span class="p">(</span><span class="n">stoppable_names</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PySnapService.show_vm">
@@ -712,6 +712,7 @@
 <span class="sd">        :param vm_names: VM names to stop if they are currently running.</span>
 <span class="sd">        :param timeout: Optional per-VM graceful stop timeout.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">stoppable_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">vm_name</span> <span class="ow">in</span> <span class="n">vm_names</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vm_exists</span><span class="p">(</span><span class="n">vm_name</span><span class="p">):</span>
                 <span class="k">continue</span>
@@ -720,7 +721,9 @@
             <span class="k">except</span> <span class="n">PySnapError</span><span class="p">:</span>
                 <span class="k">continue</span>
             <span class="k">if</span> <span class="n">display_state</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Working&quot;</span><span class="p">,</span> <span class="s2">&quot;Active&quot;</span><span class="p">}:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">stop_runtime_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+                <span class="n">stoppable_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_runtime_vm_names</span><span class="p">(</span><span class="n">stoppable_names</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_require_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMInfo</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a VM or raise an error if it does not exist.</span>
@@ -795,7 +798,7 @@
         <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">blocked</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_delete_with_retries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Delete several VMs, retrying when parent dependencies block removal.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Delete several VMs in parallel waves that respect dependencies.</span>
 
 <span class="sd">        :param vm_names: Names of the VMs to delete.</span>
 <span class="sd">        :raises PySnapError: If the requested set cannot be fully removed.</span>
@@ -805,41 +808,123 @@
             <span class="k">return</span>
 
         <span class="n">infos</span> <span class="o">=</span> <span class="p">{</span><span class="n">info</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">info</span> <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_vm_infos</span><span class="p">()}</span>
-        <span class="n">failures</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-
         <span class="k">while</span> <span class="n">remaining</span><span class="p">:</span>
-            <span class="n">progress</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="n">remaining</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">name</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_deletion_depth</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">infos</span><span class="p">),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">next_remaining</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">ready</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_deletion_wave</span><span class="p">(</span><span class="n">remaining</span><span class="p">,</span> <span class="n">infos</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">ready</span><span class="p">:</span>
+                <span class="n">unresolved</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">remaining</span><span class="p">))</span>
+                <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                    <span class="s2">&quot;Unable to erase all requested VMs. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;No deletable dependency wave found for: </span><span class="si">{</span><span class="n">unresolved</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
 
-            <span class="k">for</span> <span class="n">vm_name</span> <span class="ow">in</span> <span class="n">remaining</span><span class="p">:</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">delete_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
-                    <span class="n">progress</span> <span class="o">=</span> <span class="kc">True</span>
-                    <span class="n">failures</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-                <span class="k">except</span> <span class="n">CommandExecutionError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-                    <span class="n">next_remaining</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
-                    <span class="n">failures</span><span class="p">[</span><span class="n">vm_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
-
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">progress</span><span class="p">:</span>
+            <span class="n">failures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_parallel_vm_actions</span><span class="p">(</span><span class="n">ready</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">delete_vm</span><span class="p">)</span>
+            <span class="n">deleted_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">vm_name</span> <span class="k">for</span> <span class="n">vm_name</span> <span class="ow">in</span> <span class="n">ready</span> <span class="k">if</span> <span class="n">vm_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">failures</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">deleted_names</span><span class="p">:</span>
                 <span class="n">details</span> <span class="o">=</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">message</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">failures</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
                 <span class="p">)</span>
                 <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unable to erase all requested VMs. </span><span class="si">{</span><span class="n">details</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-            <span class="n">remaining</span> <span class="o">=</span> <span class="n">next_remaining</span>
+            <span class="n">remaining</span> <span class="o">=</span> <span class="p">[</span><span class="n">vm_name</span> <span class="k">for</span> <span class="n">vm_name</span> <span class="ow">in</span> <span class="n">remaining</span> <span class="k">if</span> <span class="n">vm_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">deleted_names</span><span class="p">]</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_deletion_depth</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">infos</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">VMInfo</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate the parent-chain depth used for deletion ordering.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_stop_runtime_vm_names</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">vm_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stop several running VMs in parallel.</span>
 
-<span class="sd">        :param vm_name: VM name to evaluate.</span>
-<span class="sd">        :param infos: Mapping of VM names to information objects.</span>
-<span class="sd">        :returns: Parent-chain depth.</span>
+<span class="sd">        :param vm_names: Names of VMs to stop.</span>
+<span class="sd">        :param timeout: Optional per-VM timeout in seconds.</span>
+<span class="sd">        :returns: VM names that were successfully stopped.</span>
+<span class="sd">        :raises PySnapError: If one or more VMs cannot be stopped.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">info</span> <span class="o">=</span> <span class="n">infos</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">info</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">info</span><span class="o">.</span><span class="n">parent_name</span><span class="p">:</span>
-            <span class="k">return</span> <span class="mi">0</span>
-        <span class="k">return</span> <span class="mi">1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_deletion_depth</span><span class="p">(</span><span class="n">info</span><span class="o">.</span><span class="n">parent_name</span><span class="p">,</span> <span class="n">infos</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">vm_names</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="n">effective_timeout</span> <span class="o">=</span> <span class="n">timeout</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_STOP_TIMEOUT</span>
+        <span class="n">request_failures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_parallel_vm_actions</span><span class="p">(</span><span class="n">vm_names</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">stop_vm_acpi</span><span class="p">)</span>
+        <span class="n">requested_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">vm_name</span> <span class="k">for</span> <span class="n">vm_name</span> <span class="ow">in</span> <span class="n">vm_names</span> <span class="k">if</span> <span class="n">vm_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">request_failures</span><span class="p">]</span>
+        <span class="n">wait_failures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_parallel_vm_actions</span><span class="p">(</span>
+            <span class="n">requested_names</span><span class="p">,</span>
+            <span class="k">lambda</span> <span class="n">vm_name</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait_for_vm_state</span><span class="p">(</span>
+                <span class="n">vm_name</span><span class="o">=</span><span class="n">vm_name</span><span class="p">,</span>
+                <span class="n">acceptable_states</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">STOPPED_STATES</span><span class="p">,</span>
+                <span class="n">timeout</span><span class="o">=</span><span class="n">effective_timeout</span><span class="p">,</span>
+                <span class="n">action_description</span><span class="o">=</span><span class="s2">&quot;stop gracefully&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">request_failures</span> <span class="ow">or</span> <span class="n">wait_failures</span><span class="p">:</span>
+            <span class="n">details</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">if</span> <span class="n">request_failures</span><span class="p">:</span>
+                <span class="n">details</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="s2">&quot;ACPI request failures: &quot;</span>
+                    <span class="o">+</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s1">&#39;</span>
+                        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">message</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">request_failures</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">wait_failures</span><span class="p">:</span>
+                <span class="n">details</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="s2">&quot;shutdown wait failures: &quot;</span>
+                    <span class="o">+</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s1">&#39;</span>
+                        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">message</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">wait_failures</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">&quot;Unable to stop all requested VMs. &quot;</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">details</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">requested_names</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_deletion_wave</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">remaining</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">infos</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">VMInfo</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the next set of VMs that can be deleted together.</span>
+
+<span class="sd">        A VM is ready when none of the remaining VMs still depends on it.</span>
+
+<span class="sd">        :param remaining: Remaining VM names to delete.</span>
+<span class="sd">        :param infos: Mapping of VM names to detailed information.</span>
+<span class="sd">        :returns: VM names that can be deleted in parallel.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">remaining_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">remaining</span><span class="p">)</span>
+        <span class="n">blocked_parents</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">info</span><span class="o">.</span><span class="n">parent_name</span>
+            <span class="k">for</span> <span class="n">vm_name</span> <span class="ow">in</span> <span class="n">remaining</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">info</span> <span class="o">:=</span> <span class="n">infos</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">vm_name</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">info</span><span class="o">.</span><span class="n">parent_name</span> <span class="ow">in</span> <span class="n">remaining_set</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">vm_name</span> <span class="k">for</span> <span class="n">vm_name</span> <span class="ow">in</span> <span class="n">remaining</span> <span class="k">if</span> <span class="n">vm_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">blocked_parents</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run_parallel_vm_actions</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">vm_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">action</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Execute one action for multiple VMs in parallel.</span>
+
+<span class="sd">        :param vm_names: VM names passed to the action.</span>
+<span class="sd">        :param action: Action executed once per VM name.</span>
+<span class="sd">        :returns: Mapping of failed VM names to error messages.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">vm_names</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{}</span>
+
+        <span class="n">failures</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">vm_names</span><span class="p">)))</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+            <span class="n">future_to_name</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">action</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">):</span> <span class="n">vm_name</span> <span class="k">for</span> <span class="n">vm_name</span> <span class="ow">in</span> <span class="n">vm_names</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">as_completed</span><span class="p">(</span><span class="n">future_to_name</span><span class="p">):</span>
+                <span class="n">vm_name</span> <span class="o">=</span> <span class="n">future_to_name</span><span class="p">[</span><span class="n">future</span><span class="p">]</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+                <span class="k">except</span> <span class="p">(</span><span class="n">CommandExecutionError</span><span class="p">,</span> <span class="n">PySnapError</span><span class="p">)</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+                    <span class="n">failures</span><span class="p">[</span><span class="n">vm_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">failures</span></div>
 
 </pre></div>
 

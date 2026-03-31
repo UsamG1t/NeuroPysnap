@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, ContextManager, Iterator
 from time import monotonic, sleep
+from typing import Callable, ContextManager, Iterator
 from uuid import uuid4
 
 from pysnap.core.models import (
@@ -376,13 +377,12 @@ class PySnapService:
         :param timeout: Optional per-VM timeout in seconds.
         :returns: Names of VMs that received a stop request and stopped.
         """
-        stopped: list[str] = []
-        for record in self.list_monitored_vms():
-            if record.display_state not in {"Working", "Active"}:
-                continue
-            self.stop_runtime_vm(record.name, timeout=timeout)
-            stopped.append(record.name)
-        return stopped
+        stoppable_names = [
+            record.name
+            for record in self.list_monitored_vms()
+            if record.display_state in {"Working", "Active"}
+        ]
+        return self._stop_runtime_vm_names(stoppable_names, timeout=timeout)
 
     def show_vm(self, vm_name: str) -> VMInfo:
         """Return details for a single VM.
@@ -635,6 +635,7 @@ class PySnapService:
         :param vm_names: VM names to stop if they are currently running.
         :param timeout: Optional per-VM graceful stop timeout.
         """
+        stoppable_names: list[str] = []
         for vm_name in vm_names:
             if not self._vm_exists(vm_name):
                 continue
@@ -643,7 +644,9 @@ class PySnapService:
             except PySnapError:
                 continue
             if display_state in {"Working", "Active"}:
-                self.stop_runtime_vm(vm_name, timeout=timeout)
+                stoppable_names.append(vm_name)
+
+        self._stop_runtime_vm_names(stoppable_names, timeout=timeout)
 
     def _require_vm(self, vm_name: str) -> VMInfo:
         """Return a VM or raise an error if it does not exist.
@@ -718,7 +721,7 @@ class PySnapService:
         return sorted(blocked)
 
     def _delete_with_retries(self, vm_names: list[str]) -> None:
-        """Delete several VMs, retrying when parent dependencies block removal.
+        """Delete several VMs in parallel waves that respect dependencies.
 
         :param vm_names: Names of the VMs to delete.
         :raises PySnapError: If the requested set cannot be fully removed.
@@ -728,38 +731,120 @@ class PySnapService:
             return
 
         infos = {info.name: info for info in self._collect_vm_infos()}
-        failures: dict[str, str] = {}
-
         while remaining:
-            progress = False
-            remaining.sort(key=lambda name: self._deletion_depth(name, infos), reverse=True)
-            next_remaining: list[str] = []
+            ready = self._deletion_wave(remaining, infos)
+            if not ready:
+                unresolved = ", ".join(sorted(remaining))
+                raise PySnapError(
+                    "Unable to erase all requested VMs. "
+                    f"No deletable dependency wave found for: {unresolved}."
+                )
 
-            for vm_name in remaining:
-                try:
-                    self.client.delete_vm(vm_name)
-                    progress = True
-                    failures.pop(vm_name, None)
-                except CommandExecutionError as error:
-                    next_remaining.append(vm_name)
-                    failures[vm_name] = str(error)
-
-            if not progress:
+            failures = self._run_parallel_vm_actions(ready, self.client.delete_vm)
+            deleted_names = [vm_name for vm_name in ready if vm_name not in failures]
+            if not deleted_names:
                 details = "; ".join(
                     f'{name}: {message}' for name, message in sorted(failures.items())
                 )
                 raise PySnapError(f"Unable to erase all requested VMs. {details}")
 
-            remaining = next_remaining
+            remaining = [vm_name for vm_name in remaining if vm_name not in deleted_names]
 
-    def _deletion_depth(self, vm_name: str, infos: dict[str, VMInfo]) -> int:
-        """Calculate the parent-chain depth used for deletion ordering.
+    def _stop_runtime_vm_names(
+        self,
+        vm_names: list[str],
+        timeout: float | None = None,
+    ) -> list[str]:
+        """Stop several running VMs in parallel.
 
-        :param vm_name: VM name to evaluate.
-        :param infos: Mapping of VM names to information objects.
-        :returns: Parent-chain depth.
+        :param vm_names: Names of VMs to stop.
+        :param timeout: Optional per-VM timeout in seconds.
+        :returns: VM names that were successfully stopped.
+        :raises PySnapError: If one or more VMs cannot be stopped.
         """
-        info = infos.get(vm_name)
-        if info is None or not info.parent_name:
-            return 0
-        return 1 + self._deletion_depth(info.parent_name, infos)
+        if not vm_names:
+            return []
+
+        effective_timeout = timeout or self.DEFAULT_STOP_TIMEOUT
+        request_failures = self._run_parallel_vm_actions(vm_names, self.client.stop_vm_acpi)
+        requested_names = [vm_name for vm_name in vm_names if vm_name not in request_failures]
+        wait_failures = self._run_parallel_vm_actions(
+            requested_names,
+            lambda vm_name: self._wait_for_vm_state(
+                vm_name=vm_name,
+                acceptable_states=self.STOPPED_STATES,
+                timeout=effective_timeout,
+                action_description="stop gracefully",
+            ),
+        )
+
+        if request_failures or wait_failures:
+            details: list[str] = []
+            if request_failures:
+                details.append(
+                    "ACPI request failures: "
+                    + "; ".join(
+                        f'{name}: {message}'
+                        for name, message in sorted(request_failures.items())
+                    )
+                )
+            if wait_failures:
+                details.append(
+                    "shutdown wait failures: "
+                    + "; ".join(
+                        f'{name}: {message}'
+                        for name, message in sorted(wait_failures.items())
+                    )
+                )
+            raise PySnapError("Unable to stop all requested VMs. " + " ".join(details))
+
+        return requested_names
+
+    def _deletion_wave(
+        self,
+        remaining: list[str],
+        infos: dict[str, VMInfo],
+    ) -> list[str]:
+        """Return the next set of VMs that can be deleted together.
+
+        A VM is ready when none of the remaining VMs still depends on it.
+
+        :param remaining: Remaining VM names to delete.
+        :param infos: Mapping of VM names to detailed information.
+        :returns: VM names that can be deleted in parallel.
+        """
+        remaining_set = set(remaining)
+        blocked_parents = {
+            info.parent_name
+            for vm_name in remaining
+            if (info := infos.get(vm_name)) is not None
+            and info.parent_name in remaining_set
+        }
+        return [vm_name for vm_name in remaining if vm_name not in blocked_parents]
+
+    def _run_parallel_vm_actions(
+        self,
+        vm_names: list[str],
+        action: Callable[[str], object],
+    ) -> dict[str, str]:
+        """Execute one action for multiple VMs in parallel.
+
+        :param vm_names: VM names passed to the action.
+        :param action: Action executed once per VM name.
+        :returns: Mapping of failed VM names to error messages.
+        """
+        if not vm_names:
+            return {}
+
+        failures: dict[str, str] = {}
+        with ThreadPoolExecutor(max_workers=min(32, len(vm_names))) as executor:
+            future_to_name = {
+                executor.submit(action, vm_name): vm_name for vm_name in vm_names
+            }
+            for future in as_completed(future_to_name):
+                vm_name = future_to_name[future]
+                try:
+                    future.result()
+                except (CommandExecutionError, PySnapError) as error:
+                    failures[vm_name] = str(error)
+        return failures
