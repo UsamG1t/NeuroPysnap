@@ -213,6 +213,8 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Expose the subset of VirtualBox operations required by PySnap.&quot;&quot;&quot;</span>
 
     <span class="n">IMPORT_PROGRESS_PATTERN</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;(?P&lt;percent&gt;\d{1,3})%&quot;</span><span class="p">)</span>
+    <span class="n">DMI_SYSTEM_VENDOR_KEY</span> <span class="o">=</span> <span class="s2">&quot;VBoxInternal/Devices/pcbios/0/Config/DmiSystemVendor&quot;</span>
+    <span class="n">DMI_SYSTEM_SKU_KEY</span> <span class="o">=</span> <span class="s2">&quot;VBoxInternal/Devices/pcbios/0/Config/DmiSystemSKU&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">runner</span><span class="p">:</span> <span class="n">RunnerProtocol</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the VirtualBox client.</span>
@@ -467,6 +469,26 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">metadata</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">&quot;setextradata&quot;</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="VBoxManageClient.configure_dmi_system_information">
+<a class="viewcode-back" href="../../../api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.configure_dmi_system_information">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">configure_dmi_system_information</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">system_vendor</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">system_sku</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Persist DMI system information for one VM.</span>
+
+<span class="sd">        :param vm_name: VM name.</span>
+<span class="sd">        :param system_vendor: DMI system vendor value.</span>
+<span class="sd">        :param system_sku: DMI system SKU value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="p">[</span><span class="s2">&quot;setextradata&quot;</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">DMI_SYSTEM_VENDOR_KEY</span><span class="p">,</span> <span class="n">system_vendor</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">&quot;setextradata&quot;</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">DMI_SYSTEM_SKU_KEY</span><span class="p">,</span> <span class="n">system_sku</span><span class="p">])</span></div>
 
 
 <div class="viewcode-block" id="VBoxManageClient.get_metadata">

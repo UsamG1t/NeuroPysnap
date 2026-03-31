@@ -46,6 +46,31 @@ The integration scenario:
 - prints details for the base VM and all three clones
 - removes the four VMs one by one
 
+Register Proto Settings for a Base VM
+-------------------------------------
+
+The ``protosettings`` command registers one base VM in the persistent
+proto-settings list stored at ``Path.home() / ".ptotosettings"``. The file
+contains one VM name per line and is used as a set without duplicates.
+
+This option exists for the image conventions used in the educational program of
+CMC MSU. When a base VM is present in the proto-settings list, every linked
+clone created from it receives additional DMI values:
+
+- ``DmiSystemVendor = <CloneVM>``
+- ``DmiSystemSKU = port<Port>[.<net1-name>[.<net2-name>[.<net3-name>]]]``
+
+This behavior is relevant for the following CMC MSU courses:
+
+- `LinuxNetwork <https://uneex.org/LecturesCMC/LinuxNetwork2026>`_
+- `Nets: Introduction <https://asvk.cs.msu.ru/uchebnyj-process/chitaemye-kursy/vvedenie-v-seti-evm/>`_
+- `Methodics of Linux Net Protocols <https://github.com/UsamG1t/Methodics_LinuxNetProtocols>`_
+- `Labs of Linux Net Protocols <https://github.com/UsamG1t/Nets_ASVK_Labs>`_
+
+.. code-block:: text
+
+   pysnap protosettings BaseVM
+
 Import an Appliance
 -------------------
 
@@ -141,6 +166,9 @@ configured yet, the automatic sequence starts at ``1024``.
 Up to three extra positional arguments configure internal networks for
 ``nic1`` through ``nic3`` with the ``intnet`` attachment type.
 
+If the base VM was previously registered through ``pysnap protosettings``,
+PySnap also applies educational DMI settings to the clone.
+
 .. code-block:: text
 
    pysnap clone BaseVM CloneVM -p 2345 intnet1 intnet2 intnet3
@@ -158,6 +186,9 @@ PySnap supports three erase modes:
 The single-VM erase mode refuses deletion when dependent clones still exist.
 The group erase mode refuses deletion when descendants outside the target group
 still depend on the selected VMs.
+
+When a VM is removed successfully, PySnap also removes its name from the
+proto-settings file if it was registered there.
 
 .. code-block:: text
 

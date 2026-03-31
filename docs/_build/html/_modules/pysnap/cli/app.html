@@ -145,6 +145,7 @@
             <span class="s2">&quot;  pysnap list</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="s2">&quot;  pysnap import IMAGE.ova|IMAGE.ovf</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="s2">&quot;  pysnap --integration-test IMAGE.ova|IMAGE.ovf</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="s2">&quot;  pysnap protosettings BASE_VM</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="s2">&quot;  pysnap show VM</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="s2">&quot;  pysnap connect VM</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="s2">&quot;  pysnap monitor</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -198,6 +199,8 @@
             <span class="k">return</span> <span class="mi">0</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;import&quot;</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_run_import</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;protosettings&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_run_protosettings</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;show&quot;</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_run_show</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;connect&quot;</span><span class="p">:</span>
@@ -251,6 +254,33 @@
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;vm&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Virtual machine name.&quot;</span><span class="p">)</span>
     <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">format_vm_info</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">show_vm</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">)),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_protosettings</span><span class="p">(</span>
+    <span class="n">arguments</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">service</span><span class="p">:</span> <span class="n">PySnapService</span><span class="p">,</span>
+    <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+    <span class="n">stderr</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run the ``protosettings`` subcommand.</span>
+
+<span class="sd">    :param arguments: Subcommand arguments.</span>
+<span class="sd">    :param service: Application service.</span>
+<span class="sd">    :param stdout: Output stream.</span>
+<span class="sd">    :param stderr: Error stream.</span>
+<span class="sd">    :returns: Process exit code.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s2">&quot;pysnap protosettings&quot;</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;vm&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Base virtual machine name.&quot;</span><span class="p">)</span>
+    <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
+    <span class="n">configured</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">register_proto_settings_vm</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Registered proto-settings VM: </span><span class="si">{</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="s2">&quot;Configured proto-settings VMs: &quot;</span>
+        <span class="o">+</span> <span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">configured</span><span class="p">)</span> <span class="k">if</span> <span class="n">configured</span> <span class="k">else</span> <span class="s2">&quot;none&quot;</span><span class="p">),</span>
+        <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+    <span class="p">)</span>
     <span class="k">return</span> <span class="mi">0</span>
 
 

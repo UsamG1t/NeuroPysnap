@@ -7,6 +7,7 @@ Package Layout
 --------------
 
 - ``pysnap.cli`` contains argument parsing and terminal output formatting.
+- ``pysnap.config`` contains persistent configuration helpers.
 - ``pysnap.core`` contains domain models and the main application service.
 - ``pysnap.runtime`` contains the live-session registry shared by runtime tools.
 - ``pysnap.terminal`` contains the built-in serial terminal transport, emulator,
@@ -42,6 +43,18 @@ Serial Port Strategy
 PySnap uses ``UART1`` for the serial TCP endpoint of clones. If no explicit
 port is supplied, the service automatically assigns ``max(used_ports) + 1`` or
 ``1024`` when no TCP serial port has been configured yet.
+
+Proto Settings Strategy
+-----------------------
+
+PySnap stores proto-settings base VM names in ``Path.home() / ".ptotosettings"``
+with one VM name per line. When a clone is created from a registered base VM,
+PySnap writes additional DMI settings through ``VBoxManage setextradata``:
+
+- ``DmiSystemVendor = <CloneVM>``
+- ``DmiSystemSKU = port<Port>[.<net1>[.<net2>[.<net3>]]]``
+
+This mode exists for educational VirtualBox images used in CMC MSU courses.
 
 Runtime State Strategy
 ----------------------

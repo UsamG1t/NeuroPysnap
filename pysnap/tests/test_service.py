@@ -6,7 +6,9 @@ import threading
 import tempfile
 import unittest
 from contextlib import contextmanager
+from pathlib import Path
 
+from pysnap.config.protosettings import ProtoSettingsStore
 from pysnap.core.models import ImportCandidate, VMInfo, VMMonitorRecord, VMReference
 from pysnap.core.service import PySnapService
 from pysnap.errors import VMDependencyError
@@ -157,6 +159,17 @@ class FakeClient:
         """Record network configuration."""
         self.calls.append(("configure_internal_networks", vm_name, networks))
 
+    def configure_dmi_system_information(
+        self,
+        vm_name: str,
+        system_vendor: str,
+        system_sku: str,
+    ) -> None:
+        """Record DMI system information configuration."""
+        self.calls.append(
+            ("configure_dmi_system_information", vm_name, system_vendor, system_sku)
+        )
+
     def delete_vm(self, vm_name: str) -> None:
         """Delete a fake VM."""
         self.calls.append(("delete_vm", vm_name))
@@ -202,6 +215,31 @@ class FakeClient:
 class ServiceTests(unittest.TestCase):
     """Verify PySnap service behavior."""
 
+    def setUp(self) -> None:
+        """Create an isolated proto-settings store for every test."""
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.proto_settings_store = ProtoSettingsStore(
+            path=Path(self.temp_dir.name) / ".ptotosettings"
+        )
+
+    def tearDown(self) -> None:
+        """Clean up the temporary proto-settings store."""
+        self.temp_dir.cleanup()
+
+    def make_service(
+        self,
+        client: FakeClient,
+        session_registry: FakeSessionRegistry | None = None,
+        serial_probe_factory=None,
+    ) -> PySnapService:
+        """Create a service instance with the isolated proto-settings store."""
+        return PySnapService(
+            client=client,
+            session_registry=session_registry,
+            serial_probe_factory=serial_probe_factory,
+            proto_settings_store=self.proto_settings_store,
+        )
+
     def test_clone_vm_uses_snapshot_group_and_metadata(self) -> None:
         """Create a linked clone with inherited group and extra settings."""
         client = FakeClient()
@@ -215,7 +253,7 @@ class ServiceTests(unittest.TestCase):
         )
         client.snapshot_names["base-vm"] = "existing-snapshot"
 
-        service = PySnapService(client=client)
+        service = self.make_service(client=client)
         clone_info = service.clone_vm(
             base_vm="base-vm",
             clone_vm="clone-vm",
@@ -259,7 +297,7 @@ class ServiceTests(unittest.TestCase):
         )
         client.snapshot_names["base-vm"] = "existing-snapshot"
 
-        service = PySnapService(client=client)
+        service = self.make_service(client=client)
         clone_info = service.clone_vm(base_vm="base-vm", clone_vm="clone-vm")
 
         self.assertEqual(clone_info.serial_port, 2347)
@@ -277,7 +315,7 @@ class ServiceTests(unittest.TestCase):
         )
         client.snapshot_names["base-vm"] = "existing-snapshot"
 
-        service = PySnapService(client=client)
+        service = self.make_service(client=client)
         clone_info = service.clone_vm(base_vm="base-vm", clone_vm="clone-vm")
 
         self.assertEqual(clone_info.serial_port, 1024)
@@ -302,7 +340,7 @@ class ServiceTests(unittest.TestCase):
             managed=True,
         )
 
-        service = PySnapService(client=client)
+        service = self.make_service(client=client)
         with self.assertRaises(VMDependencyError):
             service.erase_vm("base-vm")
 
@@ -325,7 +363,7 @@ class ServiceTests(unittest.TestCase):
             managed=True,
         )
 
-        service = PySnapService(client=client)
+        service = self.make_service(client=client)
         deleted = service.erase_all()
 
         self.assertEqual(deleted, ["base-vm", "clone-vm"])
@@ -347,7 +385,7 @@ class ServiceTests(unittest.TestCase):
             probe_calls.append((host, port))
             yield object()
 
-        service = PySnapService(
+        service = self.make_service(
             client=client,
             session_registry=FakeSessionRegistry(),
             serial_probe_factory=fake_serial_probe,
@@ -453,7 +491,7 @@ class ServiceTests(unittest.TestCase):
             }
         )
 
-        service = PySnapService(client=client, session_registry=registry)
+        service = self.make_service(client=client, session_registry=registry)
         records = service.list_monitored_vms()
 
         states = {record.name: record.display_state for record in records}
@@ -473,7 +511,7 @@ class ServiceTests(unittest.TestCase):
             vm_state="poweroff",
         )
 
-        service = PySnapService(client=client, session_registry=FakeSessionRegistry())
+        service = self.make_service(client=client, session_registry=FakeSessionRegistry())
         vm_info = service.prepare_vm_connection("srv", timeout=2.0)
 
         self.assertEqual(vm_info.vm_state, "running")
@@ -491,7 +529,7 @@ class ServiceTests(unittest.TestCase):
             vm_state="running",
         )
 
-        service = PySnapService(client=client, session_registry=FakeSessionRegistry())
+        service = self.make_service(client=client, session_registry=FakeSessionRegistry())
         service.stop_runtime_vm("srv", timeout=2.0)
 
         self.assertIn(("stop_vm_acpi", "srv"), client.calls)
@@ -537,7 +575,7 @@ class ServiceTests(unittest.TestCase):
             vm_state="running",
         )
 
-        service = PySnapService(client=client, session_registry=FakeSessionRegistry())
+        service = self.make_service(client=client, session_registry=FakeSessionRegistry())
         stopped = service.stop_all_runtime_vms(timeout=2.0)
 
         self.assertEqual(stopped, ["base-vm", "clone-vm"])
@@ -602,7 +640,7 @@ class ServiceTests(unittest.TestCase):
             managed=True,
         )
 
-        service = PySnapService(client=client)
+        service = self.make_service(client=client)
         deleted = service.erase_all()
 
         self.assertEqual(deleted, ["base-a", "base-b", "clone-a", "clone-b"])
@@ -677,7 +715,7 @@ class ServiceTests(unittest.TestCase):
             managed=True,
         )
 
-        service = PySnapService(client=client)
+        service = self.make_service(client=client)
         deleted = service.erase_group("/Lab")
 
         self.assertEqual(deleted, ["base-a", "base-b", "clone-a", "clone-b"])
@@ -686,6 +724,111 @@ class ServiceTests(unittest.TestCase):
         first_parent_index = min(delete_names.index("base-a"), delete_names.index("base-b"))
         last_clone_index = max(delete_names.index("clone-a"), delete_names.index("clone-b"))
         self.assertLess(last_clone_index, first_parent_index)
+
+    def test_register_proto_settings_vm_adds_base_vm_without_duplicates(self) -> None:
+        """Persist one base VM in the proto-settings file."""
+        client = FakeClient()
+        client.references["base-vm"] = VMReference("base-vm", "uuid-base")
+        client.infos["base-vm"] = VMInfo(
+            name="base-vm",
+            uuid="uuid-base",
+            groups=("/Lab",),
+            managed=True,
+        )
+
+        service = self.make_service(client=client)
+        first = service.register_proto_settings_vm("base-vm")
+        second = service.register_proto_settings_vm("base-vm")
+
+        self.assertEqual(first, ("base-vm",))
+        self.assertEqual(second, ("base-vm",))
+        self.assertEqual(self.proto_settings_store.list_vm_names(), ("base-vm",))
+
+    def test_build_proto_system_sku_formats_port_and_networks(self) -> None:
+        """Build the expected DMI system SKU for proto-settings clones."""
+        service = self.make_service(client=FakeClient())
+
+        self.assertEqual(service._build_proto_system_sku(2345, ()), "port2345")
+        self.assertEqual(
+            service._build_proto_system_sku(2345, ("intnet",)),
+            "port2345.intnet",
+        )
+        self.assertEqual(
+            service._build_proto_system_sku(2345, ("intnet", "deepnet")),
+            "port2345.intnet.deepnet",
+        )
+        self.assertEqual(
+            service._build_proto_system_sku(2345, ("intnet", "deepnet", "virtnet")),
+            "port2345.intnet.deepnet.virtnet",
+        )
+
+    def test_clone_vm_applies_proto_settings_for_registered_base(self) -> None:
+        """Apply DMI data to clones whose base VM is in proto-settings."""
+        client = FakeClient()
+        client.references["base-vm"] = VMReference("base-vm", "uuid-base")
+        client.infos["base-vm"] = VMInfo(
+            name="base-vm",
+            uuid="uuid-base",
+            groups=("/Lab",),
+            managed=True,
+        )
+        client.snapshot_names["base-vm"] = "existing-snapshot"
+        self.proto_settings_store.add_vm_name("base-vm")
+
+        service = self.make_service(client=client)
+        service.clone_vm(
+            base_vm="base-vm",
+            clone_vm="clone-vm",
+            serial_port=2345,
+            networks=("intnet", "deepnet"),
+        )
+
+        self.assertIn(
+            (
+                "configure_dmi_system_information",
+                "clone-vm",
+                "clone-vm",
+                "port2345.intnet.deepnet",
+            ),
+            client.calls,
+        )
+
+    def test_clone_vm_skips_proto_settings_for_unregistered_base(self) -> None:
+        """Skip DMI configuration when the base VM is not registered."""
+        client = FakeClient()
+        client.references["base-vm"] = VMReference("base-vm", "uuid-base")
+        client.infos["base-vm"] = VMInfo(
+            name="base-vm",
+            uuid="uuid-base",
+            groups=("/Lab",),
+            managed=True,
+        )
+        client.snapshot_names["base-vm"] = "existing-snapshot"
+
+        service = self.make_service(client=client)
+        service.clone_vm(base_vm="base-vm", clone_vm="clone-vm", serial_port=2345)
+
+        dmi_calls = [
+            call for call in client.calls if call[0] == "configure_dmi_system_information"
+        ]
+        self.assertEqual(dmi_calls, [])
+
+    def test_erase_vm_removes_name_from_proto_settings(self) -> None:
+        """Remove erased VM names from the proto-settings file."""
+        client = FakeClient()
+        client.references["base-vm"] = VMReference("base-vm", "uuid-base")
+        client.infos["base-vm"] = VMInfo(
+            name="base-vm",
+            uuid="uuid-base",
+            groups=("/Lab",),
+            managed=True,
+        )
+        self.proto_settings_store.add_vm_name("base-vm")
+
+        service = self.make_service(client=client)
+        service.erase_vm("base-vm")
+
+        self.assertEqual(self.proto_settings_store.list_vm_names(), ())
 
 
 if __name__ == "__main__":

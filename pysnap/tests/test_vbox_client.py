@@ -204,6 +204,35 @@ class VBoxManageClientTests(unittest.TestCase):
 
         self.assertEqual(progress_updates, [0, 10, 55, 100])
 
+    def test_configure_dmi_system_information_sets_vendor_and_sku(self) -> None:
+        """Write DMI vendor and SKU through VirtualBox extra data."""
+        runner = FakeRunner()
+        client = VBoxManageClient(runner=runner)
+
+        client.configure_dmi_system_information(
+            "srv",
+            system_vendor="srv",
+            system_sku="port2345.intnet.deepnet",
+        )
+
+        self.assertEqual(
+            runner.commands,
+            [
+                (
+                    "setextradata",
+                    "srv",
+                    "VBoxInternal/Devices/pcbios/0/Config/DmiSystemVendor",
+                    "srv",
+                ),
+                (
+                    "setextradata",
+                    "srv",
+                    "VBoxInternal/Devices/pcbios/0/Config/DmiSystemSKU",
+                    "port2345.intnet.deepnet",
+                ),
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -101,6 +101,7 @@ def build_root_parser(
             "  pysnap list\n"
             "  pysnap import IMAGE.ova|IMAGE.ovf\n"
             "  pysnap --integration-test IMAGE.ova|IMAGE.ovf\n"
+            "  pysnap protosettings BASE_VM\n"
             "  pysnap show VM\n"
             "  pysnap connect VM\n"
             "  pysnap monitor\n"
@@ -151,6 +152,8 @@ def run_cli(
             return 0
         if command == "import":
             return _run_import(arguments[1:], app_service, output, error_output)
+        if command == "protosettings":
+            return _run_protosettings(arguments[1:], app_service, output, error_output)
         if command == "show":
             return _run_show(arguments[1:], app_service, output, error_output)
         if command == "connect":
@@ -200,6 +203,33 @@ def _run_show(
     parser.add_argument("vm", help="Virtual machine name.")
     namespace = parser.parse_args(list(arguments))
     print(format_vm_info(service.show_vm(namespace.vm)), file=stdout)
+    return 0
+
+
+def _run_protosettings(
+    arguments: Sequence[str],
+    service: PySnapService,
+    stdout: TextIO,
+    stderr: TextIO,
+) -> int:
+    """Run the ``protosettings`` subcommand.
+
+    :param arguments: Subcommand arguments.
+    :param service: Application service.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :returns: Process exit code.
+    """
+    parser = CliArgumentParser(prog="pysnap protosettings", stdout=stdout, stderr=stderr)
+    parser.add_argument("vm", help="Base virtual machine name.")
+    namespace = parser.parse_args(list(arguments))
+    configured = service.register_proto_settings_vm(namespace.vm)
+    print(f"Registered proto-settings VM: {namespace.vm}", file=stdout)
+    print(
+        "Configured proto-settings VMs: "
+        + (", ".join(configured) if configured else "none"),
+        file=stdout,
+    )
     return 0
 
 

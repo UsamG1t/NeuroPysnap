@@ -40,6 +40,7 @@
 <h2>Package Layout<a class="headerlink" href="#package-layout" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.cli</span></code> contains argument parsing and terminal output formatting.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pysnap.config</span></code> contains persistent configuration helpers.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.core</span></code> contains domain models and the main application service.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.runtime</span></code> contains the live-session registry shared by runtime tools.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.terminal</span></code> contains the built-in serial terminal transport, emulator,
@@ -76,6 +77,17 @@ serial access is requested.</p></li>
 <p>PySnap uses <code class="docutils literal notranslate"><span class="pre">UART1</span></code> for the serial TCP endpoint of clones. If no explicit
 port is supplied, the service automatically assigns <code class="docutils literal notranslate"><span class="pre">max(used_ports)</span> <span class="pre">+</span> <span class="pre">1</span></code> or
 <code class="docutils literal notranslate"><span class="pre">1024</span></code> when no TCP serial port has been configured yet.</p>
+</section>
+<section id="proto-settings-strategy">
+<h2>Proto Settings Strategy<a class="headerlink" href="#proto-settings-strategy" title="Link to this heading">¶</a></h2>
+<p>PySnap stores proto-settings base VM names in <code class="docutils literal notranslate"><span class="pre">Path.home()</span> <span class="pre">/</span> <span class="pre">&quot;.ptotosettings&quot;</span></code>
+with one VM name per line. When a clone is created from a registered base VM,
+PySnap writes additional DMI settings through <code class="docutils literal notranslate"><span class="pre">VBoxManage</span> <span class="pre">setextradata</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DmiSystemVendor</span> <span class="pre">=</span> <span class="pre">&lt;CloneVM&gt;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DmiSystemSKU</span> <span class="pre">=</span> <span class="pre">port&lt;Port&gt;[.&lt;net1&gt;[.&lt;net2&gt;[.&lt;net3&gt;]]]</span></code></p></li>
+</ul>
+<p>This mode exists for educational VirtualBox images used in CMC MSU courses.</p>
 </section>
 <section id="runtime-state-strategy">
 <h2>Runtime State Strategy<a class="headerlink" href="#runtime-state-strategy" title="Link to this heading">¶</a></h2>
@@ -124,6 +136,7 @@ port is supplied, the service automatically assigns <code class="docutils litera
 <li class="toctree-l2"><a class="reference internal" href="#execution-flow">Execution Flow</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#metadata-strategy">Metadata Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#serial-port-strategy">Serial Port Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#proto-settings-strategy">Proto Settings Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#runtime-state-strategy">Runtime State Strategy</a></li>
 </ul>
 </li>

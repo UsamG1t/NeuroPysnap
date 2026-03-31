@@ -160,6 +160,8 @@ class VBoxManageClient:
     """Expose the subset of VirtualBox operations required by PySnap."""
 
     IMPORT_PROGRESS_PATTERN = re.compile(r"(?P<percent>\d{1,3})%")
+    DMI_SYSTEM_VENDOR_KEY = "VBoxInternal/Devices/pcbios/0/Config/DmiSystemVendor"
+    DMI_SYSTEM_SKU_KEY = "VBoxInternal/Devices/pcbios/0/Config/DmiSystemSKU"
 
     def __init__(self, runner: RunnerProtocol | None = None) -> None:
         """Initialize the VirtualBox client.
@@ -376,6 +378,23 @@ class VBoxManageClient:
         """
         for key, value in metadata.items():
             self.runner.run(["setextradata", vm_name, key, value])
+
+    def configure_dmi_system_information(
+        self,
+        vm_name: str,
+        system_vendor: str,
+        system_sku: str,
+    ) -> None:
+        """Persist DMI system information for one VM.
+
+        :param vm_name: VM name.
+        :param system_vendor: DMI system vendor value.
+        :param system_sku: DMI system SKU value.
+        """
+        self.runner.run(
+            ["setextradata", vm_name, self.DMI_SYSTEM_VENDOR_KEY, system_vendor]
+        )
+        self.runner.run(["setextradata", vm_name, self.DMI_SYSTEM_SKU_KEY, system_sku])
 
     def get_metadata(self, vm_name: str) -> dict[str, str]:
         """Read all extra data entries for a VM.

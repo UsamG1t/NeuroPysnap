@@ -73,6 +73,29 @@ clone B is <code class="docutils literal notranslate"><span class="pre">Active</
 <li><p>removes the four VMs one by one</p></li>
 </ul>
 </section>
+<section id="register-proto-settings-for-a-base-vm">
+<h2>Register Proto Settings for a Base VM<a class="headerlink" href="#register-proto-settings-for-a-base-vm" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">protosettings</span></code> command registers one base VM in the persistent
+proto-settings list stored at <code class="docutils literal notranslate"><span class="pre">Path.home()</span> <span class="pre">/</span> <span class="pre">&quot;.ptotosettings&quot;</span></code>. The file
+contains one VM name per line and is used as a set without duplicates.</p>
+<p>This option exists for the image conventions used in the educational program of
+CMC MSU. When a base VM is present in the proto-settings list, every linked
+clone created from it receives additional DMI values:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DmiSystemVendor</span> <span class="pre">=</span> <span class="pre">&lt;CloneVM&gt;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DmiSystemSKU</span> <span class="pre">=</span> <span class="pre">port&lt;Port&gt;[.&lt;net1-name&gt;[.&lt;net2-name&gt;[.&lt;net3-name&gt;]]]</span></code></p></li>
+</ul>
+<p>This behavior is relevant for the following CMC MSU courses:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://uneex.org/LecturesCMC/LinuxNetwork2026">LinuxNetwork</a></p></li>
+<li><p><a class="reference external" href="https://asvk.cs.msu.ru/uchebnyj-process/chitaemye-kursy/vvedenie-v-seti-evm/">Nets: Introduction</a></p></li>
+<li><p><a class="reference external" href="https://github.com/UsamG1t/Methodics_LinuxNetProtocols">Methodics of Linux Net Protocols</a></p></li>
+<li><p><a class="reference external" href="https://github.com/UsamG1t/Nets_ASVK_Labs">Labs of Linux Net Protocols</a></p></li>
+</ul>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap protosettings BaseVM
+</pre></div>
+</div>
+</section>
 <section id="import-an-appliance">
 <h2>Import an Appliance<a class="headerlink" href="#import-an-appliance" title="Link to this heading">¶</a></h2>
 <p>Import either an <code class="docutils literal notranslate"><span class="pre">.ova</span></code> or <code class="docutils literal notranslate"><span class="pre">.ovf</span></code> appliance.</p>
@@ -148,6 +171,8 @@ used serial TCP port, and assigns the next value. If no serial TCP ports are
 configured yet, the automatic sequence starts at <code class="docutils literal notranslate"><span class="pre">1024</span></code>.</p>
 <p>Up to three extra positional arguments configure internal networks for
 <code class="docutils literal notranslate"><span class="pre">nic1</span></code> through <code class="docutils literal notranslate"><span class="pre">nic3</span></code> with the <code class="docutils literal notranslate"><span class="pre">intnet</span></code> attachment type.</p>
+<p>If the base VM was previously registered through <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">protosettings</span></code>,
+PySnap also applies educational DMI settings to the clone.</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap clone BaseVM CloneVM -p 2345 intnet1 intnet2 intnet3
 pysnap clone BaseVM CloneVM intnet1
 </pre></div>
@@ -164,6 +189,8 @@ pysnap clone BaseVM CloneVM intnet1
 <p>The single-VM erase mode refuses deletion when dependent clones still exist.
 The group erase mode refuses deletion when descendants outside the target group
 still depend on the selected VMs.</p>
+<p>When a VM is removed successfully, PySnap also removes its name from the
+proto-settings file if it was registered there.</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap erase BaseVM
 pysnap erase --group /Lab
 pysnap erase --all
@@ -204,6 +231,7 @@ pysnap erase --all
 <li class="toctree-l2"><a class="reference internal" href="#help">Help</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#list-virtual-machines">List Virtual Machines</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#run-an-integration-test">Run an Integration Test</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#register-proto-settings-for-a-base-vm">Register Proto Settings for a Base VM</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#import-an-appliance">Import an Appliance</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#show-virtual-machine-details">Show Virtual Machine Details</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#connect-to-a-headless-virtual-machine">Connect to a Headless Virtual Machine</a></li>

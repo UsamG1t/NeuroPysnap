@@ -22,6 +22,7 @@ class FakeService:
         """Initialize fake outputs and call tracking."""
         self.clone_args: tuple | None = None
         self.import_args: tuple | None = None
+        self.proto_settings_vm: str | None = None
         self.stopped_vm: str | None = None
         self.stop_all_requested = False
 
@@ -90,6 +91,11 @@ class FakeService:
                 ),
             ),
         )
+
+    def register_proto_settings_vm(self, vm_name: str) -> tuple[str, ...]:
+        """Record one proto-settings registration request."""
+        self.proto_settings_vm = vm_name
+        return ("base-vm", vm_name) if vm_name != "base-vm" else ("base-vm",)
 
     def erase_vm(self, vm_name: str) -> None:
         """Pretend to erase one VM."""
@@ -226,6 +232,25 @@ class CliTests(unittest.TestCase):
         self.assertIn("Importing [", output)
         self.assertIn("100%", output)
         self.assertIn("Imported virtual machines:", output)
+        self.assertEqual("", stderr.getvalue())
+
+    def test_protosettings_command_registers_vm(self) -> None:
+        """Register a VM for proto-settings through the service layer."""
+        service = FakeService()
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        exit_code = run_cli(
+            ["protosettings", "base-vm"],
+            service=service,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(service.proto_settings_vm, "base-vm")
+        self.assertIn("Registered proto-settings VM: base-vm", stdout.getvalue())
+        self.assertIn("Configured proto-settings VMs: base-vm", stdout.getvalue())
         self.assertEqual("", stderr.getvalue())
 
     def test_bare_image_argument_is_rejected(self) -> None:

@@ -73,6 +73,21 @@
 </li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="pysnap.config.html">pysnap.config package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.config.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.config.html#module-pysnap.config.protosettings">pysnap.config.protosettings module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.config.html#pysnap.config.protosettings.ProtoSettingsStore"><code class="docutils literal notranslate"><span class="pre">ProtoSettingsStore</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.config.html#pysnap.config.protosettings.ProtoSettingsStore.DEFAULT_FILENAME"><code class="docutils literal notranslate"><span class="pre">ProtoSettingsStore.DEFAULT_FILENAME</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.config.html#pysnap.config.protosettings.ProtoSettingsStore.list_vm_names"><code class="docutils literal notranslate"><span class="pre">ProtoSettingsStore.list_vm_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.config.html#pysnap.config.protosettings.ProtoSettingsStore.contains"><code class="docutils literal notranslate"><span class="pre">ProtoSettingsStore.contains()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.config.html#pysnap.config.protosettings.ProtoSettingsStore.add_vm_name"><code class="docutils literal notranslate"><span class="pre">ProtoSettingsStore.add_vm_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.config.html#pysnap.config.protosettings.ProtoSettingsStore.remove_vm_names"><code class="docutils literal notranslate"><span class="pre">ProtoSettingsStore.remove_vm_names()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="pysnap.core.html">pysnap.core package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="pysnap.core.html#submodules">Submodules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pysnap.core.html#module-pysnap.core.models">pysnap.core.models module</a><ul>
@@ -142,6 +157,7 @@
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.stop_all_runtime_vms"><code class="docutils literal notranslate"><span class="pre">PySnapService.stop_all_runtime_vms()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.show_vm"><code class="docutils literal notranslate"><span class="pre">PySnapService.show_vm()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.clone_vm"><code class="docutils literal notranslate"><span class="pre">PySnapService.clone_vm()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.register_proto_settings_vm"><code class="docutils literal notranslate"><span class="pre">PySnapService.register_proto_settings_vm()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.erase_vm"><code class="docutils literal notranslate"><span class="pre">PySnapService.erase_vm()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.erase_group"><code class="docutils literal notranslate"><span class="pre">PySnapService.erase_group()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.erase_all"><code class="docutils literal notranslate"><span class="pre">PySnapService.erase_all()</span></code></a></li>
@@ -224,6 +240,8 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.IMPORT_PROGRESS_PATTERN"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.IMPORT_PROGRESS_PATTERN</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.DMI_SYSTEM_VENDOR_KEY"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.DMI_SYSTEM_VENDOR_KEY</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.DMI_SYSTEM_SKU_KEY"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.DMI_SYSTEM_SKU_KEY</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.list_vms"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.list_vms()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.get_vm_info"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.get_vm_info()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.dry_run_import"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.dry_run_import()</span></code></a></li>
@@ -237,6 +255,7 @@
 <li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.configure_serial_port"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.configure_serial_port()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.configure_internal_networks"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.configure_internal_networks()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.set_metadata"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.set_metadata()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.configure_dmi_system_information"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.configure_dmi_system_information()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.get_metadata"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.get_metadata()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.delete_vm"><code class="docutils literal notranslate"><span class="pre">VBoxManageClient.delete_vm()</span></code></a></li>
 </ul>

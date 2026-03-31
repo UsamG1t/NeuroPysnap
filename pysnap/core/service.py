@@ -9,6 +9,7 @@ from time import monotonic, sleep
 from typing import Callable, ContextManager, Iterator
 from uuid import uuid4
 
+from pysnap.config.protosettings import ProtoSettingsStore
 from pysnap.core.models import (
     ImportCandidate,
     IntegrationTestResult,
@@ -58,6 +59,7 @@ class PySnapService:
         client: VBoxManageClient | None = None,
         session_registry: SessionRegistry | None = None,
         serial_probe_factory: SerialProbeFactory | None = None,
+        proto_settings_store: ProtoSettingsStore | None = None,
     ) -> None:
         """Initialize the service.
 
@@ -66,6 +68,7 @@ class PySnapService:
         self.client = client or VBoxManageClient()
         self.session_registry = session_registry or SessionRegistry()
         self.serial_probe_factory = serial_probe_factory or serial_connection_probe
+        self.proto_settings_store = proto_settings_store or ProtoSettingsStore()
 
     def import_image(
         self,
@@ -444,7 +447,26 @@ class PySnapService:
                 "pysnap/parent": base_vm,
             },
         )
+        if self.proto_settings_store.contains(base_vm):
+            self.client.configure_dmi_system_information(
+                clone_vm,
+                system_vendor=clone_vm,
+                system_sku=self._build_proto_system_sku(
+                    serial_port=serial_port,
+                    networks=networks,
+                ),
+            )
         return self.client.get_vm_info(clone_vm)
+
+    def register_proto_settings_vm(self, vm_name: str) -> tuple[str, ...]:
+        """Persist one base VM name in the proto-settings store.
+
+        :param vm_name: Base VM name to register.
+        :returns: Updated configured VM names.
+        :raises VMNotFoundError: If the VM does not exist.
+        """
+        self._require_vm(vm_name)
+        return self.proto_settings_store.add_vm_name(vm_name)
 
     def _allocate_serial_port(self) -> int:
         """Allocate the next TCP port for automatic ``UART1`` configuration.
@@ -507,6 +529,7 @@ class PySnapService:
         if dependents:
             raise VMDependencyError(vm_name, dependents)
         self.client.delete_vm(vm_name)
+        self.proto_settings_store.remove_vm_names([vm_name])
 
     def erase_group(self, group_name: str) -> list[str]:
         """Erase all VMs from a single group.
@@ -748,6 +771,7 @@ class PySnapService:
                 )
                 raise PySnapError(f"Unable to erase all requested VMs. {details}")
 
+            self.proto_settings_store.remove_vm_names(deleted_names)
             remaining = [vm_name for vm_name in remaining if vm_name not in deleted_names]
 
     def _stop_runtime_vm_names(
@@ -848,3 +872,17 @@ class PySnapService:
                 except (CommandExecutionError, PySnapError) as error:
                     failures[vm_name] = str(error)
         return failures
+
+    def _build_proto_system_sku(
+        self,
+        serial_port: int,
+        networks: tuple[str, ...],
+    ) -> str:
+        """Build the DMI system SKU used for proto-settings clones.
+
+        :param serial_port: TCP port assigned to the clone.
+        :param networks: Internal network names assigned to the clone.
+        :returns: DMI system SKU value.
+        """
+        suffix = ".".join(networks)
+        return f"port{serial_port}.{suffix}" if suffix else f"port{serial_port}"

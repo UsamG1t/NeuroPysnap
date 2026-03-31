@@ -11,6 +11,7 @@ terminal, and removing virtual machines with dependency checks.
 - List VirtualBox groups and their member virtual machines.
 - Show VM name, group, and configured serial TCP port.
 - Create linked clones with inherited groups and internal network mapping.
+- Register special base VMs whose clones receive additional DMI settings.
 - Configure `UART1` as a `tcpserver` endpoint.
 - Allocate the next available serial TCP port automatically when `-p` is omitted.
 - Start virtual machines in headless mode and attach to them through a
@@ -30,6 +31,7 @@ pysnap
 pysnap list
 pysnap import IMAGE.ova|IMAGE.ovf
 pysnap --integration-test IMAGE.ova|IMAGE.ovf
+pysnap protosettings BASE_VM
 pysnap show <VM>
 pysnap connect <VM>
 pysnap monitor
@@ -79,9 +81,36 @@ db (state: Active ; 2346 ; /Lab)
 router (state: Changing ; 2347 ; /Net)
 ```
 
+Register a base VM for educational protocol settings:
+
+```bash
+pysnap protosettings protocols-jeos-20251218-x86_64
+```
+
 Stop a single machine or all running machines:
 
 ```bash
 pysnap stop srv
 pysnap stop --all
 ```
+
+## Proto Settings
+
+The ``pysnap protosettings <BaseVM>`` command marks a base VM so that every
+linked clone created from it receives additional DMI settings. PySnap stores
+this base-VM list in ``Path.home() / ".ptotosettings"``, which resolves to the
+current user's home directory on Linux, macOS, and Windows.
+
+This mode exists for the appliance conventions used in the educational program
+of CMC MSU. When the base VM is present in the proto-settings list, PySnap
+applies these clone-time changes:
+
+- ``DmiSystemVendor = <CloneVM>``
+- ``DmiSystemSKU = port<Port>[.<net1-name>[.<net2-name>[.<net3-name>]]]``
+
+The setting is intended for images and labs used in these CMC MSU courses:
+
+- `LinuxNetwork <https://uneex.org/LecturesCMC/LinuxNetwork2026>`_
+- `Nets: Introduction <https://asvk.cs.msu.ru/uchebnyj-process/chitaemye-kursy/vvedenie-v-seti-evm/>`_
+- `Methodics of Linux Net Protocols <https://github.com/UsamG1t/Methodics_LinuxNetProtocols>`_
+- `Labs of Linux Net Protocols <https://github.com/UsamG1t/Nets_ASVK_Labs>`_

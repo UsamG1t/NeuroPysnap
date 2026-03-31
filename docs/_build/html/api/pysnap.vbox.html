@@ -160,6 +160,16 @@
 <span class="sig-name descname"><span class="pre">IMPORT_PROGRESS_PATTERN</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">re.compile('(?P&lt;percent&gt;\\d{1,3})%')</span></span><a class="headerlink" href="#pysnap.vbox.client.VBoxManageClient.IMPORT_PROGRESS_PATTERN" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.vbox.client.VBoxManageClient.DMI_SYSTEM_VENDOR_KEY">
+<span class="sig-name descname"><span class="pre">DMI_SYSTEM_VENDOR_KEY</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'VBoxInternal/Devices/pcbios/0/Config/DmiSystemVendor'</span></span><a class="headerlink" href="#pysnap.vbox.client.VBoxManageClient.DMI_SYSTEM_VENDOR_KEY" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.vbox.client.VBoxManageClient.DMI_SYSTEM_SKU_KEY">
+<span class="sig-name descname"><span class="pre">DMI_SYSTEM_SKU_KEY</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'VBoxInternal/Devices/pcbios/0/Config/DmiSystemSKU'</span></span><a class="headerlink" href="#pysnap.vbox.client.VBoxManageClient.DMI_SYSTEM_SKU_KEY" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="pysnap.vbox.client.VBoxManageClient.list_vms">
 <span class="sig-name descname"><span class="pre">list_vms</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#VBoxManageClient.list_vms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.VBoxManageClient.list_vms" title="Link to this definition">¶</a></dt>
@@ -373,6 +383,24 @@
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>vm_name</strong> (<em>str</em>) – VM name.</p></li>
 <li><p><strong>metadata</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>str</em><em>]</em>) – Extra data entries to set.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.vbox.client.VBoxManageClient.configure_dmi_system_information">
+<span class="sig-name descname"><span class="pre">configure_dmi_system_information</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">system_vendor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">system_sku</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#VBoxManageClient.configure_dmi_system_information"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.VBoxManageClient.configure_dmi_system_information" title="Link to this definition">¶</a></dt>
+<dd><p>Persist DMI system information for one VM.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vm_name</strong> (<em>str</em>) – VM name.</p></li>
+<li><p><strong>system_vendor</strong> (<em>str</em>) – DMI system vendor value.</p></li>
+<li><p><strong>system_sku</strong> (<em>str</em>) – DMI system SKU value.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>

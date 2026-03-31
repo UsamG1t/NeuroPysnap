@@ -13,6 +13,7 @@ Subpackages
    :maxdepth: 4
 
    pysnap.cli
+   pysnap.config
    pysnap.core
    pysnap.runtime
    pysnap.terminal

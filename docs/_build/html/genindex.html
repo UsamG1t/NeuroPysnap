@@ -59,10 +59,12 @@
 <h2 id="A">A</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.as_formatted_text">as_formatted_text() (pysnap.terminal.emulator.TerminalEmulator method)</a>
+      <li><a href="api/pysnap.config.html#pysnap.config.protosettings.ProtoSettingsStore.add_vm_name">add_vm_name() (pysnap.config.protosettings.ProtoSettingsStore method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.as_formatted_text">as_formatted_text() (pysnap.terminal.emulator.TerminalEmulator method)</a>
+</li>
       <li><a href="api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRecord.attached_at">attached_at (pysnap.runtime.sessions.SessionRecord attribute)</a>
 </li>
   </ul></td>
@@ -85,13 +87,17 @@
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.clone_vm">clone_vm() (pysnap.core.service.PySnapService method)</a>
 </li>
+      <li><a href="api/pysnap.html#pysnap.errors.CommandExecutionError">CommandExecutionError</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/pysnap.html#pysnap.errors.CommandExecutionError">CommandExecutionError</a>
+      <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.configure_dmi_system_information">configure_dmi_system_information() (pysnap.vbox.client.VBoxManageClient method)</a>
 </li>
       <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.configure_internal_networks">configure_internal_networks() (pysnap.vbox.client.VBoxManageClient method)</a>
 </li>
       <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.configure_serial_port">configure_serial_port() (pysnap.vbox.client.VBoxManageClient method)</a>
+</li>
+      <li><a href="api/pysnap.config.html#pysnap.config.protosettings.ProtoSettingsStore.contains">contains() (pysnap.config.protosettings.ProtoSettingsStore method)</a>
 </li>
       <li><a href="api/pysnap.cli.html#pysnap.cli.formatters.ImportProgressBar.current_percent">current_percent (pysnap.cli.formatters.ImportProgressBar attribute)</a>
 </li>
@@ -101,6 +107,8 @@
 <h2 id="D">D</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/pysnap.config.html#pysnap.config.protosettings.ProtoSettingsStore.DEFAULT_FILENAME">DEFAULT_FILENAME (pysnap.config.protosettings.ProtoSettingsStore attribute)</a>
+</li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.DEFAULT_INTEGRATION_STOP_TIMEOUT">DEFAULT_INTEGRATION_STOP_TIMEOUT (pysnap.core.service.PySnapService attribute)</a>
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.DEFAULT_SERIAL_TCP_PORT">DEFAULT_SERIAL_TCP_PORT (pysnap.core.service.PySnapService attribute)</a>
@@ -116,6 +124,10 @@
       <li><a href="api/pysnap.core.html#pysnap.core.models.IntegrationTestResult.deleted_vm_names">deleted_vm_names (pysnap.core.models.IntegrationTestResult attribute)</a>
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.models.VMMonitorRecord.display_state">display_state (pysnap.core.models.VMMonitorRecord attribute)</a>
+</li>
+      <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.DMI_SYSTEM_SKU_KEY">DMI_SYSTEM_SKU_KEY (pysnap.vbox.client.VBoxManageClient attribute)</a>
+</li>
+      <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.DMI_SYSTEM_VENDOR_KEY">DMI_SYSTEM_VENDOR_KEY (pysnap.vbox.client.VBoxManageClient attribute)</a>
 </li>
       <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.dry_run_import">dry_run_import() (pysnap.vbox.client.VBoxManageClient method)</a>
 </li>
@@ -225,11 +237,13 @@
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.list_groups">list_groups() (pysnap.core.service.PySnapService method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRegistry.list_live_sessions">list_live_sessions() (pysnap.runtime.sessions.SessionRegistry method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.list_monitored_vms">list_monitored_vms() (pysnap.core.service.PySnapService method)</a>
+</li>
+      <li><a href="api/pysnap.config.html#pysnap.config.protosettings.ProtoSettingsStore.list_vm_names">list_vm_names() (pysnap.config.protosettings.ProtoSettingsStore method)</a>
 </li>
       <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.list_vms">list_vms() (pysnap.vbox.client.VBoxManageClient method)</a>
 </li>
@@ -262,6 +276,10 @@
         <li><a href="api/pysnap.cli.html#module-pysnap.cli.app">pysnap.cli.app</a>
 </li>
         <li><a href="api/pysnap.cli.html#module-pysnap.cli.formatters">pysnap.cli.formatters</a>
+</li>
+        <li><a href="api/pysnap.config.html#module-pysnap.config">pysnap.config</a>
+</li>
+        <li><a href="api/pysnap.config.html#module-pysnap.config.protosettings">pysnap.config.protosettings</a>
 </li>
         <li><a href="api/pysnap.core.html#module-pysnap.core">pysnap.core</a>
 </li>
@@ -356,6 +374,8 @@
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.models.VMInfo.primary_group">primary_group (pysnap.core.models.VMInfo property)</a>
 </li>
+      <li><a href="api/pysnap.config.html#pysnap.config.protosettings.ProtoSettingsStore">ProtoSettingsStore (class in pysnap.config.protosettings)</a>
+</li>
       <li>
     pysnap
 
@@ -385,6 +405,20 @@
 </li>
       </ul></li>
       <li>
+    pysnap.config
+
+      <ul>
+        <li><a href="api/pysnap.config.html#module-pysnap.config">module</a>
+</li>
+      </ul></li>
+      <li>
+    pysnap.config.protosettings
+
+      <ul>
+        <li><a href="api/pysnap.config.html#module-pysnap.config.protosettings">module</a>
+</li>
+      </ul></li>
+      <li>
     pysnap.core
 
       <ul>
@@ -398,6 +432,8 @@
         <li><a href="api/pysnap.core.html#module-pysnap.core.models">module</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     pysnap.core.service
 
@@ -405,8 +441,6 @@
         <li><a href="api/pysnap.core.html#module-pysnap.core.service">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     pysnap.errors
 
@@ -497,6 +531,10 @@
       <li><a href="api/pysnap.core.html#pysnap.core.models.VMMonitorRecord.raw_state">raw_state (pysnap.core.models.VMMonitorRecord attribute)</a>
 </li>
       <li><a href="api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRegistry.register">register() (pysnap.runtime.sessions.SessionRegistry method)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.register_proto_settings_vm">register_proto_settings_vm() (pysnap.core.service.PySnapService method)</a>
+</li>
+      <li><a href="api/pysnap.config.html#pysnap.config.protosettings.ProtoSettingsStore.remove_vm_names">remove_vm_names() (pysnap.config.protosettings.ProtoSettingsStore method)</a>
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.models.ImportCandidate.requires_eula_accept">requires_eula_accept (pysnap.core.models.ImportCandidate attribute)</a>
 </li>
