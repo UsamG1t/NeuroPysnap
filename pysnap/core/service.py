@@ -5,6 +5,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
+import socket
 from time import monotonic, sleep
 from typing import Callable, ContextManager, Iterator
 from uuid import uuid4
@@ -397,6 +398,38 @@ class PySnapService:
         self._require_vm(vm_name)
         return self.client.get_vm_info(vm_name)
 
+    def plug_vm(self, vm_name: str) -> VMInfo:
+        """Configure one VM for PySnap serial-console connections.
+
+        If ``UART1`` is already configured as a TCP server, the VM is returned
+        unchanged. Otherwise, PySnap assigns a free TCP port and enables the
+        same ``UART1`` tcpserver mode used by the imported protocol images.
+
+        :param vm_name: VM name to configure.
+        :returns: Updated VM information.
+        :raises PySnapError: If the VM cannot be configured safely.
+        """
+        vm_info = self._require_vm(vm_name)
+        serial_config = self.client.get_serial_port_configuration(vm_name)
+        if serial_config.mode == "tcpserver" and serial_config.port is not None:
+            return self.client.get_vm_info(vm_name)
+        if serial_config.enabled and serial_config.mode not in {None, "tcpserver"}:
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" already uses UART1 mode '
+                f'"{serial_config.mode}".'
+            )
+
+        raw_state = (vm_info.vm_state or "").lower()
+        if raw_state not in self.STOPPED_STATES:
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" must be stopped before UART1 can be '
+                "plugged as a TCP server."
+            )
+
+        serial_port = self._allocate_serial_port(require_host_availability=True)
+        self.client.configure_serial_port(vm_name, serial_port)
+        return self.client.get_vm_info(vm_name)
+
     def clone_vm(
         self,
         base_vm: str,
@@ -468,24 +501,32 @@ class PySnapService:
         self._require_vm(vm_name)
         return self.proto_settings_store.add_vm_name(vm_name)
 
-    def _allocate_serial_port(self) -> int:
+    def _allocate_serial_port(self, require_host_availability: bool = False) -> int:
         """Allocate the next TCP port for automatic ``UART1`` configuration.
 
         The automatic sequence starts at ``1024`` when no existing VM currently
         exposes a TCP-backed serial port.
 
+        :param require_host_availability: Whether the chosen TCP port must also
+            be available on the host system.
         :returns: The next TCP port to assign.
         :raises PySnapError: If the TCP port range is exhausted.
         """
-        used_ports = [
+        used_ports = {
             info.serial_port
             for info in self._collect_vm_infos()
             if info.serial_port is not None
-        ]
+        }
         next_port = (max(used_ports) + 1) if used_ports else self.DEFAULT_SERIAL_TCP_PORT
-        if next_port > 65535:
-            raise PySnapError("No free serial TCP ports are available.")
-        return next_port
+        while next_port <= 65535:
+            if next_port in used_ports:
+                next_port += 1
+                continue
+            if require_host_availability and not self._is_host_tcp_port_available(next_port):
+                next_port += 1
+                continue
+            return next_port
+        raise PySnapError("No free serial TCP ports are available.")
 
     def _cleanup_integration_vms(
         self,
@@ -872,6 +913,19 @@ class PySnapService:
                 except (CommandExecutionError, PySnapError) as error:
                     failures[vm_name] = str(error)
         return failures
+
+    def _is_host_tcp_port_available(self, port: int) -> bool:
+        """Return whether a host TCP port is currently available.
+
+        :param port: TCP port number to probe.
+        :returns: ``True`` when the port can be bound locally.
+        """
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            try:
+                probe.bind(("", port))
+            except OSError:
+                return False
+        return True
 
     def _build_proto_system_sku(
         self,

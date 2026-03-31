@@ -22,6 +22,7 @@ class FakeService:
         """Initialize fake outputs and call tracking."""
         self.clone_args: tuple | None = None
         self.import_args: tuple | None = None
+        self.plugged_vm: str | None = None
         self.proto_settings_vm: str | None = None
         self.stopped_vm: str | None = None
         self.stop_all_requested = False
@@ -32,6 +33,11 @@ class FakeService:
 
     def show_vm(self, vm_name: str) -> VMInfo:
         """Return a static VM description."""
+        return VMInfo(name=vm_name, uuid="uuid", groups=("/Lab",), serial_port=2345)
+
+    def plug_vm(self, vm_name: str) -> VMInfo:
+        """Record a plug request and return the updated VM description."""
+        self.plugged_vm = vm_name
         return VMInfo(name=vm_name, uuid="uuid", groups=("/Lab",), serial_port=2345)
 
     def clone_vm(
@@ -251,6 +257,25 @@ class CliTests(unittest.TestCase):
         self.assertEqual(service.proto_settings_vm, "base-vm")
         self.assertIn("Registered proto-settings VM: base-vm", stdout.getvalue())
         self.assertIn("Configured proto-settings VMs: base-vm", stdout.getvalue())
+        self.assertEqual("", stderr.getvalue())
+
+    def test_plug_command_configures_vm_for_connection(self) -> None:
+        """Prepare one VM for PySnap serial-console connections."""
+        service = FakeService()
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        exit_code = run_cli(
+            ["plug", "base-vm"],
+            service=service,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(service.plugged_vm, "base-vm")
+        self.assertIn("Name: base-vm", stdout.getvalue())
+        self.assertIn("Serial port: 2345", stdout.getvalue())
         self.assertEqual("", stderr.getvalue())
 
     def test_bare_image_argument_is_rejected(self) -> None:

@@ -44,6 +44,12 @@ PySnap uses ``UART1`` for the serial TCP endpoint of clones. If no explicit
 port is supplied, the service automatically assigns ``max(used_ports) + 1`` or
 ``1024`` when no TCP serial port has been configured yet.
 
+The ``plug`` workflow reuses the same ``UART1 tcpserver`` strategy for existing
+VMs. It only rewrites ``UART1`` when the VM is stopped and the current backend
+is not already occupied by another mode such as ``tcpclient`` or ``file``.
+When needed, the selected TCP port must be available both in VirtualBox and on
+the host system.
+
 Proto Settings Strategy
 -----------------------
 

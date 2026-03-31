@@ -116,11 +116,33 @@ port configured through <code class="docutils literal notranslate"><span class="
 </pre></div>
 </div>
 </section>
+<section id="plug-a-virtual-machine-for-pysnap-connections">
+<h2>Plug a Virtual Machine for PySnap Connections<a class="headerlink" href="#plug-a-virtual-machine-for-pysnap-connections" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">plug</span></code> command prepares an existing VM for <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code> by
+configuring <code class="docutils literal notranslate"><span class="pre">UART1</span></code> as a <code class="docutils literal notranslate"><span class="pre">tcpserver</span></code> endpoint when this can be done safely.</p>
+<p>PySnap checks these conditions:</p>
+<ul class="simple">
+<li><p>the VM exists</p></li>
+<li><p>if <code class="docutils literal notranslate"><span class="pre">UART1</span></code> is already configured as <code class="docutils literal notranslate"><span class="pre">tcpserver,&lt;port&gt;</span></code>, the VM is left unchanged</p></li>
+<li><p>if <code class="docutils literal notranslate"><span class="pre">UART1</span></code> is already bound to another backend, PySnap refuses to overwrite it</p></li>
+<li><p>if a reconfiguration is needed, the VM must be in a stopped state</p></li>
+<li><p>the selected TCP port must be free in both VirtualBox and the host OS</p></li>
+</ul>
+<p>When all checks pass, PySnap assigns the same kind of serial TCP port used by
+the imported <code class="docutils literal notranslate"><span class="pre">protocols-*</span></code> images, so the VM becomes connectable through the
+built-in terminal interface.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap plug MyVM
+pysnap connect MyVM
+</pre></div>
+</div>
+</section>
 <section id="connect-to-a-headless-virtual-machine">
 <h2>Connect to a Headless Virtual Machine<a class="headerlink" href="#connect-to-a-headless-virtual-machine" title="Link to this heading">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">connect</span></code> command ensures that the selected VM is running in headless
 mode and then attaches a built-in PySnap terminal interface to its <code class="docutils literal notranslate"><span class="pre">UART1</span></code>
 TCP console.</p>
+<p>For VMs that do not already expose a suitable <code class="docutils literal notranslate"><span class="pre">UART1</span> <span class="pre">tcpserver</span></code> endpoint, run
+<code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">plug</span> <span class="pre">&lt;VM&gt;</span></code> first.</p>
 <p>The terminal session is detached with <code class="docutils literal notranslate"><span class="pre">Ctrl-Q</span></code>. Detaching does not stop the
 virtual machine. <code class="docutils literal notranslate"><span class="pre">Ctrl-L</span></code> redraws the local interface.</p>
 <p>On macOS, PySnap also checks the standard VirtualBox application-bundle path
@@ -234,6 +256,7 @@ pysnap erase --all
 <li class="toctree-l2"><a class="reference internal" href="#register-proto-settings-for-a-base-vm">Register Proto Settings for a Base VM</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#import-an-appliance">Import an Appliance</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#show-virtual-machine-details">Show Virtual Machine Details</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#plug-a-virtual-machine-for-pysnap-connections">Plug a Virtual Machine for PySnap Connections</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#connect-to-a-headless-virtual-machine">Connect to a Headless Virtual Machine</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#monitor-active-virtual-machines">Monitor Active Virtual Machines</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#stop-running-virtual-machines">Stop Running Virtual Machines</a></li>

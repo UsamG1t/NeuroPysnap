@@ -10,8 +10,9 @@ from pathlib import Path
 
 from pysnap.config.protosettings import ProtoSettingsStore
 from pysnap.core.models import ImportCandidate, VMInfo, VMMonitorRecord, VMReference
+from pysnap.core.models import SerialPortConfiguration
 from pysnap.core.service import PySnapService
-from pysnap.errors import VMDependencyError
+from pysnap.errors import PySnapError, VMDependencyError
 from pysnap.runtime.sessions import SessionRecord
 
 
@@ -58,6 +59,7 @@ class FakeClient:
         self.deleted: list[str] = []
         self.calls: list[tuple] = []
         self.state_sequences: dict[str, list[str]] = {}
+        self.serial_configurations: dict[str, SerialPortConfiguration] = {}
 
     def list_vms(self) -> list[VMReference]:
         """Return known VM references."""
@@ -85,6 +87,19 @@ class FakeClient:
         """Return configured dry-run candidates."""
         self.calls.append(("dry_run_import", image_path))
         return list(self.import_candidates)
+
+    def get_serial_port_configuration(self, vm_name: str) -> SerialPortConfiguration:
+        """Return the configured raw UART1 state."""
+        if vm_name in self.serial_configurations:
+            return self.serial_configurations[vm_name]
+        current = self.infos[vm_name]
+        if current.serial_port is not None:
+            return SerialPortConfiguration(
+                enabled=True,
+                mode="tcpserver",
+                port=current.serial_port,
+            )
+        return SerialPortConfiguration(enabled=False)
 
     def import_appliance(self, image_path: str, candidates: list[ImportCandidate]) -> None:
         """Simulate appliance import."""
@@ -143,6 +158,11 @@ class FakeClient:
     def configure_serial_port(self, vm_name: str, serial_port: int) -> None:
         """Record serial port configuration."""
         self.calls.append(("configure_serial_port", vm_name, serial_port))
+        self.serial_configurations[vm_name] = SerialPortConfiguration(
+            enabled=True,
+            mode="tcpserver",
+            port=serial_port,
+        )
         current = self.infos[vm_name]
         self.infos[vm_name] = VMInfo(
             name=current.name,
@@ -516,6 +536,108 @@ class ServiceTests(unittest.TestCase):
 
         self.assertEqual(vm_info.vm_state, "running")
         self.assertIn(("start_vm_headless", "srv"), client.calls)
+
+    def test_plug_vm_assigns_tcpserver_uart1_to_stopped_vm(self) -> None:
+        """Configure a stopped VM for future PySnap serial connections."""
+        client = FakeClient()
+        client.references["srv"] = VMReference("srv", "uuid-srv")
+        client.infos["srv"] = VMInfo(
+            name="srv",
+            uuid="uuid-srv",
+            groups=("/Lab",),
+            vm_state="poweroff",
+        )
+
+        service = self.make_service(client=client)
+        service._is_host_tcp_port_available = lambda port: True
+        vm_info = service.plug_vm("srv")
+
+        self.assertEqual(vm_info.serial_port, 1024)
+        self.assertIn(("configure_serial_port", "srv", 1024), client.calls)
+
+    def test_plug_vm_returns_existing_tcpserver_configuration(self) -> None:
+        """Keep an existing tcpserver UART1 configuration unchanged."""
+        client = FakeClient()
+        client.references["srv"] = VMReference("srv", "uuid-srv")
+        client.infos["srv"] = VMInfo(
+            name="srv",
+            uuid="uuid-srv",
+            groups=("/Lab",),
+            serial_port=2345,
+            vm_state="running",
+        )
+        client.serial_configurations["srv"] = SerialPortConfiguration(
+            enabled=True,
+            mode="tcpserver",
+            port=2345,
+        )
+
+        service = self.make_service(client=client)
+        vm_info = service.plug_vm("srv")
+
+        self.assertEqual(vm_info.serial_port, 2345)
+        configure_calls = [call for call in client.calls if call[0] == "configure_serial_port"]
+        self.assertEqual(configure_calls, [])
+
+    def test_plug_vm_rejects_non_tcp_uart_backend(self) -> None:
+        """Reject VMs whose UART1 is already bound to another backend."""
+        client = FakeClient()
+        client.references["srv"] = VMReference("srv", "uuid-srv")
+        client.infos["srv"] = VMInfo(
+            name="srv",
+            uuid="uuid-srv",
+            groups=("/Lab",),
+            vm_state="poweroff",
+        )
+        client.serial_configurations["srv"] = SerialPortConfiguration(
+            enabled=True,
+            mode="tcpclient",
+        )
+
+        service = self.make_service(client=client)
+        with self.assertRaises(PySnapError):
+            service.plug_vm("srv")
+
+    def test_plug_vm_requires_stopped_vm_when_reconfiguration_is_needed(self) -> None:
+        """Reject live VMs that would need a UART1 reconfiguration."""
+        client = FakeClient()
+        client.references["srv"] = VMReference("srv", "uuid-srv")
+        client.infos["srv"] = VMInfo(
+            name="srv",
+            uuid="uuid-srv",
+            groups=("/Lab",),
+            vm_state="running",
+        )
+
+        service = self.make_service(client=client)
+        with self.assertRaises(PySnapError):
+            service.plug_vm("srv")
+
+    def test_plug_vm_skips_busy_host_ports(self) -> None:
+        """Probe host ports until one is available for tcpserver mode."""
+        client = FakeClient()
+        client.references["srv"] = VMReference("srv", "uuid-srv")
+        client.references["existing"] = VMReference("existing", "uuid-existing")
+        client.infos["srv"] = VMInfo(
+            name="srv",
+            uuid="uuid-srv",
+            groups=("/Lab",),
+            vm_state="poweroff",
+        )
+        client.infos["existing"] = VMInfo(
+            name="existing",
+            uuid="uuid-existing",
+            groups=("/Lab",),
+            serial_port=1024,
+            vm_state="poweroff",
+        )
+
+        service = self.make_service(client=client)
+        service._is_host_tcp_port_available = lambda port: port >= 1026
+        vm_info = service.plug_vm("srv")
+
+        self.assertEqual(vm_info.serial_port, 1026)
+        self.assertIn(("configure_serial_port", "srv", 1026), client.calls)
 
     def test_stop_runtime_vm_uses_acpi_shutdown(self) -> None:
         """Stop one active VM through an ACPI power button request."""

@@ -97,12 +97,38 @@ port configured through ``UART1``.
 
    pysnap show MyVM
 
+Plug a Virtual Machine for PySnap Connections
+---------------------------------------------
+
+The ``plug`` command prepares an existing VM for ``pysnap connect`` by
+configuring ``UART1`` as a ``tcpserver`` endpoint when this can be done safely.
+
+PySnap checks these conditions:
+
+- the VM exists
+- if ``UART1`` is already configured as ``tcpserver,<port>``, the VM is left unchanged
+- if ``UART1`` is already bound to another backend, PySnap refuses to overwrite it
+- if a reconfiguration is needed, the VM must be in a stopped state
+- the selected TCP port must be free in both VirtualBox and the host OS
+
+When all checks pass, PySnap assigns the same kind of serial TCP port used by
+the imported ``protocols-*`` images, so the VM becomes connectable through the
+built-in terminal interface.
+
+.. code-block:: text
+
+   pysnap plug MyVM
+   pysnap connect MyVM
+
 Connect to a Headless Virtual Machine
 -------------------------------------
 
 The ``connect`` command ensures that the selected VM is running in headless
 mode and then attaches a built-in PySnap terminal interface to its ``UART1``
 TCP console.
+
+For VMs that do not already expose a suitable ``UART1 tcpserver`` endpoint, run
+``pysnap plug <VM>`` first.
 
 The terminal session is detached with ``Ctrl-Q``. Detaching does not stop the
 virtual machine. ``Ctrl-L`` redraws the local interface.

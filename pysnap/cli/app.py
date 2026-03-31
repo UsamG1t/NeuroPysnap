@@ -103,6 +103,7 @@ def build_root_parser(
             "  pysnap --integration-test IMAGE.ova|IMAGE.ovf\n"
             "  pysnap protosettings BASE_VM\n"
             "  pysnap show VM\n"
+            "  pysnap plug VM\n"
             "  pysnap connect VM\n"
             "  pysnap monitor\n"
             "  pysnap stop [VM | --all]\n"
@@ -156,6 +157,8 @@ def run_cli(
             return _run_protosettings(arguments[1:], app_service, output, error_output)
         if command == "show":
             return _run_show(arguments[1:], app_service, output, error_output)
+        if command == "plug":
+            return _run_plug(arguments[1:], app_service, output, error_output)
         if command == "connect":
             return _run_connect(arguments[1:], app_service, output, error_output)
         if command == "monitor":
@@ -259,6 +262,28 @@ def _run_import(
     finally:
         progress_bar.finish()
     print(format_import_result(imported), file=stdout)
+    return 0
+
+
+def _run_plug(
+    arguments: Sequence[str],
+    service: PySnapService,
+    stdout: TextIO,
+    stderr: TextIO,
+) -> int:
+    """Run the ``plug`` subcommand.
+
+    :param arguments: Subcommand arguments.
+    :param service: Application service.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :returns: Process exit code.
+    """
+    parser = CliArgumentParser(prog="pysnap plug", stdout=stdout, stderr=stderr)
+    parser.add_argument("vm", help="Virtual machine name.")
+    namespace = parser.parse_args(list(arguments))
+    vm_info = service.plug_vm(namespace.vm)
+    print(format_vm_info(vm_info), file=stdout)
     return 0
 
 

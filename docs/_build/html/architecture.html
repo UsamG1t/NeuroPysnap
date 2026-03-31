@@ -77,6 +77,11 @@ serial access is requested.</p></li>
 <p>PySnap uses <code class="docutils literal notranslate"><span class="pre">UART1</span></code> for the serial TCP endpoint of clones. If no explicit
 port is supplied, the service automatically assigns <code class="docutils literal notranslate"><span class="pre">max(used_ports)</span> <span class="pre">+</span> <span class="pre">1</span></code> or
 <code class="docutils literal notranslate"><span class="pre">1024</span></code> when no TCP serial port has been configured yet.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">plug</span></code> workflow reuses the same <code class="docutils literal notranslate"><span class="pre">UART1</span> <span class="pre">tcpserver</span></code> strategy for existing
+VMs. It only rewrites <code class="docutils literal notranslate"><span class="pre">UART1</span></code> when the VM is stopped and the current backend
+is not already occupied by another mode such as <code class="docutils literal notranslate"><span class="pre">tcpclient</span></code> or <code class="docutils literal notranslate"><span class="pre">file</span></code>.
+When needed, the selected TCP port must be available both in VirtualBox and on
+the host system.</p>
 </section>
 <section id="proto-settings-strategy">
 <h2>Proto Settings Strategy<a class="headerlink" href="#proto-settings-strategy" title="Link to this heading">¶</a></h2>

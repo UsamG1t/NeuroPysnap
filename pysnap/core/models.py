@@ -14,6 +14,15 @@ class VMReference:
 
 
 @dataclass(frozen=True)
+class SerialPortConfiguration:
+    """Represent the raw ``UART1`` configuration of one VM."""
+
+    enabled: bool
+    mode: str | None = None
+    port: int | None = None
+
+
+@dataclass(frozen=True)
 class ImportCandidate:
     """Represent a VM discovered in an appliance import dry run."""
 

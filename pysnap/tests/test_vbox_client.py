@@ -123,6 +123,44 @@ class VBoxManageClientTests(unittest.TestCase):
         self.assertEqual(vm_info.serial_port, 2345)
         self.assertEqual(vm_info.vm_state, "running")
 
+    def test_get_serial_port_configuration_reads_uart1_backend(self) -> None:
+        """Read the raw UART1 backend and tcpserver port."""
+        runner = FakeRunner(
+            outputs={
+                ("showvminfo", "srv", "--machinereadable"): (
+                    'name="srv"\n'
+                    'uart1="0x3F8,4"\n'
+                    'uartmode1="tcpserver,2345"\n'
+                )
+            }
+        )
+        client = VBoxManageClient(runner=runner)
+
+        configuration = client.get_serial_port_configuration("srv")
+
+        self.assertTrue(configuration.enabled)
+        self.assertEqual(configuration.mode, "tcpserver")
+        self.assertEqual(configuration.port, 2345)
+
+    def test_get_serial_port_configuration_preserves_non_tcpserver_backend(self) -> None:
+        """Report non-tcpserver UART1 backends without inventing a TCP port."""
+        runner = FakeRunner(
+            outputs={
+                ("showvminfo", "srv", "--machinereadable"): (
+                    'name="srv"\n'
+                    'uart1="0x3F8,4"\n'
+                    'uartmode1="tcpclient,localhost:5000"\n'
+                )
+            }
+        )
+        client = VBoxManageClient(runner=runner)
+
+        configuration = client.get_serial_port_configuration("srv")
+
+        self.assertTrue(configuration.enabled)
+        self.assertEqual(configuration.mode, "tcpclient")
+        self.assertIsNone(configuration.port)
+
     def test_start_vm_headless_uses_headless_runtime(self) -> None:
         """Start the VM through the VirtualBox headless runtime."""
         runner = FakeRunner()

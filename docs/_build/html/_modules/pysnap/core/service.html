@@ -38,6 +38,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span><span class="p">,</span> <span class="n">as_completed</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">contextmanager</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">socket</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">time</span><span class="w"> </span><span class="kn">import</span> <span class="n">monotonic</span><span class="p">,</span> <span class="n">sleep</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">ContextManager</span><span class="p">,</span> <span class="n">Iterator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">uuid</span><span class="w"> </span><span class="kn">import</span> <span class="n">uuid4</span>
@@ -462,6 +463,41 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span></div>
 
 
+<div class="viewcode-block" id="PySnapService.plug_vm">
+<a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.plug_vm">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plug_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMInfo</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Configure one VM for PySnap serial-console connections.</span>
+
+<span class="sd">        If ``UART1`` is already configured as a TCP server, the VM is returned</span>
+<span class="sd">        unchanged. Otherwise, PySnap assigns a free TCP port and enables the</span>
+<span class="sd">        same ``UART1`` tcpserver mode used by the imported protocol images.</span>
+
+<span class="sd">        :param vm_name: VM name to configure.</span>
+<span class="sd">        :returns: Updated VM information.</span>
+<span class="sd">        :raises PySnapError: If the VM cannot be configured safely.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">vm_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_require_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="n">serial_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_serial_port_configuration</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">serial_config</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;tcpserver&quot;</span> <span class="ow">and</span> <span class="n">serial_config</span><span class="o">.</span><span class="n">port</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">serial_config</span><span class="o">.</span><span class="n">enabled</span> <span class="ow">and</span> <span class="n">serial_config</span><span class="o">.</span><span class="n">mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;tcpserver&quot;</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; already uses UART1 mode &#39;</span>
+                <span class="sa">f</span><span class="s1">&#39;&quot;</span><span class="si">{</span><span class="n">serial_config</span><span class="o">.</span><span class="n">mode</span><span class="si">}</span><span class="s1">&quot;.&#39;</span>
+            <span class="p">)</span>
+
+        <span class="n">raw_state</span> <span class="o">=</span> <span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">raw_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">STOPPED_STATES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; must be stopped before UART1 can be &#39;</span>
+                <span class="s2">&quot;plugged as a TCP server.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">serial_port</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_allocate_serial_port</span><span class="p">(</span><span class="n">require_host_availability</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">configure_serial_port</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">serial_port</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="PySnapService.clone_vm">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.clone_vm">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">clone_vm</span><span class="p">(</span>
@@ -539,24 +575,32 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">proto_settings_store</span><span class="o">.</span><span class="n">add_vm_name</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span></div>
 
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_allocate_serial_port</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_allocate_serial_port</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">require_host_availability</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Allocate the next TCP port for automatic ``UART1`` configuration.</span>
 
 <span class="sd">        The automatic sequence starts at ``1024`` when no existing VM currently</span>
 <span class="sd">        exposes a TCP-backed serial port.</span>
 
+<span class="sd">        :param require_host_availability: Whether the chosen TCP port must also</span>
+<span class="sd">            be available on the host system.</span>
 <span class="sd">        :returns: The next TCP port to assign.</span>
 <span class="sd">        :raises PySnapError: If the TCP port range is exhausted.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">used_ports</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">used_ports</span> <span class="o">=</span> <span class="p">{</span>
             <span class="n">info</span><span class="o">.</span><span class="n">serial_port</span>
             <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_vm_infos</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">serial_port</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-        <span class="p">]</span>
+        <span class="p">}</span>
         <span class="n">next_port</span> <span class="o">=</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">used_ports</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">used_ports</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_SERIAL_TCP_PORT</span>
-        <span class="k">if</span> <span class="n">next_port</span> <span class="o">&gt;</span> <span class="mi">65535</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">&quot;No free serial TCP ports are available.&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">next_port</span>
+        <span class="k">while</span> <span class="n">next_port</span> <span class="o">&lt;=</span> <span class="mi">65535</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">next_port</span> <span class="ow">in</span> <span class="n">used_ports</span><span class="p">:</span>
+                <span class="n">next_port</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">require_host_availability</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_host_tcp_port_available</span><span class="p">(</span><span class="n">next_port</span><span class="p">):</span>
+                <span class="n">next_port</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">continue</span>
+            <span class="k">return</span> <span class="n">next_port</span>
+        <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">&quot;No free serial TCP ports are available.&quot;</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_cleanup_integration_vms</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -952,6 +996,19 @@
                 <span class="k">except</span> <span class="p">(</span><span class="n">CommandExecutionError</span><span class="p">,</span> <span class="n">PySnapError</span><span class="p">)</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
                     <span class="n">failures</span><span class="p">[</span><span class="n">vm_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">failures</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_is_host_tcp_port_available</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">port</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether a host TCP port is currently available.</span>
+
+<span class="sd">        :param port: TCP port number to probe.</span>
+<span class="sd">        :returns: ``True`` when the port can be bound locally.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_STREAM</span><span class="p">)</span> <span class="k">as</span> <span class="n">probe</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">probe</span><span class="o">.</span><span class="n">bind</span><span class="p">((</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">port</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_build_proto_system_sku</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>

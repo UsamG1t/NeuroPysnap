@@ -13,6 +13,8 @@ terminal, and removing virtual machines with dependency checks.
 - Create linked clones with inherited groups and internal network mapping.
 - Register special base VMs whose clones receive additional DMI settings.
 - Configure `UART1` as a `tcpserver` endpoint.
+- Plug a stopped VM into the PySnap connection model by assigning a safe
+  `UART1 tcpserver` port.
 - Allocate the next available serial TCP port automatically when `-p` is omitted.
 - Start virtual machines in headless mode and attach to them through a
   cross-platform Python terminal interface.
@@ -33,6 +35,7 @@ pysnap import IMAGE.ova|IMAGE.ovf
 pysnap --integration-test IMAGE.ova|IMAGE.ovf
 pysnap protosettings BASE_VM
 pysnap show <VM>
+pysnap plug <VM>
 pysnap connect <VM>
 pysnap monitor
 pysnap stop [<VM> | --all]
@@ -70,6 +73,16 @@ Start a VM in headless mode and attach to its serial console:
 
 ```bash
 pysnap connect srv
+```
+
+Plug a stopped VM into the same serial-console workflow used by imported
+protocol images:
+
+```bash
+pysnap plug srv
+Name: srv
+Group: /Lab
+Serial port: 2345
 ```
 
 Monitor running or changing VMs in a compact form:

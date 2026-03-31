@@ -10,7 +10,12 @@ import subprocess
 import sys
 from typing import Callable, Protocol, Sequence
 
-from pysnap.core.models import ImportCandidate, VMInfo, VMReference
+from pysnap.core.models import (
+    ImportCandidate,
+    SerialPortConfiguration,
+    VMInfo,
+    VMReference,
+)
 from pysnap.errors import CommandExecutionError, PySnapError
 from pysnap.vbox.parsers import (
     parse_extra_data,
@@ -199,6 +204,34 @@ class VBoxManageClient:
             managed=metadata.get("pysnap/managed") == "true",
             metadata=metadata,
         )
+
+    def get_serial_port_configuration(self, vm_name: str) -> SerialPortConfiguration:
+        """Read the raw ``UART1`` configuration of a VM.
+
+        :param vm_name: VM name to inspect.
+        :returns: Parsed ``UART1`` configuration.
+        """
+        properties = self._get_vm_properties(vm_name)
+        uart1 = (properties.get("uart1", "") or "").strip()
+        uartmode1 = (properties.get("uartmode1", "") or "").strip()
+        if not uart1 or uart1.lower() == "off":
+            return SerialPortConfiguration(enabled=False)
+
+        if not uartmode1:
+            return SerialPortConfiguration(enabled=True)
+
+        mode_parts = [part.strip() for part in uartmode1.split(",") if part.strip()]
+        if not mode_parts:
+            return SerialPortConfiguration(enabled=True)
+
+        mode = mode_parts[0].lower()
+        port = None
+        if mode == "tcpserver" and len(mode_parts) >= 2:
+            try:
+                port = int(mode_parts[1])
+            except ValueError:
+                port = None
+        return SerialPortConfiguration(enabled=True, mode=mode, port=port)
 
     def dry_run_import(self, image_path: str) -> list[ImportCandidate]:
         """Run an appliance import dry run.

@@ -43,7 +43,12 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">Sequence</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImportCandidate</span><span class="p">,</span> <span class="n">VMInfo</span><span class="p">,</span> <span class="n">VMReference</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ImportCandidate</span><span class="p">,</span>
+    <span class="n">SerialPortConfiguration</span><span class="p">,</span>
+    <span class="n">VMInfo</span><span class="p">,</span>
+    <span class="n">VMReference</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">CommandExecutionError</span><span class="p">,</span> <span class="n">PySnapError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.vbox.parsers</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">parse_extra_data</span><span class="p">,</span>
@@ -257,6 +262,37 @@
             <span class="n">managed</span><span class="o">=</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pysnap/managed&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span>
             <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
         <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="VBoxManageClient.get_serial_port_configuration">
+<a class="viewcode-back" href="../../../api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.get_serial_port_configuration">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_serial_port_configuration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SerialPortConfiguration</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read the raw ``UART1`` configuration of a VM.</span>
+
+<span class="sd">        :param vm_name: VM name to inspect.</span>
+<span class="sd">        :returns: Parsed ``UART1`` configuration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">properties</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_vm_properties</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="n">uart1</span> <span class="o">=</span> <span class="p">(</span><span class="n">properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;uart1&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="n">uartmode1</span> <span class="o">=</span> <span class="p">(</span><span class="n">properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;uartmode1&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">uart1</span> <span class="ow">or</span> <span class="n">uart1</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;off&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">SerialPortConfiguration</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">uartmode1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">SerialPortConfiguration</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">mode_parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">part</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">uartmode1</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">part</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">mode_parts</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">SerialPortConfiguration</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">mode</span> <span class="o">=</span> <span class="n">mode_parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">port</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;tcpserver&quot;</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">mode_parts</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">port</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">mode_parts</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="n">port</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">SerialPortConfiguration</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="n">port</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="VBoxManageClient.dry_run_import">
