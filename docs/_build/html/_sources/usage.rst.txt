@@ -120,6 +120,31 @@ built-in terminal interface.
    pysnap plug MyVM
    pysnap connect MyVM
 
+.. only:: graphviz
+
+   .. graphviz::
+      :caption: Plug-and-connect workflow for an existing VM.
+
+      digraph plug_connect_workflow {
+          rankdir=LR;
+          node [shape=box, style="rounded,filled", fillcolor="#f6f6f6"];
+
+          plug [label="pysnap plug VM"];
+          modifyvm [label="VBoxManage modifyvm\n--uart1 0x3F8 4\n--uartmode1 tcpserver PORT"];
+          vm [label="VM with UART1 tcpserver", shape=ellipse, fillcolor="#fff8dc"];
+          connect [label="pysnap connect VM"];
+          headless [label="VBoxManage startvm\n--type=headless"];
+          terminal [label="PySnap terminal session"];
+
+          plug -> modifyvm -> vm;
+          connect -> headless -> terminal -> vm;
+      }
+
+.. only:: not graphviz
+
+   Graphviz example diagrams are rendered automatically when the ``dot``
+   executable is available on the documentation build host.
+
 Connect to a Headless Virtual Machine
 -------------------------------------
 

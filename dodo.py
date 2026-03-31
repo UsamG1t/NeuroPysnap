@@ -20,6 +20,7 @@ BUILD_DIR = ROOT / "build"
 EGG_INFO_DIR = ROOT / "pysnap.egg-info"
 DOIT_DB = ROOT / ".doit.db"
 ROOT_PYCACHE_DIR = ROOT / "__pycache__"
+SPHINX_GRAPHVIZ_TAG = ["-t", "graphviz"] if shutil.which("dot") else []
 
 DOIT_CONFIG = {
     "default_tasks": ["test", "docs", "wheel"],
@@ -60,7 +61,15 @@ def task_docs() -> dict:
 
     return {
         "actions": [
-            f"{SPHINX_BUILD} -W -b html {DOCS_DIR} {DOCS_BUILD_DIR / 'html'}"
+            [
+                SPHINX_BUILD,
+                "-W",
+                *SPHINX_GRAPHVIZ_TAG,
+                "-b",
+                "html",
+                str(DOCS_DIR),
+                str(DOCS_BUILD_DIR / "html"),
+            ]
         ],
         "file_dep": [
             "docs/conf.py",

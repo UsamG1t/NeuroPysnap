@@ -49,6 +49,7 @@ The project uses:
 
 - `pyproject.toml` for package metadata
 - `Sphinx` for documentation
+- `Graphviz` on the build host for documentation diagrams
 - `doit` for task automation
 - `python -m build --wheel` for packaging
 

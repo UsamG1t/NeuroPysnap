@@ -15,6 +15,39 @@ Package Layout
 - ``pysnap.vbox`` contains the ``VBoxManage`` client and output parsers.
 - ``pysnap.tests`` contains unit tests.
 
+Package Relationship Diagram
+----------------------------
+
+.. only:: graphviz
+
+   .. graphviz::
+      :caption: High-level relationships between PySnap packages.
+
+      digraph package_relationships {
+          rankdir=LR;
+          node [shape=box, style="rounded,filled", fillcolor="#f6f6f6"];
+
+          cli [label="pysnap.cli"];
+          config [label="pysnap.config"];
+          core [label="pysnap.core"];
+          runtime [label="pysnap.runtime"];
+          terminal [label="pysnap.terminal"];
+          vbox [label="pysnap.vbox"];
+
+          cli -> core [label="command dispatch"];
+          cli -> terminal [label="connect"];
+          core -> config [label=".ptotosettings"];
+          core -> runtime [label="session registry"];
+          core -> vbox [label="VBoxManage operations"];
+          terminal -> core [label="prepare VM"];
+          terminal -> runtime [label="live session"];
+      }
+
+.. only:: not graphviz
+
+   Graphviz relationship diagrams are enabled automatically when the ``dot``
+   executable is available on the build host.
+
 Execution Flow
 --------------
 

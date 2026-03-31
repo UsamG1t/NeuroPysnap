@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=69", "wheel>=0.45"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -20,6 +20,13 @@ classifiers = [
 dependencies = [
   "prompt_toolkit>=3.0.52",
   "pyte>=0.8.2",
+  "Sphinx>=9.1.0",
+]
+
+[project.optional-dependencies]
+build = [
+  "build>=1.2.2",
+  "doit>=0.36.0",
 ]
 
 [project.scripts]
