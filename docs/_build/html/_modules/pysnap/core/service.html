@@ -92,6 +92,7 @@
     <span class="n">DEFAULT_STOP_TIMEOUT</span> <span class="o">=</span> <span class="mf">60.0</span>
     <span class="n">DEFAULT_INTEGRATION_STOP_TIMEOUT</span> <span class="o">=</span> <span class="mf">180.0</span>
     <span class="n">STOPPED_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;poweroff&quot;</span><span class="p">,</span> <span class="s2">&quot;saved&quot;</span><span class="p">,</span> <span class="s2">&quot;aborted&quot;</span><span class="p">}</span>
+    <span class="n">STOPPING_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;stopping&quot;</span><span class="p">}</span>
     <span class="n">PAUSED_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;paused&quot;</span><span class="p">}</span>
     <span class="n">ERROR_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;gurumeditation&quot;</span><span class="p">,</span> <span class="s2">&quot;stuck&quot;</span><span class="p">}</span>
 
@@ -452,6 +453,8 @@
 
         <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">&quot;Stopped&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; is not running.&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">&quot;Stopping&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; is already stopping.&#39;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">&quot;Changing&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; is changing state; try again later.&#39;</span>
@@ -747,16 +750,36 @@
 <span class="sd">        :raises PySnapError: If the timeout expires.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">deadline</span> <span class="o">=</span> <span class="n">monotonic</span><span class="p">()</span> <span class="o">+</span> <span class="n">timeout</span>
+        <span class="n">last_query_error</span><span class="p">:</span> <span class="n">CommandExecutionError</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">while</span> <span class="n">monotonic</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">deadline</span><span class="p">:</span>
-            <span class="n">vm_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
-            <span class="n">raw_state</span> <span class="o">=</span> <span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">raw_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_state</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">CommandExecutionError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+                <span class="n">last_query_error</span> <span class="o">=</span> <span class="n">error</span>
+                <span class="k">if</span> <span class="n">acceptable_states</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">STOPPED_STATES</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_vm_listed_as_running</span><span class="p">(</span>
+                    <span class="n">vm_name</span>
+                <span class="p">):</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_state_only_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="s2">&quot;poweroff&quot;</span><span class="p">)</span>
+                <span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+                <span class="k">continue</span>
+
             <span class="k">if</span> <span class="n">raw_state</span> <span class="ow">in</span> <span class="n">acceptable_states</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">vm_info</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">CommandExecutionError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+                    <span class="n">last_query_error</span> <span class="o">=</span> <span class="n">error</span>
+                    <span class="k">if</span> <span class="n">raw_state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">STOPPED_STATES</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_state_only_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">raw_state</span><span class="p">)</span>
+                    <span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+                    <span class="k">continue</span>
             <span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
         <span class="n">states</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">acceptable_states</span><span class="p">))</span>
+        <span class="n">details</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">last_query_error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">details</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot; Last VBoxManage error: </span><span class="si">{</span><span class="n">last_query_error</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s1">&#39;Timed out while waiting for &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; to </span><span class="si">{</span><span class="n">action_description</span><span class="si">}</span><span class="s1"> &#39;</span>
-            <span class="sa">f</span><span class="s2">&quot;(expected states: </span><span class="si">{</span><span class="n">states</span><span class="si">}</span><span class="s2">).&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;(expected states: </span><span class="si">{</span><span class="n">states</span><span class="si">}</span><span class="s2">).</span><span class="si">{</span><span class="n">details</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_run_integration_runtime_checks</span><span class="p">(</span>
@@ -860,6 +883,8 @@
         <span class="n">normalized</span> <span class="o">=</span> <span class="n">raw_state</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">normalized</span> <span class="o">==</span> <span class="s2">&quot;running&quot;</span><span class="p">:</span>
             <span class="k">return</span> <span class="s2">&quot;Working&quot;</span> <span class="k">if</span> <span class="n">has_live_session</span> <span class="k">else</span> <span class="s2">&quot;Active&quot;</span>
+        <span class="k">if</span> <span class="n">normalized</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">STOPPING_STATES</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;Stopping&quot;</span>
         <span class="k">if</span> <span class="n">normalized</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">STOPPED_STATES</span><span class="p">:</span>
             <span class="k">return</span> <span class="s2">&quot;Stopped&quot;</span>
         <span class="k">if</span> <span class="n">normalized</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">PAUSED_STATES</span><span class="p">:</span>
@@ -867,6 +892,32 @@
         <span class="k">if</span> <span class="n">normalized</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ERROR_STATES</span><span class="p">:</span>
             <span class="k">return</span> <span class="s2">&quot;Error&quot;</span>
         <span class="k">return</span> <span class="s2">&quot;Changing&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_is_vm_listed_as_running</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether VirtualBox still reports a VM as running.</span>
+
+<span class="sd">        :param vm_name: VM name to check.</span>
+<span class="sd">        :returns: ``True`` when the VM still appears in ``runningvms``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">vm</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">vm_name</span> <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">list_running_vms</span><span class="p">())</span>
+        <span class="k">except</span> <span class="n">CommandExecutionError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_state_only_vm_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">vm_state</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMInfo</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a minimal VM info object when state polling is all that is available.</span>
+
+<span class="sd">        :param vm_name: VM name.</span>
+<span class="sd">        :param vm_state: Raw VirtualBox state string.</span>
+<span class="sd">        :returns: Minimal VM information for the requested state.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">reference</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">vm</span> <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">list_vms</span><span class="p">()</span> <span class="k">if</span> <span class="n">vm</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">vm_name</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">VMInfo</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">vm_name</span><span class="p">,</span>
+            <span class="n">uuid</span><span class="o">=</span><span class="n">reference</span><span class="o">.</span><span class="n">uuid</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="n">groups</span><span class="o">=</span><span class="p">(),</span>
+            <span class="n">vm_state</span><span class="o">=</span><span class="n">vm_state</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_find_managed_dependents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Find all managed clone descendants of a VM.</span>

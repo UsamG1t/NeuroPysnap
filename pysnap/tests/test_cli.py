@@ -138,6 +138,13 @@ class FakeService:
                 group="/Lab",
                 raw_state="starting",
             ),
+            VMMonitorRecord(
+                name="stopping-vm",
+                display_state="Stopping",
+                serial_port=2347,
+                group="/Lab",
+                raw_state="stopping",
+            ),
         ]
 
     def stop_runtime_vm(self, vm_name: str) -> None:
@@ -370,6 +377,7 @@ class CliTests(unittest.TestCase):
         output = stdout.getvalue()
         self.assertIn("base-vm (state: Working ; 2345 ; /Lab)", output)
         self.assertIn("clone-vm (state: Changing ; 2346 ; /Lab)", output)
+        self.assertIn("stopping-vm (state: Stopping ; 2347 ; /Lab)", output)
         self.assertEqual("", stderr.getvalue())
 
     def test_stop_command_invokes_single_vm_stop(self) -> None:

@@ -182,6 +182,13 @@ class VBoxManageClient:
         """
         return parse_list_vms(self.runner.run(["list", "vms"]))
 
+    def list_running_vms(self) -> list[VMReference]:
+        """List all currently running VMs.
+
+        :returns: Parsed references for running VMs.
+        """
+        return parse_list_vms(self.runner.run(["list", "runningvms"]))
+
     def get_vm_info(self, vm_name: str) -> VMInfo:
         """Read detailed information about a VM.
 

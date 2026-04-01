@@ -53,6 +53,7 @@ class PySnapService:
     DEFAULT_STOP_TIMEOUT = 60.0
     DEFAULT_INTEGRATION_STOP_TIMEOUT = 180.0
     STOPPED_STATES = {"poweroff", "saved", "aborted"}
+    STOPPING_STATES = {"stopping"}
     PAUSED_STATES = {"paused"}
     ERROR_STATES = {"gurumeditation", "stuck"}
 
@@ -393,6 +394,8 @@ class PySnapService:
 
         if display_state == "Stopped":
             raise PySnapError(f'Virtual machine "{vm_name}" is not running.')
+        if display_state == "Stopping":
+            raise PySnapError(f'Virtual machine "{vm_name}" is already stopping.')
         if display_state == "Changing":
             raise PySnapError(
                 f'Virtual machine "{vm_name}" is changing state; try again later.'
@@ -663,16 +666,36 @@ class PySnapService:
         :raises PySnapError: If the timeout expires.
         """
         deadline = monotonic() + timeout
+        last_query_error: CommandExecutionError | None = None
         while monotonic() < deadline:
-            vm_info = self.client.get_vm_info(vm_name)
-            raw_state = (vm_info.vm_state or "").lower()
+            try:
+                raw_state = self.client.get_vm_state(vm_name)
+            except CommandExecutionError as error:
+                last_query_error = error
+                if acceptable_states.issubset(self.STOPPED_STATES) and not self._is_vm_listed_as_running(
+                    vm_name
+                ):
+                    return self._build_state_only_vm_info(vm_name, "poweroff")
+                sleep(0.5)
+                continue
+
             if raw_state in acceptable_states:
-                return vm_info
+                try:
+                    return self.client.get_vm_info(vm_name)
+                except CommandExecutionError as error:
+                    last_query_error = error
+                    if raw_state in self.STOPPED_STATES:
+                        return self._build_state_only_vm_info(vm_name, raw_state)
+                    sleep(0.5)
+                    continue
             sleep(0.5)
         states = ", ".join(sorted(acceptable_states))
+        details = ""
+        if last_query_error is not None:
+            details = f" Last VBoxManage error: {last_query_error}"
         raise PySnapError(
             f'Timed out while waiting for "{vm_name}" to {action_description} '
-            f"(expected states: {states})."
+            f"(expected states: {states}).{details}"
         )
 
     def _run_integration_runtime_checks(
@@ -776,6 +799,8 @@ class PySnapService:
         normalized = raw_state.lower()
         if normalized == "running":
             return "Working" if has_live_session else "Active"
+        if normalized in self.STOPPING_STATES:
+            return "Stopping"
         if normalized in self.STOPPED_STATES:
             return "Stopped"
         if normalized in self.PAUSED_STATES:
@@ -783,6 +808,32 @@ class PySnapService:
         if normalized in self.ERROR_STATES:
             return "Error"
         return "Changing"
+
+    def _is_vm_listed_as_running(self, vm_name: str) -> bool:
+        """Return whether VirtualBox still reports a VM as running.
+
+        :param vm_name: VM name to check.
+        :returns: ``True`` when the VM still appears in ``runningvms``.
+        """
+        try:
+            return any(vm.name == vm_name for vm in self.client.list_running_vms())
+        except CommandExecutionError:
+            return True
+
+    def _build_state_only_vm_info(self, vm_name: str, vm_state: str) -> VMInfo:
+        """Build a minimal VM info object when state polling is all that is available.
+
+        :param vm_name: VM name.
+        :param vm_state: Raw VirtualBox state string.
+        :returns: Minimal VM information for the requested state.
+        """
+        reference = next((vm for vm in self.client.list_vms() if vm.name == vm_name), None)
+        return VMInfo(
+            name=vm_name,
+            uuid=reference.uuid if reference is not None else "",
+            groups=(),
+            vm_state=vm_state,
+        )
 
     def _find_managed_dependents(self, vm_name: str) -> list[str]:
         """Find all managed clone descendants of a VM.

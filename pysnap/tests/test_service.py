@@ -14,7 +14,7 @@ from pysnap.config.protosettings import ProtoSettingsStore
 from pysnap.core.models import ImportCandidate, VMInfo, VMMonitorRecord, VMReference
 from pysnap.core.models import SerialPortConfiguration
 from pysnap.core.service import PySnapService
-from pysnap.errors import PySnapError, VMDependencyError
+from pysnap.errors import CommandExecutionError, PySnapError, VMDependencyError
 from pysnap.runtime.sessions import SessionRecord
 
 
@@ -81,7 +81,9 @@ class FakeClient:
         self.deleted: list[str] = []
         self.calls: list[tuple] = []
         self.state_sequences: dict[str, list[str]] = {}
+        self.state_query_failures: dict[str, list[CommandExecutionError]] = {}
         self.serial_configurations: dict[str, SerialPortConfiguration] = {}
+        self.running_vm_names_override: set[str] | None = None
 
     def list_vms(self) -> list[VMReference]:
         """Return known VM references."""
@@ -104,6 +106,32 @@ class FakeClient:
             )
             self.infos[vm_name] = current
         return current
+
+    def get_vm_state(self, vm_name: str) -> str:
+        """Return the raw runtime state for one VM."""
+        failures = self.state_query_failures.get(vm_name)
+        if failures:
+            error = failures.pop(0)
+            if not failures:
+                self.state_query_failures.pop(vm_name, None)
+            raise error
+        return (self.get_vm_info(vm_name).vm_state or "").lower()
+
+    def list_running_vms(self) -> list[VMReference]:
+        """Return the currently running fake VMs."""
+        if self.running_vm_names_override is not None:
+            return [
+                self.references[name]
+                for name in sorted(self.running_vm_names_override)
+                if name in self.references
+            ]
+        stopped_states = {"poweroff", "saved", "aborted"}
+        return [
+            reference
+            for name, reference in self.references.items()
+            if (self.infos.get(name) is not None)
+            and ((self.infos[name].vm_state or "").lower() not in stopped_states)
+        ]
 
     def dry_run_import(self, image_path: str) -> list[ImportCandidate]:
         """Return configured dry-run candidates."""
@@ -654,11 +682,12 @@ class ServiceTests(unittest.TestCase):
         self.assertIn(("stop_vm_acpi", "pysnap-it-case1234-clone-a"), client.calls)
         self.assertIn(("stop_vm_acpi", "pysnap-it-case1234-clone-b"), client.calls)
 
-    def test_list_monitored_vms_distinguishes_working_active_and_changing(self) -> None:
+    def test_list_monitored_vms_distinguishes_working_active_stopping_and_changing(self) -> None:
         """Map raw VirtualBox runtime states to compact monitor states."""
         client = FakeClient()
         client.references["working-vm"] = VMReference("working-vm", "uuid-working")
         client.references["active-vm"] = VMReference("active-vm", "uuid-active")
+        client.references["stopping-vm"] = VMReference("stopping-vm", "uuid-stopping")
         client.references["changing-vm"] = VMReference("changing-vm", "uuid-changing")
         client.infos["working-vm"] = VMInfo(
             name="working-vm",
@@ -674,11 +703,18 @@ class ServiceTests(unittest.TestCase):
             serial_port=2202,
             vm_state="running",
         )
+        client.infos["stopping-vm"] = VMInfo(
+            name="stopping-vm",
+            uuid="uuid-stopping",
+            groups=("/Lab",),
+            serial_port=2203,
+            vm_state="stopping",
+        )
         client.infos["changing-vm"] = VMInfo(
             name="changing-vm",
             uuid="uuid-changing",
             groups=("/Lab",),
-            serial_port=2203,
+            serial_port=2204,
             vm_state="starting",
         )
         registry = FakeSessionRegistry(
@@ -698,6 +734,7 @@ class ServiceTests(unittest.TestCase):
         states = {record.name: record.display_state for record in records}
         self.assertEqual(states["working-vm"], "Working")
         self.assertEqual(states["active-vm"], "Active")
+        self.assertEqual(states["stopping-vm"], "Stopping")
         self.assertEqual(states["changing-vm"], "Changing")
 
     def test_prepare_vm_connection_starts_headless_vm(self) -> None:
@@ -883,6 +920,65 @@ class ServiceTests(unittest.TestCase):
 
         self.assertEqual(stopped, ["base-vm", "clone-vm"])
         self.assertEqual(client.stop_started, {"base-vm", "clone-vm"})
+
+    def test_stop_all_runtime_vms_retries_transient_state_query_errors(self) -> None:
+        """Treat transient VBoxManage polling errors as retryable during shutdown."""
+        client = FakeClient()
+        client.references["client1"] = VMReference("client1", "uuid-client1")
+        client.references["client2"] = VMReference("client2", "uuid-client2")
+        client.infos["client1"] = VMInfo(
+            name="client1",
+            uuid="uuid-client1",
+            groups=("/Lab",),
+            serial_port=2201,
+            vm_state="running",
+        )
+        client.infos["client2"] = VMInfo(
+            name="client2",
+            uuid="uuid-client2",
+            groups=("/Lab",),
+            serial_port=2202,
+            vm_state="running",
+        )
+        client.state_query_failures["client1"] = [
+            CommandExecutionError(
+                ["VBoxManage", "showvminfo", "client1", "--machinereadable"],
+                "",
+                "VBoxManage: error: The object is not ready",
+            )
+        ]
+
+        service = self.make_service(client=client, session_registry=FakeSessionRegistry())
+        stopped = service.stop_all_runtime_vms(timeout=2.0)
+
+        self.assertEqual(stopped, ["client1", "client2"])
+        self.assertIn(("stop_vm_acpi", "client1"), client.calls)
+        self.assertIn(("stop_vm_acpi", "client2"), client.calls)
+
+    def test_stop_runtime_vm_accepts_disappearing_vm_after_query_error(self) -> None:
+        """Consider a VM stopped when it vanished from the running list after ACPI."""
+        client = FakeClient()
+        client.references["client1"] = VMReference("client1", "uuid-client1")
+        client.infos["client1"] = VMInfo(
+            name="client1",
+            uuid="uuid-client1",
+            groups=("/Lab",),
+            serial_port=2201,
+            vm_state="running",
+        )
+        client.state_query_failures["client1"] = [
+            CommandExecutionError(
+                ["VBoxManage", "showvminfo", "client1", "--machinereadable"],
+                "",
+                "VBoxManage: error: The object is not ready",
+            )
+        ]
+        client.running_vm_names_override = set()
+
+        service = self.make_service(client=client, session_registry=FakeSessionRegistry())
+        service.stop_runtime_vm("client1", timeout=1.0)
+
+        self.assertIn(("stop_vm_acpi", "client1"), client.calls)
 
     def test_erase_all_deletes_independent_leaves_in_parallel_waves(self) -> None:
         """Delete independent descendants together before touching parents."""
