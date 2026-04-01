@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+import os
 import shutil
+import sys
 from typing import Callable
 
 from prompt_toolkit.application import Application
@@ -50,7 +52,10 @@ class TerminalSession:
         vm_info = self.service.prepare_vm_connection(vm_name)
         if vm_info.serial_port is None:
             raise PySnapError(f'Virtual machine "{vm_name}" does not expose a serial TCP port.')
-        asyncio.run(self._run_async(vm_info.name, vm_info.serial_port))
+        try:
+            asyncio.run(self._run_async(vm_info.name, vm_info.serial_port))
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            return 0
         return 0
 
     async def _run_async(self, vm_name: str, serial_port: int) -> None:
@@ -66,9 +71,13 @@ class TerminalSession:
             vm_name=vm_name,
             vm_state="Working",
             serial_port=serial_port,
-            message="Connected. Ctrl-Q detaches.",
+            message="Connected. Waking serial console...",
         )
         stop_event = asyncio.Event()
+        received_output = asyncio.Event()
+
+        await _wake_serial_console(writer)
+        status.message = "Connected. Ctrl-Q detaches."
 
         def render_terminal() -> list[tuple[str, str]]:
             app = get_app()
@@ -125,7 +134,7 @@ class TerminalSession:
         app = Application(
             layout=layout,
             key_bindings=bindings,
-            full_screen=True,
+            full_screen=_should_use_full_screen(),
             mouse_support=False,
         )
 
@@ -139,6 +148,7 @@ class TerminalSession:
                         stop_event.set()
                         _safe_exit_application(app)
                         return
+                    received_output.set()
                     emulator.feed(data)
                     app.invalidate()
             except OSError as error:
@@ -166,15 +176,49 @@ class TerminalSession:
                 stop_event.set()
                 _safe_exit_application(app)
 
+        async def silence_hint_loop() -> None:
+            try:
+                await asyncio.wait_for(received_output.wait(), timeout=2.0)
+            except asyncio.TimeoutError:
+                if stop_event.is_set():
+                    return
+                status.message = "Connected. Press Enter if the guest stays silent."
+                app.invalidate()
+
         try:
             with self.service.session_registry.register(vm_name, serial_port):
                 app.create_background_task(reader_loop())
                 app.create_background_task(watcher_loop())
-                await app.run_async()
+                app.create_background_task(silence_hint_loop())
+                await app.run_async(handle_sigint=False)
         finally:
             stop_event.set()
             writer.close()
             await writer.wait_closed()
+
+
+async def _wake_serial_console(writer) -> None:
+    """Prompt the guest serial console to emit its current login screen.
+
+    Many guest systems connected through VirtualBox ``UART1`` stay visually
+    silent until they receive an initial newline. Sending one after attach
+    mirrors the manual ``Enter`` press a user would otherwise need.
+
+    :param writer: Async stream writer bound to the serial TCP transport.
+    """
+    writer.write(b"\r\n")
+    await writer.drain()
+
+
+def _should_use_full_screen() -> bool:
+    """Return whether the prompt-toolkit UI should use alternate-screen mode.
+
+    Git Bash on Windows commonly runs inside ``mintty``, where full-screen
+    alternate-screen applications are more fragile than in native consoles.
+
+    :returns: ``True`` when full-screen mode is preferred.
+    """
+    return not (sys.platform == "win32" and os.environ.get("MSYSTEM"))
 
 
 def _safe_exit_application(app: Application) -> None:
