@@ -57,6 +57,14 @@ class SubprocessRunner(RunnerProtocol):
     MACOS_APP_BUNDLE_EXECUTABLE = Path(
         "/Applications/VirtualBox.app/Contents/MacOS/VBoxManage"
     )
+    WINDOWS_INSTALL_DIRECTORY_ENV_VARS = (
+        "VBOX_MSI_INSTALL_PATH",
+        "VBOX_INSTALL_PATH",
+    )
+    WINDOWS_DEFAULT_EXECUTABLES = (
+        r"C:\Program Files\Oracle\VirtualBox\VBoxManage.exe",
+        r"C:\Program Files (x86)\Oracle\VirtualBox\VBoxManage.exe",
+    )
 
     def __init__(self, executable: str | None = None) -> None:
         """Initialize the subprocess runner.
@@ -64,6 +72,8 @@ class SubprocessRunner(RunnerProtocol):
         The runner first checks an explicit executable path, then the
         ``VBOXMANAGE_EXECUTABLE`` environment variable, then ``PATH``.
         On macOS it also falls back to the standard VirtualBox app-bundle path.
+        On Windows it checks the MSI install directory and the default
+        ``Program Files`` locations.
 
         :param executable: Optional VirtualBox command line executable.
         """
@@ -144,6 +154,11 @@ class SubprocessRunner(RunnerProtocol):
         if resolved:
             return resolved
 
+        if sys.platform == "win32":
+            for candidate in self._iter_windows_fallback_executables():
+                if Path(candidate).is_file():
+                    return candidate
+
         if sys.platform == "darwin" and self.MACOS_APP_BUNDLE_EXECUTABLE.is_file():
             return str(self.MACOS_APP_BUNDLE_EXECUTABLE)
 
@@ -159,6 +174,31 @@ class SubprocessRunner(RunnerProtocol):
         if os.altsep:
             separators.add(os.altsep)
         return value.startswith("~") or any(separator in value for separator in separators)
+
+    def _iter_windows_fallback_executables(self) -> tuple[str, ...]:
+        """Return standard Windows candidates for ``VBoxManage.exe``.
+
+        :returns: Candidate executable paths in resolution order.
+        """
+        candidates: list[str] = []
+        for variable in self.WINDOWS_INSTALL_DIRECTORY_ENV_VARS:
+            install_location = os.environ.get(variable)
+            if not install_location:
+                continue
+            candidates.append(self._normalize_windows_vboxmanage_path(install_location))
+        candidates.extend(self.WINDOWS_DEFAULT_EXECUTABLES)
+        return tuple(dict.fromkeys(candidates))
+
+    def _normalize_windows_vboxmanage_path(self, install_location: str) -> str:
+        """Normalize one Windows VirtualBox install location to ``VBoxManage.exe``.
+
+        :param install_location: Directory or executable path reported by the OS.
+        :returns: Full ``VBoxManage.exe`` path candidate.
+        """
+        normalized = install_location.strip().strip('"')
+        if normalized.lower().endswith(".exe"):
+            return normalized
+        return normalized.rstrip("\\/") + r"\VBoxManage.exe"
 
 
 class VBoxManageClient:

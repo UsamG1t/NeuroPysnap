@@ -102,6 +102,14 @@
     <span class="n">MACOS_APP_BUNDLE_EXECUTABLE</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span>
         <span class="s2">&quot;/Applications/VirtualBox.app/Contents/MacOS/VBoxManage&quot;</span>
     <span class="p">)</span>
+    <span class="n">WINDOWS_INSTALL_DIRECTORY_ENV_VARS</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;VBOX_MSI_INSTALL_PATH&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;VBOX_INSTALL_PATH&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">WINDOWS_DEFAULT_EXECUTABLES</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="sa">r</span><span class="s2">&quot;C:\Program Files\Oracle\VirtualBox\VBoxManage.exe&quot;</span><span class="p">,</span>
+        <span class="sa">r</span><span class="s2">&quot;C:\Program Files (x86)\Oracle\VirtualBox\VBoxManage.exe&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">executable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the subprocess runner.</span>
@@ -109,6 +117,8 @@
 <span class="sd">        The runner first checks an explicit executable path, then the</span>
 <span class="sd">        ``VBOXMANAGE_EXECUTABLE`` environment variable, then ``PATH``.</span>
 <span class="sd">        On macOS it also falls back to the standard VirtualBox app-bundle path.</span>
+<span class="sd">        On Windows it checks the MSI install directory and the default</span>
+<span class="sd">        ``Program Files`` locations.</span>
 
 <span class="sd">        :param executable: Optional VirtualBox command line executable.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -195,6 +205,11 @@
         <span class="k">if</span> <span class="n">resolved</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">resolved</span>
 
+        <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">&quot;win32&quot;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iter_windows_fallback_executables</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">Path</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+                    <span class="k">return</span> <span class="n">candidate</span>
+
         <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">&quot;darwin&quot;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">MACOS_APP_BUNDLE_EXECUTABLE</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
             <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MACOS_APP_BUNDLE_EXECUTABLE</span><span class="p">)</span>
 
@@ -209,7 +224,32 @@
         <span class="n">separators</span> <span class="o">=</span> <span class="p">{</span><span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">}</span>
         <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">altsep</span><span class="p">:</span>
             <span class="n">separators</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">altsep</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">value</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;~&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">separator</span> <span class="ow">in</span> <span class="n">value</span> <span class="k">for</span> <span class="n">separator</span> <span class="ow">in</span> <span class="n">separators</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">value</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;~&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">separator</span> <span class="ow">in</span> <span class="n">value</span> <span class="k">for</span> <span class="n">separator</span> <span class="ow">in</span> <span class="n">separators</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_iter_windows_fallback_executables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return standard Windows candidates for ``VBoxManage.exe``.</span>
+
+<span class="sd">        :returns: Candidate executable paths in resolution order.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">candidates</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">variable</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">WINDOWS_INSTALL_DIRECTORY_ENV_VARS</span><span class="p">:</span>
+            <span class="n">install_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">variable</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">install_location</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_normalize_windows_vboxmanage_path</span><span class="p">(</span><span class="n">install_location</span><span class="p">))</span>
+        <span class="n">candidates</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">WINDOWS_DEFAULT_EXECUTABLES</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">candidates</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_normalize_windows_vboxmanage_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">install_location</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Normalize one Windows VirtualBox install location to ``VBoxManage.exe``.</span>
+
+<span class="sd">        :param install_location: Directory or executable path reported by the OS.</span>
+<span class="sd">        :returns: Full ``VBoxManage.exe`` path candidate.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">normalized</span> <span class="o">=</span> <span class="n">install_location</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">normalized</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.exe&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">normalized</span>
+        <span class="k">return</span> <span class="n">normalized</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">/&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="sa">r</span><span class="s2">&quot;\VBoxManage.exe&quot;</span></div>
 
 
 

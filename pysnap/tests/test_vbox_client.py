@@ -78,6 +78,36 @@ class VBoxManageClientTests(unittest.TestCase):
 
         self.assertEqual(runner.executable, "/custom/VBoxManage")
 
+    def test_subprocess_runner_uses_windows_install_directory_env_var(self) -> None:
+        """Resolve VBoxManage from the standard Windows MSI install directory."""
+        expected = r"C:\Program Files\Oracle\VirtualBox\VBoxManage.exe"
+        with (
+            patch.dict(
+                os.environ,
+                {"VBOX_MSI_INSTALL_PATH": r"C:\Program Files\Oracle\VirtualBox\\"},
+                clear=True,
+            ),
+            patch("pysnap.vbox.client.shutil.which", return_value=None),
+            patch("pysnap.vbox.client.sys.platform", "win32"),
+            patch("pysnap.vbox.client.Path.is_file", return_value=True),
+        ):
+            runner = SubprocessRunner()
+
+        self.assertEqual(runner.executable, expected)
+
+    def test_subprocess_runner_uses_windows_default_program_files_path(self) -> None:
+        """Resolve VBoxManage from the default Windows Program Files location."""
+        expected = r"C:\Program Files\Oracle\VirtualBox\VBoxManage.exe"
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("pysnap.vbox.client.shutil.which", return_value=None),
+            patch("pysnap.vbox.client.sys.platform", "win32"),
+            patch("pysnap.vbox.client.Path.is_file", return_value=True),
+        ):
+            runner = SubprocessRunner()
+
+        self.assertEqual(runner.executable, expected)
+
     def test_configure_serial_port_uses_uart1_tcpserver(self) -> None:
         """Configure UART1 as a TCP server on the requested host port."""
         runner = FakeRunner()
