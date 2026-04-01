@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import ctypes
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
 import os
 from pathlib import Path
+import sys
 import tempfile
 from typing import Iterator
 
@@ -25,6 +27,10 @@ class SessionRecord:
 
 class SessionRegistry:
     """Store terminal session metadata in a temp-directory registry."""
+
+    WINDOWS_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    WINDOWS_STILL_ACTIVE = 259
+    WINDOWS_ERROR_ACCESS_DENIED = 5
 
     def __init__(self, root_dir: Path | None = None) -> None:
         """Initialize the session registry.
@@ -117,6 +123,10 @@ class SessionRegistry:
         :param pid: Process identifier.
         :returns: ``True`` when the process appears to be alive.
         """
+        if pid <= 0:
+            return False
+        if sys.platform == "win32":
+            return self._pid_is_alive_windows(pid)
         try:
             os.kill(pid, 0)
         except ProcessLookupError:
@@ -126,3 +136,34 @@ class SessionRegistry:
         except OSError:
             return False
         return True
+
+    def _pid_is_alive_windows(self, pid: int) -> bool:
+        """Check process liveness through the Windows process API.
+
+        ``os.kill(pid, 0)`` is not a harmless existence probe on Windows, so
+        session monitoring uses ``OpenProcess`` and ``GetExitCodeProcess``
+        instead.
+
+        :param pid: Process identifier.
+        :returns: ``True`` when the process still appears to be alive.
+        """
+        windll = getattr(ctypes, "windll", None)
+        if windll is None:
+            return False
+
+        kernel32 = windll.kernel32
+        process_handle = kernel32.OpenProcess(
+            self.WINDOWS_PROCESS_QUERY_LIMITED_INFORMATION,
+            False,
+            pid,
+        )
+        if not process_handle:
+            return kernel32.GetLastError() == self.WINDOWS_ERROR_ACCESS_DENIED
+
+        exit_code = ctypes.c_ulong()
+        try:
+            if not kernel32.GetExitCodeProcess(process_handle, ctypes.byref(exit_code)):
+                return kernel32.GetLastError() == self.WINDOWS_ERROR_ACCESS_DENIED
+            return exit_code.value == self.WINDOWS_STILL_ACTIVE
+        finally:
+            kernel32.CloseHandle(process_handle)
