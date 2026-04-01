@@ -45,6 +45,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">uuid</span><span class="w"> </span><span class="kn">import</span> <span class="n">uuid4</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.config.protosettings</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProtoSettingsStore</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.appliance</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_appliance_vm_names</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">ImportCandidate</span><span class="p">,</span>
     <span class="n">IntegrationTestResult</span><span class="p">,</span>
@@ -115,11 +116,13 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">import_image</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">image_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">progress_callback</span><span class="p">:</span> <span class="n">ImportProgressCallback</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">VMInfo</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Import an OVA or OVF image into VirtualBox.</span>
 
 <span class="sd">        :param image_path: Path to the OVA or OVF appliance.</span>
+<span class="sd">        :param vm_name: Optional custom name for a single imported VM.</span>
 <span class="sd">        :param progress_callback: Optional import progress callback.</span>
 <span class="sd">        :returns: Imported VM information objects.</span>
 <span class="sd">        :raises PySnapError: If the file is invalid or import does not create VMs.</span>
@@ -130,14 +133,23 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">image</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Image &quot;</span><span class="si">{</span><span class="n">image</span><span class="si">}</span><span class="s1">&quot; does not exist.&#39;</span><span class="p">)</span>
 
+        <span class="n">declared_vm_names</span> <span class="o">=</span> <span class="n">read_appliance_vm_names</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
         <span class="n">planned_imports</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">dry_run_import</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">image</span><span class="p">))</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">planned_imports</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">&quot;The appliance dry run did not expose any virtual systems.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">vm_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">planned_imports</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                <span class="s2">&quot;Custom VMName can only be used when the appliance contains exactly one VM.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">declared_vm_names</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">planned_imports</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                <span class="s2">&quot;The appliance descriptor VM count does not match the VirtualBox dry run.&quot;</span>
+            <span class="p">)</span>
 
         <span class="n">normalized_imports</span> <span class="o">=</span> <span class="p">[</span>
             <span class="n">ImportCandidate</span><span class="p">(</span>
                 <span class="n">vsys_index</span><span class="o">=</span><span class="n">item</span><span class="o">.</span><span class="n">vsys_index</span><span class="p">,</span>
-                <span class="n">vm_name</span><span class="o">=</span><span class="n">item</span><span class="o">.</span><span class="n">vm_name</span><span class="p">,</span>
+                <span class="n">vm_name</span><span class="o">=</span><span class="n">vm_name</span> <span class="k">if</span> <span class="n">vm_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">item</span><span class="o">.</span><span class="n">vm_name</span><span class="p">,</span>
                 <span class="n">group</span><span class="o">=</span><span class="n">normalize_group_name</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">group</span><span class="p">),</span>
                 <span class="n">requires_eula_accept</span><span class="o">=</span><span class="n">item</span><span class="o">.</span><span class="n">requires_eula_accept</span><span class="p">,</span>
             <span class="p">)</span>
@@ -145,6 +157,29 @@
         <span class="p">]</span>
 
         <span class="n">before_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">vm</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">list_vms</span><span class="p">()}</span>
+        <span class="n">final_candidate_names</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">[</span><span class="n">vm_name</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">vm_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">declared_vm_names</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">colliding_names</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">final_candidate_names</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">before_names</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">colliding_names</span><span class="p">:</span>
+            <span class="n">names_text</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">colliding_names</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">vm_name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">colliding_names</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">declared_vm_names</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">colliding_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">&quot; already exists. &#39;</span>
+                    <span class="s2">&quot;Use the optional VMName parameter to choose a different name.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">vm_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">colliding_names</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">colliding_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">&quot; already exists. &#39;</span>
+                    <span class="s2">&quot;Choose a different VMName.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Virtual machine names already exist: </span><span class="si">{</span><span class="n">names_text</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="s2">&quot;Import aborted before creating duplicate VM names.&quot;</span>
+            <span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">import_appliance</span><span class="p">(</span>
             <span class="nb">str</span><span class="p">(</span><span class="n">image</span><span class="p">),</span>
             <span class="n">normalized_imports</span><span class="p">,</span>

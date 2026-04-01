@@ -79,6 +79,14 @@ Import either an ``.ova`` or ``.ovf`` appliance.
 If the appliance already defines a group, PySnap keeps it. Otherwise, the
 virtual machine is placed into the ``/Others`` group.
 
+When the appliance contains exactly one VM, an optional ``VMName`` argument can
+override the imported VM name.
+
+Before running ``VBoxManage import``, PySnap checks the final VM name. If the
+name already exists, the import is aborted before creating anything. For the
+default one-VM case, PySnap recommends using the optional ``VMName`` argument
+to choose a different target name.
+
 During the import, PySnap renders a live progress bar based on the percentage
 output reported by ``VBoxManage import``.
 
@@ -86,6 +94,7 @@ output reported by ``VBoxManage import``.
 
    pysnap import image.ova
    pysnap import image.ovf
+   pysnap import image.ova RenamedVM
 
 Show Virtual Machine Details
 ----------------------------

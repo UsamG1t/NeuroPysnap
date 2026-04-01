@@ -11,6 +11,7 @@ from typing import Callable, ContextManager, Iterator
 from uuid import uuid4
 
 from pysnap.config.protosettings import ProtoSettingsStore
+from pysnap.core.appliance import read_appliance_vm_names
 from pysnap.core.models import (
     ImportCandidate,
     IntegrationTestResult,
@@ -74,11 +75,13 @@ class PySnapService:
     def import_image(
         self,
         image_path: str,
+        vm_name: str | None = None,
         progress_callback: ImportProgressCallback | None = None,
     ) -> list[VMInfo]:
         """Import an OVA or OVF image into VirtualBox.
 
         :param image_path: Path to the OVA or OVF appliance.
+        :param vm_name: Optional custom name for a single imported VM.
         :param progress_callback: Optional import progress callback.
         :returns: Imported VM information objects.
         :raises PySnapError: If the file is invalid or import does not create VMs.
@@ -89,14 +92,23 @@ class PySnapService:
         if not image.exists():
             raise PySnapError(f'Image "{image}" does not exist.')
 
+        declared_vm_names = read_appliance_vm_names(image)
         planned_imports = self.client.dry_run_import(str(image))
         if not planned_imports:
             raise PySnapError("The appliance dry run did not expose any virtual systems.")
+        if vm_name is not None and len(planned_imports) != 1:
+            raise PySnapError(
+                "Custom VMName can only be used when the appliance contains exactly one VM."
+            )
+        if len(declared_vm_names) != len(planned_imports):
+            raise PySnapError(
+                "The appliance descriptor VM count does not match the VirtualBox dry run."
+            )
 
         normalized_imports = [
             ImportCandidate(
                 vsys_index=item.vsys_index,
-                vm_name=item.vm_name,
+                vm_name=vm_name if vm_name is not None else item.vm_name,
                 group=normalize_group_name(item.group),
                 requires_eula_accept=item.requires_eula_accept,
             )
@@ -104,6 +116,29 @@ class PySnapService:
         ]
 
         before_names = {vm.name for vm in self.client.list_vms()}
+        final_candidate_names = (
+            [vm_name]
+            if vm_name is not None
+            else list(declared_vm_names)
+        )
+        colliding_names = sorted(name for name in final_candidate_names if name in before_names)
+        if colliding_names:
+            names_text = ", ".join(colliding_names)
+            if vm_name is None and len(colliding_names) == 1 and len(declared_vm_names) == 1:
+                raise PySnapError(
+                    f'Virtual machine "{colliding_names[0]}" already exists. '
+                    "Use the optional VMName parameter to choose a different name."
+                )
+            if vm_name is not None and len(colliding_names) == 1:
+                raise PySnapError(
+                    f'Virtual machine "{colliding_names[0]}" already exists. '
+                    "Choose a different VMName."
+                )
+            raise PySnapError(
+                f"Virtual machine names already exist: {names_text}. "
+                "Import aborted before creating duplicate VM names."
+            )
+
         self.client.import_appliance(
             str(image),
             normalized_imports,

@@ -99,7 +99,7 @@ def build_root_parser(
         epilog=(
             "Commands:\n"
             "  pysnap list\n"
-            "  pysnap import IMAGE.ova|IMAGE.ovf\n"
+            "  pysnap import IMAGE.ova|IMAGE.ovf [VMName]\n"
             "  pysnap --integration-test IMAGE.ova|IMAGE.ovf\n"
             "  pysnap protosettings BASE_VM\n"
             "  pysnap show VM\n"
@@ -252,11 +252,17 @@ def _run_import(
     """
     parser = CliArgumentParser(prog="pysnap import", stdout=stdout, stderr=stderr)
     parser.add_argument("image", help="Path to the OVA or OVF appliance.")
+    parser.add_argument(
+        "vm_name",
+        nargs="?",
+        help="Optional name for the imported VM when the appliance contains one VM.",
+    )
     namespace = parser.parse_args(list(arguments))
     progress_bar = ImportProgressBar(stream=stdout)
     try:
         imported = service.import_image(
             namespace.image,
+            vm_name=namespace.vm_name,
             progress_callback=progress_bar.update,
         )
     finally:

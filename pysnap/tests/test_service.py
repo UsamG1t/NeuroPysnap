@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import io
 import threading
+import tarfile
 import tempfile
 import unittest
 from contextlib import contextmanager
@@ -14,6 +16,26 @@ from pysnap.core.models import SerialPortConfiguration
 from pysnap.core.service import PySnapService
 from pysnap.errors import PySnapError, VMDependencyError
 from pysnap.runtime.sessions import SessionRecord
+
+
+def _minimal_ovf(vm_names: list[str]) -> str:
+    """Build a small OVF descriptor for one or more virtual systems."""
+    systems = "\n".join(
+        (
+            f'  <VirtualSystem ovf:id="{vm_name}">\n'
+            "    <Info>A virtual machine</Info>\n"
+            f"    <Name>{vm_name}</Name>\n"
+            "  </VirtualSystem>"
+        )
+        for vm_name in vm_names
+    )
+    return (
+        '<?xml version="1.0"?>\n'
+        '<Envelope xmlns="http://schemas.dmtf.org/ovf/envelope/1" '
+        'xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1">\n'
+        f"{systems}\n"
+        "</Envelope>\n"
+    )
 
 
 class FakeSessionRegistry:
@@ -101,7 +123,12 @@ class FakeClient:
             )
         return SerialPortConfiguration(enabled=False)
 
-    def import_appliance(self, image_path: str, candidates: list[ImportCandidate]) -> None:
+    def import_appliance(
+        self,
+        image_path: str,
+        candidates: list[ImportCandidate],
+        progress_callback=None,
+    ) -> None:
         """Simulate appliance import."""
         self.calls.append(("import_appliance", image_path, tuple(candidates)))
         for candidate in candidates:
@@ -260,6 +287,27 @@ class ServiceTests(unittest.TestCase):
             proto_settings_store=self.proto_settings_store,
         )
 
+    def make_appliance(
+        self,
+        vm_names: list[str],
+        suffix: str = ".ova",
+    ) -> tempfile.NamedTemporaryFile:
+        """Create a temporary OVF or OVA appliance for service tests."""
+        appliance = tempfile.NamedTemporaryFile(suffix=suffix)
+        descriptor = _minimal_ovf(vm_names).encode("utf-8")
+        if suffix == ".ovf":
+            appliance.write(descriptor)
+            appliance.flush()
+            return appliance
+
+        ovf_name = f"{Path(appliance.name).stem}.ovf"
+        with tarfile.open(appliance.name, "w") as archive:
+            info = tarfile.TarInfo(name=ovf_name)
+            info.size = len(descriptor)
+            archive.addfile(info, fileobj=io.BytesIO(descriptor))
+        appliance.flush()
+        return appliance
+
     def test_clone_vm_uses_snapshot_group_and_metadata(self) -> None:
         """Create a linked clone with inherited group and extra settings."""
         client = FakeClient()
@@ -340,6 +388,139 @@ class ServiceTests(unittest.TestCase):
 
         self.assertEqual(clone_info.serial_port, 1024)
         self.assertIn(("configure_serial_port", "clone-vm", 1024), client.calls)
+
+    def test_clone_vm_rejects_duplicate_clone_name(self) -> None:
+        """Reject clone names that already exist in VirtualBox."""
+        client = FakeClient()
+        client.references["base-vm"] = VMReference("base-vm", "uuid-base")
+        client.references["clone-vm"] = VMReference("clone-vm", "uuid-clone")
+        client.infos["base-vm"] = VMInfo(
+            name="base-vm",
+            uuid="uuid-base",
+            groups=("/Lab",),
+            managed=True,
+        )
+        client.infos["clone-vm"] = VMInfo(
+            name="clone-vm",
+            uuid="uuid-clone",
+            groups=("/Lab",),
+            managed=True,
+        )
+
+        service = self.make_service(client=client)
+        with self.assertRaises(PySnapError):
+            service.clone_vm(base_vm="base-vm", clone_vm="clone-vm")
+
+    def test_import_image_accepts_custom_name_for_single_vm_appliance(self) -> None:
+        """Rename a single imported appliance VM through the optional VMName."""
+        client = FakeClient()
+        client.import_candidates = [
+            ImportCandidate(vsys_index=0, vm_name="original-vm", group="/Lab")
+        ]
+
+        service = self.make_service(client=client)
+        with self.make_appliance(["original-vm"]) as appliance:
+            imported = service.import_image(appliance.name, vm_name="renamed-vm")
+
+        self.assertEqual([item.name for item in imported], ["renamed-vm"])
+        self.assertIn(
+            (
+                "import_appliance",
+                appliance.name,
+                (
+                    ImportCandidate(
+                        vsys_index=0,
+                        vm_name="renamed-vm",
+                        group="/Lab",
+                        requires_eula_accept=False,
+                    ),
+                ),
+            ),
+            client.calls,
+        )
+
+    def test_import_image_rejects_duplicate_default_name_with_recommendation(self) -> None:
+        """Abort import when the final default VM name already exists."""
+        client = FakeClient()
+        client.import_candidates = [
+            ImportCandidate(vsys_index=0, vm_name="existing-vm", group="/Lab")
+        ]
+        client.references["existing-vm"] = VMReference("existing-vm", "uuid-existing")
+        client.infos["existing-vm"] = VMInfo(
+            name="existing-vm",
+            uuid="uuid-existing",
+            groups=("/Lab",),
+            managed=True,
+        )
+
+        service = self.make_service(client=client)
+        with self.make_appliance(["existing-vm"]) as appliance:
+            with self.assertRaises(PySnapError) as context:
+                service.import_image(appliance.name)
+
+        self.assertIn("Use the optional VMName parameter", str(context.exception))
+        import_calls = [call for call in client.calls if call[0] == "import_appliance"]
+        self.assertEqual(import_calls, [])
+
+    def test_import_image_rejects_duplicate_custom_name(self) -> None:
+        """Abort import when the requested custom VM name already exists."""
+        client = FakeClient()
+        client.import_candidates = [
+            ImportCandidate(vsys_index=0, vm_name="original-vm", group="/Lab")
+        ]
+        client.references["renamed-vm"] = VMReference("renamed-vm", "uuid-existing")
+        client.infos["renamed-vm"] = VMInfo(
+            name="renamed-vm",
+            uuid="uuid-existing",
+            groups=("/Lab",),
+            managed=True,
+        )
+
+        service = self.make_service(client=client)
+        with self.make_appliance(["original-vm"]) as appliance:
+            with self.assertRaises(PySnapError) as context:
+                service.import_image(appliance.name, vm_name="renamed-vm")
+
+        self.assertIn('Virtual machine "renamed-vm" already exists.', str(context.exception))
+        import_calls = [call for call in client.calls if call[0] == "import_appliance"]
+        self.assertEqual(import_calls, [])
+
+    def test_import_image_rejects_custom_name_for_multi_vm_appliance(self) -> None:
+        """Require exactly one VM when a custom import name is supplied."""
+        client = FakeClient()
+        client.import_candidates = [
+            ImportCandidate(vsys_index=0, vm_name="vm-a", group="/Lab"),
+            ImportCandidate(vsys_index=1, vm_name="vm-b", group="/Lab"),
+        ]
+
+        service = self.make_service(client=client)
+        with self.make_appliance(["vm-a", "vm-b"]) as appliance:
+            with self.assertRaises(PySnapError) as context:
+                service.import_image(appliance.name, vm_name="renamed-vm")
+
+        self.assertIn("Custom VMName can only be used", str(context.exception))
+
+    def test_import_image_rejects_collision_even_when_dry_run_suggests_renamed_vm(self) -> None:
+        """Reject imports that VirtualBox would auto-rename after a collision."""
+        client = FakeClient()
+        client.import_candidates = [
+            ImportCandidate(vsys_index=0, vm_name="existing-vm 1", group="/Lab")
+        ]
+        client.references["existing-vm"] = VMReference("existing-vm", "uuid-existing")
+        client.infos["existing-vm"] = VMInfo(
+            name="existing-vm",
+            uuid="uuid-existing",
+            groups=("/Lab",),
+            managed=True,
+        )
+
+        service = self.make_service(client=client)
+        with self.make_appliance(["existing-vm"]) as appliance:
+            with self.assertRaises(PySnapError) as context:
+                service.import_image(appliance.name)
+
+        self.assertIn('Virtual machine "existing-vm" already exists.', str(context.exception))
+        self.assertIn("Use the optional VMName parameter", str(context.exception))
 
     def test_erase_vm_rejects_managed_descendants(self) -> None:
         """Reject deleting a VM that still has managed descendants."""

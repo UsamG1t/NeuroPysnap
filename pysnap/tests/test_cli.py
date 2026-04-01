@@ -57,14 +57,21 @@ class FakeService:
             parent_name=base_vm,
         )
 
-    def import_image(self, image_path: str, progress_callback=None) -> list[VMInfo]:
+    def import_image(
+        self,
+        image_path: str,
+        vm_name: str | None = None,
+        progress_callback=None,
+    ) -> list[VMInfo]:
         """Return a static import result."""
-        self.import_args = (image_path,)
+        self.import_args = (image_path, vm_name)
         if progress_callback is not None:
             progress_callback(5)
             progress_callback(55)
             progress_callback(100)
-        return [VMInfo(name="base-vm", uuid="uuid", groups=("/Others",))]
+        return [
+            VMInfo(name=vm_name or "base-vm", uuid="uuid", groups=("/Others",))
+        ]
 
     def run_integration_test(self, image_path: str) -> IntegrationTestResult:
         """Return a static integration-test result."""
@@ -233,11 +240,29 @@ class CliTests(unittest.TestCase):
         )
 
         self.assertEqual(exit_code, 0)
-        self.assertEqual(service.import_args, ("~/Downloads/test.ova",))
+        self.assertEqual(service.import_args, ("~/Downloads/test.ova", None))
         output = stdout.getvalue()
         self.assertIn("Importing [", output)
         self.assertIn("100%", output)
         self.assertIn("Imported virtual machines:", output)
+        self.assertEqual("", stderr.getvalue())
+
+    def test_import_command_accepts_custom_vm_name(self) -> None:
+        """Pass the optional VM name through to the service layer."""
+        service = FakeService()
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        exit_code = run_cli(
+            ["import", "~/Downloads/test.ova", "renamed-vm"],
+            service=service,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(service.import_args, ("~/Downloads/test.ova", "renamed-vm"))
+        self.assertIn("- renamed-vm (/Others)", stdout.getvalue())
         self.assertEqual("", stderr.getvalue())
 
     def test_protosettings_command_registers_vm(self) -> None:

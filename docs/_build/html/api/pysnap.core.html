@@ -40,6 +40,30 @@
 <section id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading">¶</a></h2>
 </section>
+<section id="module-pysnap.core.appliance">
+<span id="pysnap-core-appliance-module"></span><h2>pysnap.core.appliance module<a class="headerlink" href="#module-pysnap.core.appliance" title="Link to this heading">¶</a></h2>
+<p>Helpers for reading appliance metadata from OVF and OVA files.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.core.appliance.read_appliance_vm_names">
+<span class="sig-prename descclassname"><span class="pre">pysnap.core.appliance.</span></span><span class="sig-name descname"><span class="pre">read_appliance_vm_names</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/appliance.html#read_appliance_vm_names"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.appliance.read_appliance_vm_names" title="Link to this definition">¶</a></dt>
+<dd><p>Read original VM names declared inside an OVF or OVA appliance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>image_path</strong> (<em>str</em><em> | </em><em>Path</em>) – Appliance path.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Declared appliance VM names in descriptor order.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="pysnap.html#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><strong>PySnapError</strong></a> – If the descriptor cannot be read or parsed.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple[str, …]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
 <section id="module-pysnap.core.models">
 <span id="pysnap-core-models-module"></span><h2>pysnap.core.models module<a class="headerlink" href="#module-pysnap.core.models" title="Link to this heading">¶</a></h2>
 <p>Domain models used by PySnap.</p>
@@ -385,12 +409,13 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pysnap.core.service.PySnapService.import_image">
-<span class="sig-name descname"><span class="pre">import_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress_callback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService.import_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService.import_image" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">import_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vm_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress_callback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService.import_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService.import_image" title="Link to this definition">¶</a></dt>
 <dd><p>Import an OVA or OVF image into VirtualBox.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>image_path</strong> (<em>str</em>) – Path to the OVA or OVF appliance.</p></li>
+<li><p><strong>vm_name</strong> (<em>str</em><em> | </em><em>None</em>) – Optional custom name for a single imported VM.</p></li>
 <li><p><strong>progress_callback</strong> (<em>Callable</em><em>[</em><em>[</em><em>int</em><em>]</em><em>, </em><em>None</em><em>] </em><em>| </em><em>None</em>) – Optional import progress callback.</p></li>
 </ul>
 </dd>

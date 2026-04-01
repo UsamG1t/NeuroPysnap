@@ -31,7 +31,7 @@ terminal, and removing virtual machines with dependency checks.
 ```text
 pysnap
 pysnap list
-pysnap import IMAGE.ova|IMAGE.ovf
+pysnap import IMAGE.ova|IMAGE.ovf [VMName]
 pysnap --integration-test IMAGE.ova|IMAGE.ovf
 pysnap protosettings BASE_VM
 pysnap show <VM>
@@ -67,6 +67,7 @@ Import an appliance with a live progress bar:
 
 ```bash
 pysnap import image.ova
+pysnap import image.ova renamed-vm
 Importing [############################....]  87%
 ```
 

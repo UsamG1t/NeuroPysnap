@@ -102,10 +102,17 @@ clone created from it receives additional DMI values:</p>
 <p>Import either an <code class="docutils literal notranslate"><span class="pre">.ova</span></code> or <code class="docutils literal notranslate"><span class="pre">.ovf</span></code> appliance.</p>
 <p>If the appliance already defines a group, PySnap keeps it. Otherwise, the
 virtual machine is placed into the <code class="docutils literal notranslate"><span class="pre">/Others</span></code> group.</p>
+<p>When the appliance contains exactly one VM, an optional <code class="docutils literal notranslate"><span class="pre">VMName</span></code> argument can
+override the imported VM name.</p>
+<p>Before running <code class="docutils literal notranslate"><span class="pre">VBoxManage</span> <span class="pre">import</span></code>, PySnap checks the final VM name. If the
+name already exists, the import is aborted before creating anything. For the
+default one-VM case, PySnap recommends using the optional <code class="docutils literal notranslate"><span class="pre">VMName</span></code> argument
+to choose a different target name.</p>
 <p>During the import, PySnap renders a live progress bar based on the percentage
 output reported by <code class="docutils literal notranslate"><span class="pre">VBoxManage</span> <span class="pre">import</span></code>.</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap import image.ova
 pysnap import image.ovf
+pysnap import image.ova RenamedVM
 </pre></div>
 </div>
 </section>
