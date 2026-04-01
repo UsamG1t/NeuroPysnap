@@ -137,7 +137,7 @@ class TerminalSession:
                         status.vm_state = "Changing"
                         status.message = "Serial connection closed."
                         stop_event.set()
-                        app.exit()
+                        _safe_exit_application(app)
                         return
                     emulator.feed(data)
                     app.invalidate()
@@ -145,7 +145,7 @@ class TerminalSession:
                 status.vm_state = "Changing"
                 status.message = f"Connection error: {error}"
                 stop_event.set()
-                app.exit()
+                _safe_exit_application(app)
 
         async def watcher_loop() -> None:
             try:
@@ -158,13 +158,13 @@ class TerminalSession:
                     app.invalidate()
                     if current_state not in {"Working", "Active"}:
                         stop_event.set()
-                        app.exit()
+                        _safe_exit_application(app)
                         return
             except Exception as error:
                 status.vm_state = "Changing"
                 status.message = f"Watcher error: {error}"
                 stop_event.set()
-                app.exit()
+                _safe_exit_application(app)
 
         try:
             with self.service.session_registry.register(vm_name, serial_port):
@@ -175,3 +175,29 @@ class TerminalSession:
             stop_event.set()
             writer.close()
             await writer.wait_closed()
+
+
+def _safe_exit_application(app: Application) -> None:
+    """Exit a prompt-toolkit application only when it is still active.
+
+    Background reader and watcher tasks can race with a user-triggered detach.
+    In that case, prompt-toolkit may raise benign exceptions because the
+    application has already been closed by another code path.
+
+    :param app: Running prompt-toolkit application.
+    :raises Exception: Propagated when prompt-toolkit reports an unexpected
+        failure unrelated to a repeated exit attempt.
+    """
+    if not app.is_running or app.is_done:
+        return
+
+    try:
+        app.exit()
+    except Exception as error:
+        message = str(error)
+        if message in {
+            "Application is not running. Application.exit() failed.",
+            "Return value already set. Application.exit() failed.",
+        }:
+            return
+        raise
