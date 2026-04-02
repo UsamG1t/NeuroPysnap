@@ -43,6 +43,7 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.cli</span></code> contains argument parsing and terminal output formatting.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.config</span></code> contains persistent configuration helpers.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.core</span></code> contains domain models and the main application service.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pysnap/docs</span></code> stores compiled HTML documentation bundled with the wheel.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.runtime</span></code> contains the live-session registry shared by runtime tools.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.terminal</span></code> contains the built-in serial terminal transport, emulator,
 key mapping, and interactive UI session logic.</p></li>
@@ -129,10 +130,18 @@ PySnap writes additional DMI settings through <code class="docutils literal notr
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">Working</span></code> for running VMs with an active PySnap terminal session</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">Active</span></code> for running VMs without an attached PySnap terminal session</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">Changing</span></code> for startup, shutdown, and other transitional states</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Stopping</span></code> for graceful shutdown in progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Changing</span></code> for startup and other transitional states</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">Paused</span></code> for paused VMs</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">Error</span></code> for explicit error-like VirtualBox states</p></li>
 </ul>
+</section>
+<section id="documentation-packaging-strategy">
+<h2>Documentation Packaging Strategy<a class="headerlink" href="#documentation-packaging-strategy" title="Link to this heading">¶</a></h2>
+<p>Sphinx builds the HTML documentation into <code class="docutils literal notranslate"><span class="pre">docs/_build/html</span></code>. During wheel
+packaging, <code class="docutils literal notranslate"><span class="pre">doit</span></code> copies that compiled tree into <code class="docutils literal notranslate"><span class="pre">pysnap/docs</span></code> so the
+installed package can open its own local documentation through <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">docs</span></code>
+without requiring Sphinx at runtime.</p>
 </section>
 </section>
 
@@ -173,6 +182,7 @@ PySnap writes additional DMI settings through <code class="docutils literal notr
 <li class="toctree-l2"><a class="reference internal" href="#serial-port-strategy">Serial Port Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#proto-settings-strategy">Proto Settings Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#runtime-state-strategy">Runtime State Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#documentation-packaging-strategy">Documentation Packaging Strategy</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="api/modules.html">pysnap</a></li>

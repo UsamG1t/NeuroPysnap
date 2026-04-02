@@ -22,6 +22,14 @@ Subpackages
 Submodules
 ----------
 
+pysnap.docview module
+---------------------
+
+.. automodule:: pysnap.docview
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 pysnap.errors module
 --------------------
 

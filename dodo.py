@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 import shutil
+import tomllib
 
 
 ROOT = Path(__file__).resolve().parent
+PROJECT_VERSION = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
+    "project"
+]["version"]
 VENV_BIN = ROOT / ".pysnap" / "bin"
 PYTHON = str(VENV_BIN / "python")
 SPHINX_APIDOC = str(VENV_BIN / "sphinx-apidoc")
@@ -15,6 +19,7 @@ SPHINX_BUILD = str(VENV_BIN / "sphinx-build")
 DOCS_DIR = ROOT / "docs"
 DOCS_API_DIR = DOCS_DIR / "api"
 DOCS_BUILD_DIR = DOCS_DIR / "_build"
+PACKAGED_DOCS_DIR = ROOT / "pysnap" / "docs"
 DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build"
 EGG_INFO_DIR = ROOT / "pysnap.egg-info"
@@ -97,11 +102,38 @@ def task_wheel() -> dict:
             "pysnap/__init__.py",
             "pysnap/cli/app.py",
             "pysnap/core/service.py",
+            "pysnap/docview.py",
             "pysnap/runtime/sessions.py",
             "pysnap/terminal/session.py",
             "pysnap/vbox/client.py",
         ],
-        "targets": [str(DIST_DIR / "pysnap-0.1.0-py3-none-any.whl")],
+        "task_dep": ["package_docs"],
+        "targets": [str(DIST_DIR / f"pysnap-{PROJECT_VERSION}-py3-none-any.whl")],
+        "verbosity": 2,
+    }
+
+
+def task_package_docs() -> dict:
+    """Copy compiled HTML documentation into the package tree."""
+
+    def sync_packaged_docs() -> None:
+        """Replace packaged documentation with the latest compiled HTML tree."""
+        PACKAGED_DOCS_DIR.mkdir(parents=True, exist_ok=True)
+        for path in PACKAGED_DOCS_DIR.iterdir():
+            if path.name == ".gitignore":
+                continue
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+        shutil.copytree(DOCS_BUILD_DIR / "html", PACKAGED_DOCS_DIR, dirs_exist_ok=True)
+        (PACKAGED_DOCS_DIR / ".gitignore").write_text("*\n!.gitignore\n", encoding="utf-8")
+
+    return {
+        "actions": [sync_packaged_docs],
+        "task_dep": ["docs"],
+        "file_dep": [str(DOCS_BUILD_DIR / "html" / "index.html")],
+        "targets": [str(PACKAGED_DOCS_DIR / "index.html")],
         "verbosity": 2,
     }
 
@@ -112,7 +144,14 @@ def task_cleanup() -> dict:
     def clean() -> None:
         """Delete generated artifacts from previous runs."""
 
-        for path in (DOCS_BUILD_DIR, DOCS_API_DIR, DIST_DIR, BUILD_DIR, EGG_INFO_DIR):
+        for path in (
+            DOCS_BUILD_DIR,
+            DOCS_API_DIR,
+            DIST_DIR,
+            BUILD_DIR,
+            EGG_INFO_DIR,
+            PACKAGED_DOCS_DIR,
+        ):
             if path.exists():
                 shutil.rmtree(path)
         for path in (ROOT_PYCACHE_DIR,):
@@ -122,6 +161,8 @@ def task_cleanup() -> dict:
             DOIT_DB.unlink()
         DOCS_API_DIR.mkdir(parents=True, exist_ok=True)
         (DOCS_API_DIR / ".gitignore").write_text("*\n!.gitignore\n", encoding="utf-8")
+        PACKAGED_DOCS_DIR.mkdir(parents=True, exist_ok=True)
+        (PACKAGED_DOCS_DIR / ".gitignore").write_text("*\n!.gitignore\n", encoding="utf-8")
 
     return {
         "actions": [clean],

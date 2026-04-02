@@ -272,6 +272,37 @@ class CliTests(unittest.TestCase):
         self.assertIn("- renamed-vm (/Others)", stdout.getvalue())
         self.assertEqual("", stderr.getvalue())
 
+    def test_docs_command_opens_bundled_documentation(self) -> None:
+        """Launch the packaged documentation viewer command."""
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with patch("pysnap.cli.app.open_bundled_documentation") as open_docs:
+            exit_code = run_cli(["docs"], service=FakeService(), stdout=stdout, stderr=stderr)
+
+        self.assertEqual(exit_code, 0)
+        open_docs.assert_called_once_with(browser=None)
+        self.assertEqual("", stdout.getvalue())
+        self.assertEqual("", stderr.getvalue())
+
+    def test_docs_command_accepts_explicit_browser(self) -> None:
+        """Pass an explicit browser executable to the docs helper."""
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with patch("pysnap.cli.app.open_bundled_documentation") as open_docs:
+            exit_code = run_cli(
+                ["docs", "--browser", "/usr/bin/chromium"],
+                service=FakeService(),
+                stdout=stdout,
+                stderr=stderr,
+            )
+
+        self.assertEqual(exit_code, 0)
+        open_docs.assert_called_once_with(browser="/usr/bin/chromium")
+        self.assertEqual("", stdout.getvalue())
+        self.assertEqual("", stderr.getvalue())
+
     def test_protosettings_command_registers_vm(self) -> None:
         """Register a VM for proto-settings through the service layer."""
         service = FakeService()

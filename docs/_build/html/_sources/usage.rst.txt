@@ -12,6 +12,20 @@ Running the command without arguments shows the built-in help:
 
    pysnap
 
+Open Bundled Documentation
+--------------------------
+
+The ``docs`` command opens the compiled HTML documentation that is bundled
+inside the installed PySnap package.
+
+By default, PySnap tries to launch ``firefox``. When it is not available, pass
+an explicit browser executable through ``--browser``.
+
+.. code-block:: text
+
+   pysnap docs
+   pysnap docs --browser /usr/bin/chromium
+
 List Virtual Machines
 ---------------------
 
@@ -184,7 +198,8 @@ PySnap currently uses these runtime labels:
 
 - ``Working`` when the VM is running and PySnap has an active attached session
 - ``Active`` when the VM is running in headless mode without an attached session
-- ``Changing`` when the VM is starting, stopping, or otherwise transitioning
+- ``Stopping`` when the VM is shutting down gracefully
+- ``Changing`` when the VM is starting or otherwise transitioning
 - ``Paused`` when VirtualBox reports a paused machine
 - ``Error`` when VirtualBox reports an error-like runtime state
 
@@ -193,7 +208,7 @@ PySnap currently uses these runtime labels:
    pysnap monitor
    srv (state: Working ; 2345 ; /Lab)
    db (state: Active ; 2346 ; /Lab)
-   router (state: Changing ; 2347 ; /Net)
+   router (state: Stopping ; 2347 ; /Net)
 
 Stop Running Virtual Machines
 -----------------------------

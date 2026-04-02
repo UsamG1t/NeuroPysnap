@@ -18,6 +18,7 @@ terminal, and removing virtual machines with dependency checks.
 - Allocate the next available serial TCP port automatically when `-p` is omitted.
 - Start virtual machines in headless mode and attach to them through a
   cross-platform Python terminal interface.
+- Open the bundled HTML documentation directly from the installed package.
 - Monitor active and changing virtual machines with compact runtime states.
 - Stop one running VM or all running VMs through `acpipowerbutton`.
 - Discover `VBoxManage` automatically on macOS through the standard
@@ -34,6 +35,7 @@ pysnap list
 pysnap import IMAGE.ova|IMAGE.ovf [VMName]
 pysnap --integration-test IMAGE.ova|IMAGE.ovf
 pysnap protosettings BASE_VM
+pysnap docs [--browser BROWSER]
 pysnap show <VM>
 pysnap plug <VM>
 pysnap connect <VM>
@@ -48,7 +50,7 @@ pysnap erase [--all | --group GROUP | <VM>]
 The project uses:
 
 - `pyproject.toml` for package metadata
-- `Sphinx` for documentation
+- `Sphinx` as a build-time dependency for compiled documentation
 - `Graphviz` on the build host for documentation diagrams
 - `doit` for task automation
 - `python -m build --wheel` for packaging
@@ -69,6 +71,14 @@ Import an appliance with a live progress bar:
 pysnap import image.ova
 pysnap import image.ova renamed-vm
 Importing [############################....]  87%
+```
+
+Open the bundled HTML documentation in Firefox by default or in an explicit
+browser:
+
+```bash
+pysnap docs
+pysnap docs --browser /usr/bin/chromium
 ```
 
 Start a VM in headless mode and attach to its serial console:
@@ -93,7 +103,7 @@ Monitor running or changing VMs in a compact form:
 pysnap monitor
 srv (state: Working ; 2345 ; /Lab)
 db (state: Active ; 2346 ; /Lab)
-router (state: Changing ; 2347 ; /Net)
+router (state: Stopping ; 2347 ; /Net)
 ```
 
 Register a base VM for educational protocol settings:

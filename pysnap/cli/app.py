@@ -16,6 +16,7 @@ from pysnap.cli.formatters import (
     format_vm_info,
 )
 from pysnap.core.service import PySnapService
+from pysnap.docview import open_bundled_documentation
 from pysnap.errors import PySnapError
 from pysnap.terminal.session import TerminalSession
 
@@ -104,6 +105,7 @@ def build_root_parser(
             "  pysnap protosettings BASE_VM\n"
             "  pysnap show VM\n"
             "  pysnap plug VM\n"
+            "  pysnap docs [--browser BROWSER]\n"
             "  pysnap connect VM\n"
             "  pysnap monitor\n"
             "  pysnap stop [VM | --all]\n"
@@ -159,6 +161,8 @@ def run_cli(
             return _run_show(arguments[1:], app_service, output, error_output)
         if command == "plug":
             return _run_plug(arguments[1:], app_service, output, error_output)
+        if command == "docs":
+            return _run_docs(arguments[1:], output, error_output)
         if command == "connect":
             return _run_connect(arguments[1:], app_service, output, error_output)
         if command == "monitor":
@@ -353,6 +357,28 @@ def _run_connect(
     namespace = parser.parse_args(list(arguments))
     session = TerminalSession(service=service)
     return session.run(namespace.vm)
+
+
+def _run_docs(
+    arguments: Sequence[str],
+    stdout: TextIO,
+    stderr: TextIO,
+) -> int:
+    """Run the ``docs`` command.
+
+    :param arguments: Subcommand arguments.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :returns: Process exit code.
+    """
+    parser = CliArgumentParser(prog="pysnap docs", stdout=stdout, stderr=stderr)
+    parser.add_argument(
+        "--browser",
+        help="Browser executable used to open the bundled documentation.",
+    )
+    namespace = parser.parse_args(list(arguments))
+    open_bundled_documentation(browser=namespace.browser)
+    return 0
 
 
 def _run_monitor(

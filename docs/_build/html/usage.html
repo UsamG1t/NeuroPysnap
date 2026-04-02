@@ -44,6 +44,17 @@
 </pre></div>
 </div>
 </section>
+<section id="open-bundled-documentation">
+<h2>Open Bundled Documentation<a class="headerlink" href="#open-bundled-documentation" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">docs</span></code> command opens the compiled HTML documentation that is bundled
+inside the installed PySnap package.</p>
+<p>By default, PySnap tries to launch <code class="docutils literal notranslate"><span class="pre">firefox</span></code>. When it is not available, pass
+an explicit browser executable through <code class="docutils literal notranslate"><span class="pre">--browser</span></code>.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap docs
+pysnap docs --browser /usr/bin/chromium
+</pre></div>
+</div>
+</section>
 <section id="list-virtual-machines">
 <h2>List Virtual Machines<a class="headerlink" href="#list-virtual-machines" title="Link to this heading">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">list</span></code> command prints all detected VirtualBox groups and the names of the
@@ -187,14 +198,15 @@ for <code class="docutils literal notranslate"><span class="pre">VBoxManage</spa
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">Working</span></code> when the VM is running and PySnap has an active attached session</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">Active</span></code> when the VM is running in headless mode without an attached session</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">Changing</span></code> when the VM is starting, stopping, or otherwise transitioning</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Stopping</span></code> when the VM is shutting down gracefully</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Changing</span></code> when the VM is starting or otherwise transitioning</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">Paused</span></code> when VirtualBox reports a paused machine</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">Error</span></code> when VirtualBox reports an error-like runtime state</p></li>
 </ul>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap monitor
 srv (state: Working ; 2345 ; /Lab)
 db (state: Active ; 2346 ; /Lab)
-router (state: Changing ; 2347 ; /Net)
+router (state: Stopping ; 2347 ; /Net)
 </pre></div>
 </div>
 </section>
@@ -279,6 +291,7 @@ pysnap erase --all
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Usage Guide</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#help">Help</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#open-bundled-documentation">Open Bundled Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#list-virtual-machines">List Virtual Machines</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#run-an-integration-test">Run an Integration Test</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#register-proto-settings-for-a-base-vm">Register Proto Settings for a Base VM</a></li>

@@ -9,6 +9,7 @@ Package Layout
 - ``pysnap.cli`` contains argument parsing and terminal output formatting.
 - ``pysnap.config`` contains persistent configuration helpers.
 - ``pysnap.core`` contains domain models and the main application service.
+- ``pysnap/docs`` stores compiled HTML documentation bundled with the wheel.
 - ``pysnap.runtime`` contains the live-session registry shared by runtime tools.
 - ``pysnap.terminal`` contains the built-in serial terminal transport, emulator,
   key mapping, and interactive UI session logic.
@@ -102,6 +103,15 @@ PySnap translates raw VirtualBox runtime states into compact monitor labels:
 
 - ``Working`` for running VMs with an active PySnap terminal session
 - ``Active`` for running VMs without an attached PySnap terminal session
-- ``Changing`` for startup, shutdown, and other transitional states
+- ``Stopping`` for graceful shutdown in progress
+- ``Changing`` for startup and other transitional states
 - ``Paused`` for paused VMs
 - ``Error`` for explicit error-like VirtualBox states
+
+Documentation Packaging Strategy
+--------------------------------
+
+Sphinx builds the HTML documentation into ``docs/_build/html``. During wheel
+packaging, ``doit`` copies that compiled tree into ``pysnap/docs`` so the
+installed package can open its own local documentation through ``pysnap docs``
+without requiring Sphinx at runtime.
