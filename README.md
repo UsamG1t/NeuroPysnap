@@ -18,6 +18,8 @@ terminal, and removing virtual machines with dependency checks.
 - Allocate the next available serial TCP port automatically when `-p` is omitted.
 - Start virtual machines in headless mode and attach to them through a
   cross-platform Python terminal interface.
+- Track outer-terminal resize events during ``connect`` sessions and answer
+  xterm-compatible size queries for guest-side tools.
 - Open the bundled HTML documentation directly from the installed package.
 - Monitor active and changing virtual machines with compact runtime states.
 - Stop one running VM or all running VMs through `acpipowerbutton`.
@@ -86,6 +88,10 @@ Start a VM in headless mode and attach to its serial console:
 ```bash
 pysnap connect srv
 ```
+
+While attached, PySnap keeps the guest-visible area synchronized with the
+current terminal size. On Linux guests, xterm-compatible tools such as
+``resize`` can use the serial connection to rediscover the updated geometry.
 
 Plug a stopped VM into the same serial-console workflow used by imported
 protocol images:

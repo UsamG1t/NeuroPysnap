@@ -20,6 +20,7 @@ from pysnap.core.service import PySnapService
 from pysnap.errors import PySnapError
 from pysnap.terminal.emulator import TerminalEmulator
 from pysnap.terminal.keymap import key_press_to_bytes
+from pysnap.terminal.protocol import TerminalQueryResponder
 from pysnap.terminal.transport import open_serial_connection
 
 
@@ -66,7 +67,8 @@ class TerminalSession:
         """
         reader, writer = await open_serial_connection("localhost", serial_port)
         columns, rows = shutil.get_terminal_size(fallback=(80, 24))
-        emulator = TerminalEmulator(columns=columns, lines=max(rows - 1, 1))
+        emulator = TerminalEmulator(*_terminal_content_size(columns=columns, rows=rows))
+        query_responder = TerminalQueryResponder()
         status = SessionStatus(
             vm_name=vm_name,
             vm_state="Working",
@@ -81,8 +83,7 @@ class TerminalSession:
 
         def render_terminal() -> list[tuple[str, str]]:
             app = get_app()
-            size = app.output.get_size()
-            emulator.resize(size.columns, max(size.rows - 1, 1))
+            _resize_emulator_to_output(app=app, emulator=emulator)
             return emulator.as_formatted_text()
 
         def render_status() -> list[tuple[str, str]]:
@@ -136,6 +137,7 @@ class TerminalSession:
             key_bindings=bindings,
             full_screen=_should_use_full_screen(),
             mouse_support=False,
+            terminal_size_polling_interval=0.25,
         )
 
         async def reader_loop() -> None:
@@ -150,10 +152,37 @@ class TerminalSession:
                         return
                     received_output.set()
                     emulator.feed(data)
+                    responses = query_responder.collect_responses(
+                        data,
+                        emulator=emulator,
+                        columns=_output_columns(app),
+                        lines=_output_lines(app),
+                    )
+                    if responses:
+                        for response in responses:
+                            writer.write(response)
+                        await writer.drain()
                     app.invalidate()
             except OSError as error:
                 status.vm_state = "Changing"
                 status.message = f"Connection error: {error}"
+                stop_event.set()
+                _safe_exit_application(app)
+
+        async def resize_loop() -> None:
+            try:
+                previous_size = _resize_emulator_to_output(app=app, emulator=emulator)
+                while not stop_event.is_set():
+                    await asyncio.sleep(0.25)
+                    current_size = _resize_emulator_to_output(app=app, emulator=emulator)
+                    if current_size != previous_size:
+                        previous_size = current_size
+                        app.invalidate()
+            except Exception as error:
+                if stop_event.is_set():
+                    return
+                status.vm_state = "Changing"
+                status.message = f"Resize watcher error: {error}"
                 stop_event.set()
                 _safe_exit_application(app)
 
@@ -188,6 +217,7 @@ class TerminalSession:
         try:
             with self.service.session_registry.register(vm_name, serial_port):
                 app.create_background_task(reader_loop())
+                app.create_background_task(resize_loop())
                 app.create_background_task(watcher_loop())
                 app.create_background_task(silence_hint_loop())
                 await app.run_async(handle_sigint=False)
@@ -208,6 +238,56 @@ async def _wake_serial_console(writer) -> None:
     """
     writer.write(b"\r\n")
     await writer.drain()
+
+
+def _terminal_content_size(*, columns: int, rows: int) -> tuple[int, int]:
+    """Convert outer terminal geometry into the visible guest text area.
+
+    One row is reserved for PySnap's local status bar.
+
+    :param columns: Outer terminal width.
+    :param rows: Outer terminal height.
+    :returns: Visible guest area as ``(columns, lines)``.
+    """
+    return max(columns, 1), max(rows - 1, 1)
+
+
+def _output_columns(app: Application) -> int:
+    """Return the current guest-visible width reported by prompt-toolkit."""
+    columns, _ = _terminal_content_size_from_output(app=app)
+    return columns
+
+
+def _output_lines(app: Application) -> int:
+    """Return the current guest-visible height reported by prompt-toolkit."""
+    _, lines = _terminal_content_size_from_output(app=app)
+    return lines
+
+
+def _terminal_content_size_from_output(app: Application) -> tuple[int, int]:
+    """Return the current visible guest area from the prompt-toolkit output.
+
+    :param app: Running prompt-toolkit application.
+    :returns: Visible guest area as ``(columns, lines)``.
+    """
+    size = app.output.get_size()
+    return _terminal_content_size(columns=size.columns, rows=size.rows)
+
+
+def _resize_emulator_to_output(
+    *,
+    app: Application,
+    emulator: TerminalEmulator,
+) -> tuple[int, int]:
+    """Resize the emulator to the current outer terminal dimensions.
+
+    :param app: Running prompt-toolkit application.
+    :param emulator: Guest terminal emulator.
+    :returns: Applied visible guest area as ``(columns, lines)``.
+    """
+    columns, lines = _terminal_content_size_from_output(app=app)
+    emulator.resize(columns=columns, lines=lines)
+    return columns, lines
 
 
 def _should_use_full_screen() -> bool:

@@ -181,6 +181,15 @@ For VMs that do not already expose a suitable ``UART1 tcpserver`` endpoint, run
 The terminal session is detached with ``Ctrl-Q``. Detaching does not stop the
 virtual machine. ``Ctrl-L`` redraws the local interface.
 
+While the session is attached, PySnap continuously tracks the outer terminal
+size and resizes the visible guest text area to match it. This also works
+after reconnecting to an already running VM.
+
+For xterm-compatible guest-side tools, PySnap replies to standard size queries
+such as ``CSI 18 t`` and cursor-position reports such as ``CSI 6 n``. On Linux
+guests this makes terminal-size refresh workflows such as ``resize`` much more
+practical over the raw serial console.
+
 On macOS, PySnap also checks the standard VirtualBox application-bundle path
 for ``VBoxManage`` when the command is not exported in ``PATH``.
 

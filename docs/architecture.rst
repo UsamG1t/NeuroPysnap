@@ -12,7 +12,7 @@ Package Layout
 - ``pysnap/docs`` stores compiled HTML documentation bundled with the wheel.
 - ``pysnap.runtime`` contains the live-session registry shared by runtime tools.
 - ``pysnap.terminal`` contains the built-in serial terminal transport, emulator,
-  key mapping, and interactive UI session logic.
+  key mapping, terminal-query responder, and interactive UI session logic.
 - ``pysnap.vbox`` contains the ``VBoxManage`` client and output parsers.
 - ``pysnap.tests`` contains unit tests.
 
@@ -83,6 +83,12 @@ VMs. It only rewrites ``UART1`` when the VM is stopped and the current backend
 is not already occupied by another mode such as ``tcpclient`` or ``file``.
 When needed, the selected TCP port must be available both in VirtualBox and on
 the host system.
+
+During ``pysnap connect``, PySnap continuously tracks the outer terminal size
+and resizes the local emulator to the current visible guest area. Because raw
+serial TCP does not offer a PTY-style ``SIGWINCH`` path into the guest, PySnap
+also replies to xterm-compatible in-band terminal queries such as ``CSI 18 t``
+and ``CSI 6 n`` so guest-side Linux tools can rediscover the current geometry.
 
 Proto Settings Strategy
 -----------------------

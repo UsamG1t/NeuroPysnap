@@ -25,6 +25,14 @@ pysnap.terminal.keymap module
    :show-inheritance:
    :undoc-members:
 
+pysnap.terminal.protocol module
+-------------------------------
+
+.. automodule:: pysnap.terminal.protocol
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 pysnap.terminal.session module
 ------------------------------
 

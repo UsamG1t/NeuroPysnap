@@ -8,10 +8,14 @@ import unittest
 from unittest.mock import patch
 
 from pysnap.core.models import VMInfo
+from pysnap.terminal.emulator import TerminalEmulator
 from pysnap.terminal.session import (
     TerminalSession,
+    _resize_emulator_to_output,
     _safe_exit_application,
     _should_use_full_screen,
+    _terminal_content_size,
+    _terminal_content_size_from_output,
     _wake_serial_console,
 )
 
@@ -39,6 +43,19 @@ class FakeApplication:
             raise self.exit_error
         self.is_done = True
         self.is_running = False
+
+
+class FakeOutput:
+    """Provide a fixed terminal size for prompt-toolkit helpers."""
+
+    def __init__(self, columns: int, rows: int) -> None:
+        """Initialize one fake outer-terminal geometry."""
+        self.columns = columns
+        self.rows = rows
+
+    def get_size(self):
+        """Return an object with ``columns`` and ``rows`` attributes."""
+        return self
 
 
 class TerminalSessionTests(unittest.TestCase):
@@ -134,6 +151,32 @@ class TerminalSessionTests(unittest.TestCase):
 
         self.assertEqual(writer.chunks, [b"\r\n"])
         self.assertTrue(writer.drained)
+
+    def test_terminal_content_size_reserves_one_status_row(self) -> None:
+        """Expose one less line to the guest because of the local status bar."""
+        self.assertEqual(_terminal_content_size(columns=120, rows=40), (120, 39))
+
+    def test_terminal_content_size_never_returns_zero_lines(self) -> None:
+        """Keep the guest area at least one line tall."""
+        self.assertEqual(_terminal_content_size(columns=80, rows=1), (80, 1))
+
+    def test_terminal_content_size_from_output_uses_prompt_toolkit_geometry(self) -> None:
+        """Translate prompt-toolkit output size into guest-visible dimensions."""
+        app = FakeApplication(is_running=True, is_done=False)
+        app.output = FakeOutput(columns=132, rows=43)
+
+        self.assertEqual(_terminal_content_size_from_output(app), (132, 42))
+
+    def test_resize_emulator_to_output_tracks_current_terminal_size(self) -> None:
+        """Resize the emulator to match the live outer-terminal dimensions."""
+        app = FakeApplication(is_running=True, is_done=False)
+        app.output = FakeOutput(columns=100, rows=30)
+        emulator = TerminalEmulator(columns=80, lines=24)
+
+        applied_size = _resize_emulator_to_output(app=app, emulator=emulator)
+
+        self.assertEqual(applied_size, (100, 29))
+        self.assertEqual((emulator.screen.columns, emulator.screen.lines), (100, 29))
 
     def test_safe_exit_exits_running_application_once(self) -> None:
         """Exit a live application successfully."""

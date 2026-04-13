@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pysnap.terminal.protocol &#8212; PySnap 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for pysnap.terminal.protocol</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Helpers for terminal control-sequence handling over serial TCP.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.terminal.emulator</span><span class="w"> </span><span class="kn">import</span> <span class="n">TerminalEmulator</span>
+
+<span class="n">_CSI_PREFIX</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x1b</span><span class="s2">[&quot;</span>
+
+
+<div class="viewcode-block" id="TerminalQueryResponder">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.protocol.TerminalQueryResponder">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">TerminalQueryResponder</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Recognize terminal queries and synthesize compatible replies.</span>
+
+<span class="sd">    Raw serial consoles do not provide a PTY-style ``SIGWINCH`` channel into</span>
+<span class="sd">    the guest system. PySnap therefore acts like a small terminal emulator and</span>
+<span class="sd">    replies to xterm-compatible size queries that guest-side tools may emit.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_buffer</span><span class="p">:</span> <span class="nb">bytearray</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">bytearray</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TerminalQueryResponder.collect_responses">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.protocol.TerminalQueryResponder.collect_responses">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">collect_responses</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">emulator</span><span class="p">:</span> <span class="n">TerminalEmulator</span><span class="p">,</span>
+        <span class="n">columns</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">lines</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return terminal replies implied by one incoming byte chunk.</span>
+
+<span class="sd">        :param data: Newly received bytes from the guest.</span>
+<span class="sd">        :param emulator: Emulator holding the current cursor position.</span>
+<span class="sd">        :param columns: Current visible terminal width.</span>
+<span class="sd">        :param lines: Current visible terminal height.</span>
+<span class="sd">        :returns: Zero or more response payloads to send back to the guest.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">responses</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">:</span>
+            <span class="n">prefix_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">_CSI_PREFIX</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">prefix_index</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">_tail_fragment</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="n">prefix_index</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[:</span><span class="n">prefix_index</span><span class="p">]</span>
+
+            <span class="n">final_index</span> <span class="o">=</span> <span class="n">_find_csi_final_byte</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">final_index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">break</span>
+
+            <span class="n">parameters</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">_CSI_PREFIX</span><span class="p">)</span> <span class="p">:</span> <span class="n">final_index</span><span class="p">])</span>
+            <span class="n">final_byte</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[</span><span class="n">final_index</span><span class="p">]</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">_build_response</span><span class="p">(</span>
+                <span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">,</span>
+                <span class="n">final_byte</span><span class="o">=</span><span class="n">final_byte</span><span class="p">,</span>
+                <span class="n">emulator</span><span class="o">=</span><span class="n">emulator</span><span class="p">,</span>
+                <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span>
+                <span class="n">lines</span><span class="o">=</span><span class="n">lines</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">response</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">responses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+
+            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[:</span> <span class="n">final_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">responses</span></div>
+</div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_response</span><span class="p">(</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span>
+    <span class="n">final_byte</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">emulator</span><span class="p">:</span> <span class="n">TerminalEmulator</span><span class="p">,</span>
+    <span class="n">columns</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">lines</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build one response payload for a parsed CSI query sequence.</span>
+
+<span class="sd">    :param parameters: Parameter bytes between ``CSI`` and the final byte.</span>
+<span class="sd">    :param final_byte: Final CSI byte.</span>
+<span class="sd">    :param emulator: Terminal emulator with current cursor position.</span>
+<span class="sd">    :param columns: Current visible width.</span>
+<span class="sd">    :param lines: Current visible height.</span>
+<span class="sd">    :returns: Response bytes or ``None`` when the sequence is unsupported.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">final_byte</span> <span class="o">==</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&quot;n&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">parameters</span> <span class="o">==</span> <span class="sa">b</span><span class="s2">&quot;6&quot;</span><span class="p">:</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="n">emulator</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">y</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">column</span> <span class="o">=</span> <span class="n">emulator</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\x1b</span><span class="s2">[</span><span class="si">{</span><span class="n">row</span><span class="si">}</span><span class="s2">;</span><span class="si">{</span><span class="n">column</span><span class="si">}</span><span class="s2">R&quot;</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">final_byte</span> <span class="o">==</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&quot;n&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">parameters</span> <span class="o">==</span> <span class="sa">b</span><span class="s2">&quot;?6&quot;</span><span class="p">:</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="n">emulator</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">y</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">column</span> <span class="o">=</span> <span class="n">emulator</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\x1b</span><span class="s2">[?</span><span class="si">{</span><span class="n">row</span><span class="si">}</span><span class="s2">;</span><span class="si">{</span><span class="n">column</span><span class="si">}</span><span class="s2">R&quot;</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">final_byte</span> <span class="o">==</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&quot;t&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">parameters</span> <span class="o">==</span> <span class="sa">b</span><span class="s2">&quot;18&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\x1b</span><span class="s2">[8;</span><span class="si">{</span><span class="n">lines</span><span class="si">}</span><span class="s2">;</span><span class="si">{</span><span class="n">columns</span><span class="si">}</span><span class="s2">t&quot;</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">final_byte</span> <span class="o">==</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&quot;t&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">parameters</span> <span class="o">==</span> <span class="sa">b</span><span class="s2">&quot;19&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\x1b</span><span class="s2">[9;</span><span class="si">{</span><span class="n">lines</span><span class="si">}</span><span class="s2">;</span><span class="si">{</span><span class="n">columns</span><span class="si">}</span><span class="s2">t&quot;</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_find_csi_final_byte</span><span class="p">(</span><span class="n">buffer</span><span class="p">:</span> <span class="nb">bytearray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the index of the next CSI final byte in ``buffer``.</span>
+
+<span class="sd">    :param buffer: Pending CSI parser buffer that starts with ``ESC [``.</span>
+<span class="sd">    :returns: Final-byte index or ``None`` when the sequence is incomplete.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">_CSI_PREFIX</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">buffer</span><span class="p">)):</span>
+        <span class="n">candidate</span> <span class="o">=</span> <span class="n">buffer</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+        <span class="k">if</span> <span class="mh">0x40</span> <span class="o">&lt;=</span> <span class="n">candidate</span> <span class="o">&lt;=</span> <span class="mh">0x7E</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">index</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_tail_fragment</span><span class="p">(</span><span class="n">buffer</span><span class="p">:</span> <span class="nb">bytearray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Keep only the incomplete CSI prefix tail from a processed buffer.</span>
+
+<span class="sd">    :param buffer: Parser buffer.</span>
+<span class="sd">    :returns: Trailing bytes that may start a CSI sequence.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">buffer</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">_CSI_PREFIX</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_CSI_PREFIX</span>
+    <span class="k">if</span> <span class="n">buffer</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x1b</span><span class="s2">&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x1b</span><span class="s2">&quot;</span>
+    <span class="k">return</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">PySnap</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/modules.html">pysnap</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, PySnap Authors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

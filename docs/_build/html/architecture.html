@@ -46,7 +46,7 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap/docs</span></code> stores compiled HTML documentation bundled with the wheel.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.runtime</span></code> contains the live-session registry shared by runtime tools.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.terminal</span></code> contains the built-in serial terminal transport, emulator,
-key mapping, and interactive UI session logic.</p></li>
+key mapping, terminal-query responder, and interactive UI session logic.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.vbox</span></code> contains the <code class="docutils literal notranslate"><span class="pre">VBoxManage</span></code> client and output parsers.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pysnap.tests</span></code> contains unit tests.</p></li>
 </ul>
@@ -112,6 +112,11 @@ VMs. It only rewrites <code class="docutils literal notranslate"><span class="pr
 is not already occupied by another mode such as <code class="docutils literal notranslate"><span class="pre">tcpclient</span></code> or <code class="docutils literal notranslate"><span class="pre">file</span></code>.
 When needed, the selected TCP port must be available both in VirtualBox and on
 the host system.</p>
+<p>During <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code>, PySnap continuously tracks the outer terminal size
+and resizes the local emulator to the current visible guest area. Because raw
+serial TCP does not offer a PTY-style <code class="docutils literal notranslate"><span class="pre">SIGWINCH</span></code> path into the guest, PySnap
+also replies to xterm-compatible in-band terminal queries such as <code class="docutils literal notranslate"><span class="pre">CSI</span> <span class="pre">18</span> <span class="pre">t</span></code>
+and <code class="docutils literal notranslate"><span class="pre">CSI</span> <span class="pre">6</span> <span class="pre">n</span></code> so guest-side Linux tools can rediscover the current geometry.</p>
 </section>
 <section id="proto-settings-strategy">
 <h2>Proto Settings Strategy<a class="headerlink" href="#proto-settings-strategy" title="Link to this heading">¶</a></h2>

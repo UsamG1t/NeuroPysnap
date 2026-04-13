@@ -125,6 +125,47 @@
 </dd></dl>
 
 </section>
+<section id="module-pysnap.terminal.protocol">
+<span id="pysnap-terminal-protocol-module"></span><h2>pysnap.terminal.protocol module<a class="headerlink" href="#module-pysnap.terminal.protocol" title="Link to this heading">¶</a></h2>
+<p>Helpers for terminal control-sequence handling over serial TCP.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.terminal.protocol.TerminalQueryResponder">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.terminal.protocol.</span></span><span class="sig-name descname"><span class="pre">TerminalQueryResponder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_buffer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/protocol.html#TerminalQueryResponder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.protocol.TerminalQueryResponder" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Recognize terminal queries and synthesize compatible replies.</p>
+<p>Raw serial consoles do not provide a PTY-style <code class="docutils literal notranslate"><span class="pre">SIGWINCH</span></code> channel into
+the guest system. PySnap therefore acts like a small terminal emulator and
+replies to xterm-compatible size queries that guest-side tools may emit.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>_buffer</strong> (<em>bytearray</em>)</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.protocol.TerminalQueryResponder.collect_responses">
+<span class="sig-name descname"><span class="pre">collect_responses</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">emulator</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">columns</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lines</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/protocol.html#TerminalQueryResponder.collect_responses"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.protocol.TerminalQueryResponder.collect_responses" title="Link to this definition">¶</a></dt>
+<dd><p>Return terminal replies implied by one incoming byte chunk.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>bytes</em>) – Newly received bytes from the guest.</p></li>
+<li><p><strong>emulator</strong> (<a class="reference internal" href="#pysnap.terminal.emulator.TerminalEmulator" title="pysnap.terminal.emulator.TerminalEmulator"><em>TerminalEmulator</em></a>) – Emulator holding the current cursor position.</p></li>
+<li><p><strong>columns</strong> (<em>int</em>) – Current visible terminal width.</p></li>
+<li><p><strong>lines</strong> (<em>int</em>) – Current visible terminal height.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Zero or more response payloads to send back to the guest.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[bytes]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
 <section id="module-pysnap.terminal.session">
 <span id="pysnap-terminal-session-module"></span><h2>pysnap.terminal.session module<a class="headerlink" href="#module-pysnap.terminal.session" title="Link to this heading">¶</a></h2>
 <p>Interactive terminal session attached to a VM serial TCP console.</p>

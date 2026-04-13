@@ -1,5 +1,5 @@
 *egg-info*
-*.doit.db
+*.doit.db*
 *build/*
 __pycache__/
 *.py[cod]
