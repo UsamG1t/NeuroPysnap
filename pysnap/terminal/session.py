@@ -15,6 +15,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout import HSplit, Layout, Window
 from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.mouse_events import MouseEvent, MouseEventType
 
 from pysnap.core.service import PySnapService
 from pysnap.errors import PySnapError
@@ -32,6 +33,43 @@ class SessionStatus:
     vm_state: str = "Changing"
     serial_port: int | None = None
     message: str = "Connecting..."
+
+
+class ScrollableTerminalControl(FormattedTextControl):
+    """Formatted text control with optional local scrollback mouse support."""
+
+    def __init__(
+        self,
+        *args,
+        on_scroll_up: Callable[[], None] | None = None,
+        on_scroll_down: Callable[[], None] | None = None,
+        mouse_scrolling_enabled: bool = False,
+        **kwargs,
+    ) -> None:
+        """Initialize the scrollable terminal control.
+
+        :param on_scroll_up: Callback for one local upward scroll action.
+        :param on_scroll_down: Callback for one local downward scroll action.
+        :param mouse_scrolling_enabled: Whether to intercept wheel events.
+        """
+        super().__init__(*args, **kwargs)
+        self._on_scroll_up = on_scroll_up
+        self._on_scroll_down = on_scroll_down
+        self._mouse_scrolling_enabled = mouse_scrolling_enabled
+
+    def mouse_handler(self, mouse_event: MouseEvent):
+        """Handle local wheel scrolling before delegating to the base control."""
+        if self._mouse_scrolling_enabled:
+            if mouse_event.event_type == MouseEventType.SCROLL_UP and self._on_scroll_up:
+                self._on_scroll_up()
+                return None
+            if (
+                mouse_event.event_type == MouseEventType.SCROLL_DOWN
+                and self._on_scroll_down
+            ):
+                self._on_scroll_down()
+                return None
+        return super().mouse_handler(mouse_event)
 
 
 class TerminalSession:
@@ -81,22 +119,34 @@ class TerminalSession:
         await _wake_serial_console(writer)
         status.message = "Connected. Ctrl-Q detaches."
 
+        def scroll_up(lines: int = 1) -> None:
+            emulator.scroll_up(lines)
+            app.invalidate()
+
+        def scroll_down(lines: int = 1) -> None:
+            emulator.scroll_down(lines)
+            app.invalidate()
+
         def render_terminal() -> list[tuple[str, str]]:
             app = get_app()
             _resize_emulator_to_output(app=app, emulator=emulator)
             return emulator.as_formatted_text()
 
         def render_status() -> list[tuple[str, str]]:
+            scrollback_suffix = " | Scrollback" if emulator.is_scrollback_active else ""
             text = (
                 f" {status.vm_name} | {status.vm_state} | "
-                f"UART1:{status.serial_port} | {status.message} "
+                f"UART1:{status.serial_port} | {status.message}{scrollback_suffix} "
             )
             return [("reverse", text)]
 
-        terminal_control = FormattedTextControl(
+        terminal_control = ScrollableTerminalControl(
             text=render_terminal,
             focusable=True,
             show_cursor=False,
+            on_scroll_up=scroll_up,
+            on_scroll_down=scroll_down,
+            mouse_scrolling_enabled=_should_enable_mouse_scrolling(),
         )
         status_control = FormattedTextControl(text=render_status)
         layout = Layout(
@@ -123,6 +173,30 @@ class TerminalSession:
             status.message = "Screen refreshed."
             event.app.invalidate()
 
+        @bindings.add(Keys.Escape, Keys.Up)
+        def _scroll_older_line(event) -> None:
+            """Scroll one line toward older local terminal output."""
+            emulator.scroll_up(1)
+            event.app.invalidate()
+
+        @bindings.add(Keys.Escape, Keys.Down)
+        def _scroll_newer_line(event) -> None:
+            """Scroll one line toward newer local terminal output."""
+            emulator.scroll_down(1)
+            event.app.invalidate()
+
+        @bindings.add(Keys.Escape, Keys.Left)
+        def _scroll_to_top(event) -> None:
+            """Jump to the oldest retained local scrollback output."""
+            emulator.scroll_to_top()
+            event.app.invalidate()
+
+        @bindings.add(Keys.Escape, Keys.Right)
+        def _scroll_to_bottom(event) -> None:
+            """Jump back to the live end of local output."""
+            emulator.scroll_to_bottom()
+            event.app.invalidate()
+
         @bindings.add(Keys.Any)
         def _forward_key(event) -> None:
             """Forward arbitrary key input to the serial transport."""
@@ -136,7 +210,7 @@ class TerminalSession:
             layout=layout,
             key_bindings=bindings,
             full_screen=_should_use_full_screen(),
-            mouse_support=False,
+            mouse_support=_should_enable_mouse_scrolling(),
             terminal_size_polling_interval=0.25,
         )
 
@@ -299,6 +373,17 @@ def _should_use_full_screen() -> bool:
     :returns: ``True`` when full-screen mode is preferred.
     """
     return not (sys.platform == "win32" and os.environ.get("MSYSTEM"))
+
+
+def _should_enable_mouse_scrolling() -> bool:
+    """Return whether local wheel scrolling should be enabled.
+
+    Linux terminals provide the most predictable wheel-event handling in the
+    current PySnap UI, so wheel-based scrollback stays Linux-only for now.
+
+    :returns: ``True`` when Linux mouse-wheel scrolling is preferred.
+    """
+    return sys.platform.startswith("linux")
 
 
 def _safe_exit_application(app: Application) -> None:

@@ -36,9 +36,8 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span>
-
 <span class="kn">import</span><span class="w"> </span><span class="nn">pyte</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyte.screens</span><span class="w"> </span><span class="kn">import</span> <span class="n">HistoryScreen</span>
 
 
 <div class="viewcode-block" id="TerminalEmulator">
@@ -46,13 +45,19 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">TerminalEmulator</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Wrap a :class:`pyte.Screen` and render it for the TUI.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">columns</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span> <span class="n">lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">24</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">columns</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
+        <span class="n">lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">24</span><span class="p">,</span>
+        <span class="n">history</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5000</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the terminal emulator.</span>
 
 <span class="sd">        :param columns: Initial terminal width.</span>
 <span class="sd">        :param lines: Initial terminal height.</span>
+<span class="sd">        :param history: Number of scrollback lines to keep locally.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">screen</span> <span class="o">=</span> <span class="n">pyte</span><span class="o">.</span><span class="n">Screen</span><span class="p">(</span><span class="n">columns</span><span class="p">,</span> <span class="n">lines</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">screen</span> <span class="o">=</span> <span class="n">HistoryScreen</span><span class="p">(</span><span class="n">columns</span><span class="p">,</span> <span class="n">lines</span><span class="p">,</span> <span class="n">history</span><span class="o">=</span><span class="n">history</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stream</span> <span class="o">=</span> <span class="n">pyte</span><span class="o">.</span><span class="n">ByteStream</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="p">)</span>
 
 <div class="viewcode-block" id="TerminalEmulator.feed">
@@ -80,6 +85,47 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">lines</span><span class="o">=</span><span class="n">lines</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">)</span></div>
 
 
+<div class="viewcode-block" id="TerminalEmulator.scroll_up">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.scroll_up">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scroll_up</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Scroll the local view toward older history lines.</span>
+
+<span class="sd">        :param lines: Number of lines to move upward.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scroll_history_up</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="TerminalEmulator.scroll_down">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.scroll_down">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scroll_down</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Scroll the local view toward newer history lines.</span>
+
+<span class="sd">        :param lines: Number of lines to move downward.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scroll_history_down</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="TerminalEmulator.scroll_to_top">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.scroll_to_top">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scroll_to_top</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Jump to the oldest locally retained history.&quot;&quot;&quot;</span>
+        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scroll_history_up</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span><span class="p">):</span>
+            <span class="k">continue</span></div>
+
+
+<div class="viewcode-block" id="TerminalEmulator.scroll_to_bottom">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.scroll_to_bottom">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scroll_to_bottom</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Jump back to the live end of the terminal output.&quot;&quot;&quot;</span>
+        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scroll_history_down</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span><span class="p">):</span>
+            <span class="k">continue</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_scrollback_active</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether the current view is above the live output bottom.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">position</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">size</span>
+
 <div class="viewcode-block" id="TerminalEmulator.as_formatted_text">
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.as_formatted_text">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">as_formatted_text</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
@@ -101,6 +147,55 @@
                 <span class="n">fragments</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">fragments</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_scroll_history_up</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lines</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Move the local viewport upward through retained history.</span>
+
+<span class="sd">        :param lines: Maximum number of lines to move.</span>
+<span class="sd">        :returns: ``True`` when the viewport changed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">history</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">history</span>
+        <span class="k">if</span> <span class="n">history</span><span class="o">.</span><span class="n">position</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">history</span><span class="o">.</span><span class="n">top</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="n">amount</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">history</span><span class="o">.</span><span class="n">top</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">history</span><span class="o">.</span><span class="n">position</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span><span class="p">)</span>
+        <span class="n">history</span><span class="o">.</span><span class="n">bottom</span><span class="o">.</span><span class="n">extendleft</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="n">y</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span> <span class="o">-</span> <span class="n">amount</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">history</span> <span class="o">=</span> <span class="n">history</span><span class="o">.</span><span class="n">_replace</span><span class="p">(</span><span class="n">position</span><span class="o">=</span><span class="n">history</span><span class="o">.</span><span class="n">position</span> <span class="o">-</span> <span class="n">amount</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">amount</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="n">y</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="n">y</span> <span class="o">-</span> <span class="n">amount</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">amount</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="n">y</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">top</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">dirty</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">after_event</span><span class="p">(</span><span class="s2">&quot;prev_page&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_scroll_history_down</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lines</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Move the local viewport downward toward live output.</span>
+
+<span class="sd">        :param lines: Maximum number of lines to move.</span>
+<span class="sd">        :returns: ``True`` when the viewport changed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">history</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">history</span>
+        <span class="k">if</span> <span class="n">history</span><span class="o">.</span><span class="n">position</span> <span class="o">&gt;=</span> <span class="n">history</span><span class="o">.</span><span class="n">size</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">history</span><span class="o">.</span><span class="n">bottom</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="n">amount</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">history</span><span class="o">.</span><span class="n">bottom</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">history</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="n">history</span><span class="o">.</span><span class="n">position</span><span class="p">)</span>
+        <span class="n">history</span><span class="o">.</span><span class="n">top</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="n">y</span><span class="p">]</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">amount</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">history</span> <span class="o">=</span> <span class="n">history</span><span class="o">.</span><span class="n">_replace</span><span class="p">(</span><span class="n">position</span><span class="o">=</span><span class="n">history</span><span class="o">.</span><span class="n">position</span> <span class="o">+</span> <span class="n">amount</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span> <span class="o">-</span> <span class="n">amount</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="n">y</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="n">y</span> <span class="o">+</span> <span class="n">amount</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span> <span class="o">-</span> <span class="n">amount</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="n">y</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">bottom</span><span class="o">.</span><span class="n">popleft</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">dirty</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">after_event</span><span class="p">(</span><span class="s2">&quot;next_page&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_style_parts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">char</span><span class="p">:</span> <span class="n">pyte</span><span class="o">.</span><span class="n">screens</span><span class="o">.</span><span class="n">Char</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Translate a ``pyte`` character style into prompt_toolkit styles.</span>

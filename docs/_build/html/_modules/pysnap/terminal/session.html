@@ -49,6 +49,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">prompt_toolkit.keys</span><span class="w"> </span><span class="kn">import</span> <span class="n">Keys</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">prompt_toolkit.layout</span><span class="w"> </span><span class="kn">import</span> <span class="n">HSplit</span><span class="p">,</span> <span class="n">Layout</span><span class="p">,</span> <span class="n">Window</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">prompt_toolkit.layout.controls</span><span class="w"> </span><span class="kn">import</span> <span class="n">FormattedTextControl</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">prompt_toolkit.mouse_events</span><span class="w"> </span><span class="kn">import</span> <span class="n">MouseEvent</span><span class="p">,</span> <span class="n">MouseEventType</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.service</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapService</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapError</span>
@@ -68,6 +69,49 @@
     <span class="n">vm_state</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Changing&quot;</span>
     <span class="n">serial_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Connecting...&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="ScrollableTerminalControl">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.ScrollableTerminalControl">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ScrollableTerminalControl</span><span class="p">(</span><span class="n">FormattedTextControl</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Formatted text control with optional local scrollback mouse support.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+        <span class="n">on_scroll_up</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">on_scroll_down</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">mouse_scrolling_enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the scrollable terminal control.</span>
+
+<span class="sd">        :param on_scroll_up: Callback for one local upward scroll action.</span>
+<span class="sd">        :param on_scroll_down: Callback for one local downward scroll action.</span>
+<span class="sd">        :param mouse_scrolling_enabled: Whether to intercept wheel events.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_on_scroll_up</span> <span class="o">=</span> <span class="n">on_scroll_up</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_on_scroll_down</span> <span class="o">=</span> <span class="n">on_scroll_down</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mouse_scrolling_enabled</span> <span class="o">=</span> <span class="n">mouse_scrolling_enabled</span>
+
+<div class="viewcode-block" id="ScrollableTerminalControl.mouse_handler">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.ScrollableTerminalControl.mouse_handler">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mouse_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mouse_event</span><span class="p">:</span> <span class="n">MouseEvent</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle local wheel scrolling before delegating to the base control.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mouse_scrolling_enabled</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">mouse_event</span><span class="o">.</span><span class="n">event_type</span> <span class="o">==</span> <span class="n">MouseEventType</span><span class="o">.</span><span class="n">SCROLL_UP</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_scroll_up</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_on_scroll_up</span><span class="p">()</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">mouse_event</span><span class="o">.</span><span class="n">event_type</span> <span class="o">==</span> <span class="n">MouseEventType</span><span class="o">.</span><span class="n">SCROLL_DOWN</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_scroll_down</span>
+            <span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_on_scroll_down</span><span class="p">()</span>
+                <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">mouse_handler</span><span class="p">(</span><span class="n">mouse_event</span><span class="p">)</span></div>
+</div>
 
 
 
@@ -123,22 +167,34 @@
         <span class="k">await</span> <span class="n">_wake_serial_console</span><span class="p">(</span><span class="n">writer</span><span class="p">)</span>
         <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Connected. Ctrl-Q detaches.&quot;</span>
 
+        <span class="k">def</span><span class="w"> </span><span class="nf">scroll_up</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">emulator</span><span class="o">.</span><span class="n">scroll_up</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">scroll_down</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">emulator</span><span class="o">.</span><span class="n">scroll_down</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+
         <span class="k">def</span><span class="w"> </span><span class="nf">render_terminal</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
             <span class="n">app</span> <span class="o">=</span> <span class="n">get_app</span><span class="p">()</span>
             <span class="n">_resize_emulator_to_output</span><span class="p">(</span><span class="n">app</span><span class="o">=</span><span class="n">app</span><span class="p">,</span> <span class="n">emulator</span><span class="o">=</span><span class="n">emulator</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">emulator</span><span class="o">.</span><span class="n">as_formatted_text</span><span class="p">()</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">render_status</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
+            <span class="n">scrollback_suffix</span> <span class="o">=</span> <span class="s2">&quot; | Scrollback&quot;</span> <span class="k">if</span> <span class="n">emulator</span><span class="o">.</span><span class="n">is_scrollback_active</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
             <span class="n">text</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">vm_name</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">vm_state</span><span class="si">}</span><span class="s2"> | &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;UART1:</span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">serial_port</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;UART1:</span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">serial_port</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">message</span><span class="si">}{</span><span class="n">scrollback_suffix</span><span class="si">}</span><span class="s2"> &quot;</span>
             <span class="p">)</span>
             <span class="k">return</span> <span class="p">[(</span><span class="s2">&quot;reverse&quot;</span><span class="p">,</span> <span class="n">text</span><span class="p">)]</span>
 
-        <span class="n">terminal_control</span> <span class="o">=</span> <span class="n">FormattedTextControl</span><span class="p">(</span>
+        <span class="n">terminal_control</span> <span class="o">=</span> <span class="n">ScrollableTerminalControl</span><span class="p">(</span>
             <span class="n">text</span><span class="o">=</span><span class="n">render_terminal</span><span class="p">,</span>
             <span class="n">focusable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">show_cursor</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">on_scroll_up</span><span class="o">=</span><span class="n">scroll_up</span><span class="p">,</span>
+            <span class="n">on_scroll_down</span><span class="o">=</span><span class="n">scroll_down</span><span class="p">,</span>
+            <span class="n">mouse_scrolling_enabled</span><span class="o">=</span><span class="n">_should_enable_mouse_scrolling</span><span class="p">(),</span>
         <span class="p">)</span>
         <span class="n">status_control</span> <span class="o">=</span> <span class="n">FormattedTextControl</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="n">render_status</span><span class="p">)</span>
         <span class="n">layout</span> <span class="o">=</span> <span class="n">Layout</span><span class="p">(</span>
@@ -165,6 +221,30 @@
             <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Screen refreshed.&quot;</span>
             <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
 
+        <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">Escape</span><span class="p">,</span> <span class="n">Keys</span><span class="o">.</span><span class="n">Up</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_scroll_older_line</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Scroll one line toward older local terminal output.&quot;&quot;&quot;</span>
+            <span class="n">emulator</span><span class="o">.</span><span class="n">scroll_up</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+
+        <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">Escape</span><span class="p">,</span> <span class="n">Keys</span><span class="o">.</span><span class="n">Down</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_scroll_newer_line</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Scroll one line toward newer local terminal output.&quot;&quot;&quot;</span>
+            <span class="n">emulator</span><span class="o">.</span><span class="n">scroll_down</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+
+        <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">Escape</span><span class="p">,</span> <span class="n">Keys</span><span class="o">.</span><span class="n">Left</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_scroll_to_top</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Jump to the oldest retained local scrollback output.&quot;&quot;&quot;</span>
+            <span class="n">emulator</span><span class="o">.</span><span class="n">scroll_to_top</span><span class="p">()</span>
+            <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+
+        <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">Escape</span><span class="p">,</span> <span class="n">Keys</span><span class="o">.</span><span class="n">Right</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_scroll_to_bottom</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Jump back to the live end of local output.&quot;&quot;&quot;</span>
+            <span class="n">emulator</span><span class="o">.</span><span class="n">scroll_to_bottom</span><span class="p">()</span>
+            <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+
         <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">Any</span><span class="p">)</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_forward_key</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Forward arbitrary key input to the serial transport.&quot;&quot;&quot;</span>
@@ -178,7 +258,7 @@
             <span class="n">layout</span><span class="o">=</span><span class="n">layout</span><span class="p">,</span>
             <span class="n">key_bindings</span><span class="o">=</span><span class="n">bindings</span><span class="p">,</span>
             <span class="n">full_screen</span><span class="o">=</span><span class="n">_should_use_full_screen</span><span class="p">(),</span>
-            <span class="n">mouse_support</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">mouse_support</span><span class="o">=</span><span class="n">_should_enable_mouse_scrolling</span><span class="p">(),</span>
             <span class="n">terminal_size_polling_interval</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
         <span class="p">)</span>
 
@@ -342,6 +422,17 @@
 <span class="sd">    :returns: ``True`` when full-screen mode is preferred.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="ow">not</span> <span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">&quot;win32&quot;</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;MSYSTEM&quot;</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_should_enable_mouse_scrolling</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return whether local wheel scrolling should be enabled.</span>
+
+<span class="sd">    Linux terminals provide the most predictable wheel-event handling in the</span>
+<span class="sd">    current PySnap UI, so wheel-based scrollback stays Linux-only for now.</span>
+
+<span class="sd">    :returns: ``True`` when Linux mouse-wheel scrolling is preferred.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;linux&quot;</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_safe_exit_application</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">Application</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>

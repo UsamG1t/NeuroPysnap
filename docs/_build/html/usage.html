@@ -184,6 +184,15 @@ TCP console.</p>
 <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">plug</span> <span class="pre">&lt;VM&gt;</span></code> first.</p>
 <p>The terminal session is detached with <code class="docutils literal notranslate"><span class="pre">Ctrl-Q</span></code>. Detaching does not stop the
 virtual machine. <code class="docutils literal notranslate"><span class="pre">Ctrl-L</span></code> redraws the local interface.</p>
+<p>PySnap also keeps a local scrollback buffer for the attached session:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Alt-Up</span></code> scrolls one line toward older output</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Alt-Down</span></code> scrolls one line toward newer output</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Alt-Left</span></code> jumps to the oldest retained output</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Alt-Right</span></code> jumps back to the live output bottom</p></li>
+<li><p>on Linux, the mouse wheel or touchpad scroll gesture also moves through the
+local scrollback buffer</p></li>
+</ul>
 <p>While the session is attached, PySnap continuously tracks the outer terminal
 size and resizes the visible guest text area to match it. This also works
 after reconnecting to an already running VM.</p>

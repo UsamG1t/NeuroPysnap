@@ -7,12 +7,21 @@ import os
 import unittest
 from unittest.mock import patch
 
+from prompt_toolkit.data_structures import Point
+from prompt_toolkit.mouse_events import (
+    MouseButton,
+    MouseEvent,
+    MouseEventType,
+)
+
 from pysnap.core.models import VMInfo
 from pysnap.terminal.emulator import TerminalEmulator
 from pysnap.terminal.session import (
+    ScrollableTerminalControl,
     TerminalSession,
     _resize_emulator_to_output,
     _safe_exit_application,
+    _should_enable_mouse_scrolling,
     _should_use_full_screen,
     _terminal_content_size,
     _terminal_content_size_from_output,
@@ -76,6 +85,16 @@ class TerminalSessionTests(unittest.TestCase):
             patch.dict(os.environ, {"MSYSTEM": "MINGW64"}, clear=True),
         ):
             self.assertFalse(_should_use_full_screen())
+
+    def test_should_enable_mouse_scrolling_on_linux(self) -> None:
+        """Allow wheel-based local scrollback on Linux terminals."""
+        with patch("pysnap.terminal.session.sys.platform", "linux"):
+            self.assertTrue(_should_enable_mouse_scrolling())
+
+    def test_should_disable_mouse_scrolling_outside_linux(self) -> None:
+        """Keep wheel interception disabled on non-Linux platforms."""
+        with patch("pysnap.terminal.session.sys.platform", "win32"):
+            self.assertFalse(_should_enable_mouse_scrolling())
 
     def test_run_swallows_keyboard_interrupt_from_terminal_runtime(self) -> None:
         """Return cleanly when the surrounding terminal runtime interrupts the app."""
@@ -177,6 +196,33 @@ class TerminalSessionTests(unittest.TestCase):
 
         self.assertEqual(applied_size, (100, 29))
         self.assertEqual((emulator.screen.columns, emulator.screen.lines), (100, 29))
+
+    def test_scrollable_terminal_control_handles_mouse_wheel_callbacks(self) -> None:
+        """Translate wheel events into local scrollback callbacks."""
+        events: list[str] = []
+        control = ScrollableTerminalControl(
+            text="terminal",
+            on_scroll_up=lambda: events.append("up"),
+            on_scroll_down=lambda: events.append("down"),
+            mouse_scrolling_enabled=True,
+        )
+        up_event = MouseEvent(
+            position=Point(x=0, y=0),
+            event_type=MouseEventType.SCROLL_UP,
+            button=MouseButton.NONE,
+            modifiers=frozenset(),
+        )
+        down_event = MouseEvent(
+            position=Point(x=0, y=0),
+            event_type=MouseEventType.SCROLL_DOWN,
+            button=MouseButton.NONE,
+            modifiers=frozenset(),
+        )
+
+        control.mouse_handler(up_event)
+        control.mouse_handler(down_event)
+
+        self.assertEqual(events, ["up", "down"])
 
     def test_safe_exit_exits_running_application_once(self) -> None:
         """Exit a live application successfully."""

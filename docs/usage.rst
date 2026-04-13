@@ -181,6 +181,15 @@ For VMs that do not already expose a suitable ``UART1 tcpserver`` endpoint, run
 The terminal session is detached with ``Ctrl-Q``. Detaching does not stop the
 virtual machine. ``Ctrl-L`` redraws the local interface.
 
+PySnap also keeps a local scrollback buffer for the attached session:
+
+- ``Alt-Up`` scrolls one line toward older output
+- ``Alt-Down`` scrolls one line toward newer output
+- ``Alt-Left`` jumps to the oldest retained output
+- ``Alt-Right`` jumps back to the live output bottom
+- on Linux, the mouse wheel or touchpad scroll gesture also moves through the
+  local scrollback buffer
+
 While the session is attached, PySnap continuously tracks the outer terminal
 size and resizes the visible guest text area to match it. This also works
 after reconnecting to an already running VM.

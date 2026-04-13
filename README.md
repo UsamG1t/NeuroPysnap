@@ -92,6 +92,10 @@ pysnap connect srv
 While attached, PySnap keeps the guest-visible area synchronized with the
 current terminal size. On Linux guests, xterm-compatible tools such as
 ``resize`` can use the serial connection to rediscover the updated geometry.
+PySnap also keeps a local scrollback buffer: ``Alt+Up`` and ``Alt+Down``
+move through it, ``Alt+Left`` jumps to the oldest retained output, and
+``Alt+Right`` returns to the live bottom. On Linux, the mouse wheel can drive
+the same local scrollback.
 
 Plug a stopped VM into the same serial-console workflow used by imported
 protocol images:
