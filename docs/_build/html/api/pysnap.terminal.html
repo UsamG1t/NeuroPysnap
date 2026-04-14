@@ -40,6 +40,33 @@
 <section id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading">¶</a></h2>
 </section>
+<section id="module-pysnap.terminal.clipboard">
+<span id="pysnap-terminal-clipboard-module"></span><h2>pysnap.terminal.clipboard module<a class="headerlink" href="#module-pysnap.terminal.clipboard" title="Link to this heading">¶</a></h2>
+<p>Clipboard helpers for copying text out of the terminal session.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.terminal.clipboard.copy_text_to_host_clipboard">
+<span class="sig-prename descclassname"><span class="pre">pysnap.terminal.clipboard.</span></span><span class="sig-name descname"><span class="pre">copy_text_to_host_clipboard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/clipboard.html#copy_text_to_host_clipboard"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.clipboard.copy_text_to_host_clipboard" title="Link to this definition">¶</a></dt>
+<dd><p>Copy text to the host clipboard.</p>
+<p>The function first tries native platform clipboard commands. When these are
+unavailable, it falls back to the OSC 52 terminal clipboard sequence for
+terminals that support it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> (<em>str</em>) – Text to copy.</p></li>
+<li><p><strong>output</strong> (<em>Output</em><em> | </em><em>None</em>) – Prompt-toolkit output used for the OSC 52 fallback.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">True</span></code> when one copy strategy succeeded.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
 <section id="module-pysnap.terminal.emulator">
 <span id="pysnap-terminal-emulator-module"></span><h2>pysnap.terminal.emulator module<a class="headerlink" href="#module-pysnap.terminal.emulator" title="Link to this heading">¶</a></h2>
 <p>Terminal emulation utilities built on top of <code class="xref py py-mod docutils literal notranslate"><span class="pre">pyte</span></code>.</p>
@@ -146,14 +173,34 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pysnap.terminal.emulator.TerminalEmulator.as_formatted_text">
-<span class="sig-name descname"><span class="pre">as_formatted_text</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#TerminalEmulator.as_formatted_text"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.TerminalEmulator.as_formatted_text" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">as_formatted_text</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">selection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#TerminalEmulator.as_formatted_text"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.TerminalEmulator.as_formatted_text" title="Link to this definition">¶</a></dt>
 <dd><p>Render the current screen buffer as prompt_toolkit fragments.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>A list of <code class="docutils literal notranslate"><span class="pre">(style,</span> <span class="pre">text)</span></code> fragments.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>selection</strong> (<em>tuple</em><em>[</em><em>tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>] </em><em>| </em><em>None</em>) – Optional inclusive start/end cell coordinates.</p>
 </dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>list[tuple[str, str]]</p>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of <code class="docutils literal notranslate"><span class="pre">(style,</span> <span class="pre">text)</span></code> fragments.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[tuple[str, str]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.TerminalEmulator.selected_text">
+<span class="sig-name descname"><span class="pre">selected_text</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">selection</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#TerminalEmulator.selected_text"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.TerminalEmulator.selected_text" title="Link to this definition">¶</a></dt>
+<dd><p>Return the textual content inside a visible selection range.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>selection</strong> (<em>tuple</em><em>[</em><em>tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>] </em><em>| </em><em>None</em>) – Inclusive start/end cell coordinates.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Selected text with newline joins between screen rows.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
 </dd>
 </dl>
 </dd></dl>
@@ -264,8 +311,51 @@ replies to xterm-compatible size queries that guest-side tools may emit.</p>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="pysnap.terminal.session.TerminalSelection">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.terminal.session.</span></span><span class="sig-name descname"><span class="pre">TerminalSelection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">anchor_row</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">anchor_column</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">row</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">column</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/session.html#TerminalSelection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.session.TerminalSelection" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Visible terminal selection tracked in local screen coordinates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>anchor_row</strong> (<em>int</em>)</p></li>
+<li><p><strong>anchor_column</strong> (<em>int</em>)</p></li>
+<li><p><strong>row</strong> (<em>int</em>)</p></li>
+<li><p><strong>column</strong> (<em>int</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.terminal.session.TerminalSelection.anchor_row">
+<span class="sig-name descname"><span class="pre">anchor_row</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#pysnap.terminal.session.TerminalSelection.anchor_row" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.terminal.session.TerminalSelection.anchor_column">
+<span class="sig-name descname"><span class="pre">anchor_column</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#pysnap.terminal.session.TerminalSelection.anchor_column" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.terminal.session.TerminalSelection.row">
+<span class="sig-name descname"><span class="pre">row</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#pysnap.terminal.session.TerminalSelection.row" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.terminal.session.TerminalSelection.column">
+<span class="sig-name descname"><span class="pre">column</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#pysnap.terminal.session.TerminalSelection.column" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="pysnap.terminal.session.TerminalSelection.normalized">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">normalized</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#pysnap.terminal.session.TerminalSelection.normalized" title="Link to this definition">¶</a></dt>
+<dd><p>Return inclusive start/end coordinates in natural screen order.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="pysnap.terminal.session.ScrollableTerminalControl">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.terminal.session.</span></span><span class="sig-name descname"><span class="pre">ScrollableTerminalControl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">on_scroll_up</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">on_scroll_down</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mouse_scrolling_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/session.html#ScrollableTerminalControl"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.session.ScrollableTerminalControl" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.terminal.session.</span></span><span class="sig-name descname"><span class="pre">ScrollableTerminalControl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">on_scroll_up</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">on_scroll_down</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mouse_scrolling_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">on_selection_start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">on_selection_update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">on_selection_finish</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/session.html#ScrollableTerminalControl"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.session.ScrollableTerminalControl" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">FormattedTextControl</span></code></p>
 <p>Formatted text control with optional local scrollback mouse support.</p>
 <dl class="field-list simple">
@@ -274,6 +364,9 @@ replies to xterm-compatible size queries that guest-side tools may emit.</p>
 <li><p><strong>on_scroll_up</strong> (<em>Callable</em><em>[</em><em>[</em><em>]</em><em>, </em><em>None</em><em>] </em><em>| </em><em>None</em>)</p></li>
 <li><p><strong>on_scroll_down</strong> (<em>Callable</em><em>[</em><em>[</em><em>]</em><em>, </em><em>None</em><em>] </em><em>| </em><em>None</em>)</p></li>
 <li><p><strong>mouse_scrolling_enabled</strong> (<em>bool</em>)</p></li>
+<li><p><strong>on_selection_start</strong> (<em>Callable</em><em>[</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>None</em><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>on_selection_update</strong> (<em>Callable</em><em>[</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>None</em><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>on_selection_finish</strong> (<em>Callable</em><em>[</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>, </em><em>None</em><em>] </em><em>| </em><em>None</em>)</p></li>
 </ul>
 </dd>
 </dl>

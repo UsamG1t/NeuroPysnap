@@ -9,6 +9,14 @@ pysnap.terminal package
 Submodules
 ----------
 
+pysnap.terminal.clipboard module
+--------------------------------
+
+.. automodule:: pysnap.terminal.clipboard
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 pysnap.terminal.emulator module
 -------------------------------
 

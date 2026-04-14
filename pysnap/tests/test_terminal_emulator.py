@@ -52,6 +52,15 @@ class TerminalEmulatorTests(unittest.TestCase):
         self.assertEqual(_visible_lines(emulator), ["4", "5", ""])
         self.assertFalse(emulator.is_scrollback_active)
 
+    def test_selected_text_reads_visible_range(self) -> None:
+        """Extract selected text from the currently visible screen area."""
+        emulator = TerminalEmulator(columns=10, lines=3)
+        emulator.feed(b"alpha\r\nbeta\r\ngamma\r\n")
+
+        selection = ((0, 1), (1, 2))
+
+        self.assertEqual(emulator.selected_text(selection), "eta\ngam")
+
 
 if __name__ == "__main__":
     unittest.main()

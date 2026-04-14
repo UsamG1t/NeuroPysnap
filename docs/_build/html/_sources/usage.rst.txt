@@ -187,6 +187,8 @@ PySnap also keeps a local scrollback buffer for the attached session:
 - ``Alt-Down`` scrolls one line toward newer output
 - ``Alt-Left`` jumps to the oldest retained output
 - ``Alt-Right`` jumps back to the live output bottom
+- dragging with the left mouse button selects visible terminal text and copies
+  it to the host clipboard on mouse release
 - on Linux, the mouse wheel or touchpad scroll gesture also moves through the
   local scrollback buffer
 

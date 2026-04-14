@@ -224,6 +224,43 @@ class TerminalSessionTests(unittest.TestCase):
 
         self.assertEqual(events, ["up", "down"])
 
+    def test_scrollable_terminal_control_handles_selection_drag_callbacks(self) -> None:
+        """Translate left-button drag events into selection callbacks."""
+        events: list[tuple[str, int, int]] = []
+        control = ScrollableTerminalControl(
+            text="terminal",
+            on_selection_start=lambda x, y: events.append(("start", x, y)),
+            on_selection_update=lambda x, y: events.append(("move", x, y)),
+            on_selection_finish=lambda x, y: events.append(("stop", x, y)),
+        )
+        down_event = MouseEvent(
+            position=Point(x=1, y=2),
+            event_type=MouseEventType.MOUSE_DOWN,
+            button=MouseButton.LEFT,
+            modifiers=frozenset(),
+        )
+        move_event = MouseEvent(
+            position=Point(x=3, y=4),
+            event_type=MouseEventType.MOUSE_MOVE,
+            button=MouseButton.LEFT,
+            modifiers=frozenset(),
+        )
+        up_event = MouseEvent(
+            position=Point(x=5, y=6),
+            event_type=MouseEventType.MOUSE_UP,
+            button=MouseButton.LEFT,
+            modifiers=frozenset(),
+        )
+
+        control.mouse_handler(down_event)
+        control.mouse_handler(move_event)
+        control.mouse_handler(up_event)
+
+        self.assertEqual(
+            events,
+            [("start", 1, 2), ("move", 3, 4), ("stop", 5, 6)],
+        )
+
     def test_safe_exit_exits_running_application_once(self) -> None:
         """Exit a live application successfully."""
         app = FakeApplication(is_running=True, is_done=False)

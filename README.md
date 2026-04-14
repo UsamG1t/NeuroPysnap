@@ -95,7 +95,8 @@ current terminal size. On Linux guests, xterm-compatible tools such as
 PySnap also keeps a local scrollback buffer: ``Alt+Up`` and ``Alt+Down``
 move through it, ``Alt+Left`` jumps to the oldest retained output, and
 ``Alt+Right`` returns to the live bottom. On Linux, the mouse wheel can drive
-the same local scrollback.
+the same local scrollback. Dragging with the left mouse button selects visible
+terminal text and copies it to the host clipboard when the button is released.
 
 Plug a stopped VM into the same serial-console workflow used by imported
 protocol images:

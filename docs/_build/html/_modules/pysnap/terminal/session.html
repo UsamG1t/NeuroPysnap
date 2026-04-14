@@ -49,10 +49,11 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">prompt_toolkit.keys</span><span class="w"> </span><span class="kn">import</span> <span class="n">Keys</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">prompt_toolkit.layout</span><span class="w"> </span><span class="kn">import</span> <span class="n">HSplit</span><span class="p">,</span> <span class="n">Layout</span><span class="p">,</span> <span class="n">Window</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">prompt_toolkit.layout.controls</span><span class="w"> </span><span class="kn">import</span> <span class="n">FormattedTextControl</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">prompt_toolkit.mouse_events</span><span class="w"> </span><span class="kn">import</span> <span class="n">MouseEvent</span><span class="p">,</span> <span class="n">MouseEventType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">prompt_toolkit.mouse_events</span><span class="w"> </span><span class="kn">import</span> <span class="n">MouseButton</span><span class="p">,</span> <span class="n">MouseEvent</span><span class="p">,</span> <span class="n">MouseEventType</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.service</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapService</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.terminal.clipboard</span><span class="w"> </span><span class="kn">import</span> <span class="n">copy_text_to_host_clipboard</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.terminal.emulator</span><span class="w"> </span><span class="kn">import</span> <span class="n">TerminalEmulator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.terminal.keymap</span><span class="w"> </span><span class="kn">import</span> <span class="n">key_press_to_bytes</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.terminal.protocol</span><span class="w"> </span><span class="kn">import</span> <span class="n">TerminalQueryResponder</span>
@@ -72,6 +73,28 @@
 
 
 
+<div class="viewcode-block" id="TerminalSelection">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.TerminalSelection">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">TerminalSelection</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Visible terminal selection tracked in local screen coordinates.&quot;&quot;&quot;</span>
+
+    <span class="n">anchor_row</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">anchor_column</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">row</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">column</span><span class="p">:</span> <span class="nb">int</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">normalized</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return inclusive start/end coordinates in natural screen order.&quot;&quot;&quot;</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anchor_row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">anchor_column</span><span class="p">)</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">column</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;=</span> <span class="n">end</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span>
+        <span class="k">return</span> <span class="n">end</span><span class="p">,</span> <span class="n">start</span></div>
+
+
+
 <div class="viewcode-block" id="ScrollableTerminalControl">
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.ScrollableTerminalControl">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ScrollableTerminalControl</span><span class="p">(</span><span class="n">FormattedTextControl</span><span class="p">):</span>
@@ -83,6 +106,9 @@
         <span class="n">on_scroll_up</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">on_scroll_down</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">mouse_scrolling_enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">on_selection_start</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">on_selection_update</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">on_selection_finish</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the scrollable terminal control.</span>
@@ -90,16 +116,48 @@
 <span class="sd">        :param on_scroll_up: Callback for one local upward scroll action.</span>
 <span class="sd">        :param on_scroll_down: Callback for one local downward scroll action.</span>
 <span class="sd">        :param mouse_scrolling_enabled: Whether to intercept wheel events.</span>
+<span class="sd">        :param on_selection_start: Callback for selection drag start.</span>
+<span class="sd">        :param on_selection_update: Callback for selection drag updates.</span>
+<span class="sd">        :param on_selection_finish: Callback for selection drag end.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_on_scroll_up</span> <span class="o">=</span> <span class="n">on_scroll_up</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_on_scroll_down</span> <span class="o">=</span> <span class="n">on_scroll_down</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mouse_scrolling_enabled</span> <span class="o">=</span> <span class="n">mouse_scrolling_enabled</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_on_selection_start</span> <span class="o">=</span> <span class="n">on_selection_start</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_on_selection_update</span> <span class="o">=</span> <span class="n">on_selection_update</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_on_selection_finish</span> <span class="o">=</span> <span class="n">on_selection_finish</span>
 
 <div class="viewcode-block" id="ScrollableTerminalControl.mouse_handler">
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.ScrollableTerminalControl.mouse_handler">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">mouse_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mouse_event</span><span class="p">:</span> <span class="n">MouseEvent</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle local wheel scrolling before delegating to the base control.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">mouse_event</span><span class="o">.</span><span class="n">event_type</span> <span class="o">==</span> <span class="n">MouseEventType</span><span class="o">.</span><span class="n">MOUSE_DOWN</span>
+            <span class="ow">and</span> <span class="n">mouse_event</span><span class="o">.</span><span class="n">button</span> <span class="o">==</span> <span class="n">MouseButton</span><span class="o">.</span><span class="n">LEFT</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_selection_start</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_on_selection_start</span><span class="p">(</span>
+                <span class="n">mouse_event</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">x</span><span class="p">,</span>
+                <span class="n">mouse_event</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">mouse_event</span><span class="o">.</span><span class="n">event_type</span> <span class="o">==</span> <span class="n">MouseEventType</span><span class="o">.</span><span class="n">MOUSE_MOVE</span>
+            <span class="ow">and</span> <span class="n">mouse_event</span><span class="o">.</span><span class="n">button</span> <span class="ow">in</span> <span class="p">{</span><span class="n">MouseButton</span><span class="o">.</span><span class="n">LEFT</span><span class="p">,</span> <span class="n">MouseButton</span><span class="o">.</span><span class="n">UNKNOWN</span><span class="p">}</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_selection_update</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_on_selection_update</span><span class="p">(</span>
+                <span class="n">mouse_event</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">x</span><span class="p">,</span>
+                <span class="n">mouse_event</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">mouse_event</span><span class="o">.</span><span class="n">event_type</span> <span class="o">==</span> <span class="n">MouseEventType</span><span class="o">.</span><span class="n">MOUSE_UP</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_selection_finish</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_on_selection_finish</span><span class="p">(</span>
+                <span class="n">mouse_event</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">x</span><span class="p">,</span>
+                <span class="n">mouse_event</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mouse_scrolling_enabled</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">mouse_event</span><span class="o">.</span><span class="n">event_type</span> <span class="o">==</span> <span class="n">MouseEventType</span><span class="o">.</span><span class="n">SCROLL_UP</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_on_scroll_up</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_on_scroll_up</span><span class="p">()</span>
@@ -163,28 +221,78 @@
         <span class="p">)</span>
         <span class="n">stop_event</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>
         <span class="n">received_output</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>
+        <span class="n">selection</span><span class="p">:</span> <span class="n">TerminalSelection</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">await</span> <span class="n">_wake_serial_console</span><span class="p">(</span><span class="n">writer</span><span class="p">)</span>
         <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Connected. Ctrl-Q detaches.&quot;</span>
 
+        <span class="k">def</span><span class="w"> </span><span class="nf">clear_selection</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">nonlocal</span> <span class="n">selection</span>
+            <span class="n">selection</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">clamp_selection_point</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+            <span class="n">row</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">emulator</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">column</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">emulator</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">columns</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">row</span><span class="p">,</span> <span class="n">column</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">begin_selection</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">nonlocal</span> <span class="n">selection</span>
+            <span class="n">row</span><span class="p">,</span> <span class="n">column</span> <span class="o">=</span> <span class="n">clamp_selection_point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+            <span class="n">selection</span> <span class="o">=</span> <span class="n">TerminalSelection</span><span class="p">(</span>
+                <span class="n">anchor_row</span><span class="o">=</span><span class="n">row</span><span class="p">,</span>
+                <span class="n">anchor_column</span><span class="o">=</span><span class="n">column</span><span class="p">,</span>
+                <span class="n">row</span><span class="o">=</span><span class="n">row</span><span class="p">,</span>
+                <span class="n">column</span><span class="o">=</span><span class="n">column</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Selecting text...&quot;</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">update_selection</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">nonlocal</span> <span class="n">selection</span>
+            <span class="k">if</span> <span class="n">selection</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span>
+            <span class="n">row</span><span class="p">,</span> <span class="n">column</span> <span class="o">=</span> <span class="n">clamp_selection_point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+            <span class="n">selection</span><span class="o">.</span><span class="n">row</span> <span class="o">=</span> <span class="n">row</span>
+            <span class="n">selection</span><span class="o">.</span><span class="n">column</span> <span class="o">=</span> <span class="n">column</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">finish_selection</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">nonlocal</span> <span class="n">selection</span>
+            <span class="k">if</span> <span class="n">selection</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span>
+            <span class="n">update_selection</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+            <span class="n">selected_text</span> <span class="o">=</span> <span class="n">emulator</span><span class="o">.</span><span class="n">selected_text</span><span class="p">(</span><span class="n">selection</span><span class="o">.</span><span class="n">normalized</span><span class="p">)</span>
+            <span class="n">copied</span> <span class="o">=</span> <span class="n">copy_text_to_host_clipboard</span><span class="p">(</span><span class="n">selected_text</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="n">app</span><span class="o">.</span><span class="n">output</span><span class="p">)</span>
+            <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="s2">&quot;Selection copied.&quot;</span>
+                <span class="k">if</span> <span class="n">copied</span>
+                <span class="k">else</span> <span class="s2">&quot;Selection captured, but clipboard export failed.&quot;</span>
+            <span class="p">)</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+
         <span class="k">def</span><span class="w"> </span><span class="nf">scroll_up</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">clear_selection</span><span class="p">()</span>
             <span class="n">emulator</span><span class="o">.</span><span class="n">scroll_up</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
             <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">scroll_down</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">clear_selection</span><span class="p">()</span>
             <span class="n">emulator</span><span class="o">.</span><span class="n">scroll_down</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
             <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">render_terminal</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
             <span class="n">app</span> <span class="o">=</span> <span class="n">get_app</span><span class="p">()</span>
             <span class="n">_resize_emulator_to_output</span><span class="p">(</span><span class="n">app</span><span class="o">=</span><span class="n">app</span><span class="p">,</span> <span class="n">emulator</span><span class="o">=</span><span class="n">emulator</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">emulator</span><span class="o">.</span><span class="n">as_formatted_text</span><span class="p">()</span>
+            <span class="n">current_selection</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">selection</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">selection</span><span class="o">.</span><span class="n">normalized</span>
+            <span class="k">return</span> <span class="n">emulator</span><span class="o">.</span><span class="n">as_formatted_text</span><span class="p">(</span><span class="n">selection</span><span class="o">=</span><span class="n">current_selection</span><span class="p">)</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">render_status</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
             <span class="n">scrollback_suffix</span> <span class="o">=</span> <span class="s2">&quot; | Scrollback&quot;</span> <span class="k">if</span> <span class="n">emulator</span><span class="o">.</span><span class="n">is_scrollback_active</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">selection_suffix</span> <span class="o">=</span> <span class="s2">&quot; | Selection&quot;</span> <span class="k">if</span> <span class="n">selection</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
             <span class="n">text</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">vm_name</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">vm_state</span><span class="si">}</span><span class="s2"> | &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;UART1:</span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">serial_port</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">message</span><span class="si">}{</span><span class="n">scrollback_suffix</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;UART1:</span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">serial_port</span><span class="si">}</span><span class="s2"> | &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">message</span><span class="si">}{</span><span class="n">scrollback_suffix</span><span class="si">}{</span><span class="n">selection_suffix</span><span class="si">}</span><span class="s2"> &quot;</span>
             <span class="p">)</span>
             <span class="k">return</span> <span class="p">[(</span><span class="s2">&quot;reverse&quot;</span><span class="p">,</span> <span class="n">text</span><span class="p">)]</span>
 
@@ -195,6 +303,9 @@
             <span class="n">on_scroll_up</span><span class="o">=</span><span class="n">scroll_up</span><span class="p">,</span>
             <span class="n">on_scroll_down</span><span class="o">=</span><span class="n">scroll_down</span><span class="p">,</span>
             <span class="n">mouse_scrolling_enabled</span><span class="o">=</span><span class="n">_should_enable_mouse_scrolling</span><span class="p">(),</span>
+            <span class="n">on_selection_start</span><span class="o">=</span><span class="n">begin_selection</span><span class="p">,</span>
+            <span class="n">on_selection_update</span><span class="o">=</span><span class="n">update_selection</span><span class="p">,</span>
+            <span class="n">on_selection_finish</span><span class="o">=</span><span class="n">finish_selection</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">status_control</span> <span class="o">=</span> <span class="n">FormattedTextControl</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="n">render_status</span><span class="p">)</span>
         <span class="n">layout</span> <span class="o">=</span> <span class="n">Layout</span><span class="p">(</span>
@@ -236,18 +347,21 @@
         <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">Escape</span><span class="p">,</span> <span class="n">Keys</span><span class="o">.</span><span class="n">Left</span><span class="p">)</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_scroll_to_top</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Jump to the oldest retained local scrollback output.&quot;&quot;&quot;</span>
+            <span class="n">clear_selection</span><span class="p">()</span>
             <span class="n">emulator</span><span class="o">.</span><span class="n">scroll_to_top</span><span class="p">()</span>
             <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
 
         <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">Escape</span><span class="p">,</span> <span class="n">Keys</span><span class="o">.</span><span class="n">Right</span><span class="p">)</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_scroll_to_bottom</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Jump back to the live end of local output.&quot;&quot;&quot;</span>
+            <span class="n">clear_selection</span><span class="p">()</span>
             <span class="n">emulator</span><span class="o">.</span><span class="n">scroll_to_bottom</span><span class="p">()</span>
             <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
 
         <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">Any</span><span class="p">)</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_forward_key</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Forward arbitrary key input to the serial transport.&quot;&quot;&quot;</span>
+            <span class="n">clear_selection</span><span class="p">()</span>
             <span class="n">key_press</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">key_sequence</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
             <span class="n">payload</span> <span class="o">=</span> <span class="n">key_press_to_bytes</span><span class="p">(</span><span class="n">key_press</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">payload</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -258,7 +372,7 @@
             <span class="n">layout</span><span class="o">=</span><span class="n">layout</span><span class="p">,</span>
             <span class="n">key_bindings</span><span class="o">=</span><span class="n">bindings</span><span class="p">,</span>
             <span class="n">full_screen</span><span class="o">=</span><span class="n">_should_use_full_screen</span><span class="p">(),</span>
-            <span class="n">mouse_support</span><span class="o">=</span><span class="n">_should_enable_mouse_scrolling</span><span class="p">(),</span>
+            <span class="n">mouse_support</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">terminal_size_polling_interval</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
         <span class="p">)</span>
 
@@ -273,6 +387,7 @@
                         <span class="n">_safe_exit_application</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
                         <span class="k">return</span>
                     <span class="n">received_output</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+                    <span class="n">clear_selection</span><span class="p">()</span>
                     <span class="n">emulator</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
                     <span class="n">responses</span> <span class="o">=</span> <span class="n">query_responder</span><span class="o">.</span><span class="n">collect_responses</span><span class="p">(</span>
                         <span class="n">data</span><span class="p">,</span>
@@ -299,6 +414,7 @@
                     <span class="n">current_size</span> <span class="o">=</span> <span class="n">_resize_emulator_to_output</span><span class="p">(</span><span class="n">app</span><span class="o">=</span><span class="n">app</span><span class="p">,</span> <span class="n">emulator</span><span class="o">=</span><span class="n">emulator</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">current_size</span> <span class="o">!=</span> <span class="n">previous_size</span><span class="p">:</span>
                         <span class="n">previous_size</span> <span class="o">=</span> <span class="n">current_size</span>
+                        <span class="n">clear_selection</span><span class="p">()</span>
                         <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">stop_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>

@@ -15,10 +15,11 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout import HSplit, Layout, Window
 from prompt_toolkit.layout.controls import FormattedTextControl
-from prompt_toolkit.mouse_events import MouseEvent, MouseEventType
+from prompt_toolkit.mouse_events import MouseButton, MouseEvent, MouseEventType
 
 from pysnap.core.service import PySnapService
 from pysnap.errors import PySnapError
+from pysnap.terminal.clipboard import copy_text_to_host_clipboard
 from pysnap.terminal.emulator import TerminalEmulator
 from pysnap.terminal.keymap import key_press_to_bytes
 from pysnap.terminal.protocol import TerminalQueryResponder
@@ -35,6 +36,25 @@ class SessionStatus:
     message: str = "Connecting..."
 
 
+@dataclass
+class TerminalSelection:
+    """Visible terminal selection tracked in local screen coordinates."""
+
+    anchor_row: int
+    anchor_column: int
+    row: int
+    column: int
+
+    @property
+    def normalized(self) -> tuple[tuple[int, int], tuple[int, int]]:
+        """Return inclusive start/end coordinates in natural screen order."""
+        start = (self.anchor_row, self.anchor_column)
+        end = (self.row, self.column)
+        if start <= end:
+            return start, end
+        return end, start
+
+
 class ScrollableTerminalControl(FormattedTextControl):
     """Formatted text control with optional local scrollback mouse support."""
 
@@ -44,6 +64,9 @@ class ScrollableTerminalControl(FormattedTextControl):
         on_scroll_up: Callable[[], None] | None = None,
         on_scroll_down: Callable[[], None] | None = None,
         mouse_scrolling_enabled: bool = False,
+        on_selection_start: Callable[[int, int], None] | None = None,
+        on_selection_update: Callable[[int, int], None] | None = None,
+        on_selection_finish: Callable[[int, int], None] | None = None,
         **kwargs,
     ) -> None:
         """Initialize the scrollable terminal control.
@@ -51,14 +74,46 @@ class ScrollableTerminalControl(FormattedTextControl):
         :param on_scroll_up: Callback for one local upward scroll action.
         :param on_scroll_down: Callback for one local downward scroll action.
         :param mouse_scrolling_enabled: Whether to intercept wheel events.
+        :param on_selection_start: Callback for selection drag start.
+        :param on_selection_update: Callback for selection drag updates.
+        :param on_selection_finish: Callback for selection drag end.
         """
         super().__init__(*args, **kwargs)
         self._on_scroll_up = on_scroll_up
         self._on_scroll_down = on_scroll_down
         self._mouse_scrolling_enabled = mouse_scrolling_enabled
+        self._on_selection_start = on_selection_start
+        self._on_selection_update = on_selection_update
+        self._on_selection_finish = on_selection_finish
 
     def mouse_handler(self, mouse_event: MouseEvent):
         """Handle local wheel scrolling before delegating to the base control."""
+        if (
+            mouse_event.event_type == MouseEventType.MOUSE_DOWN
+            and mouse_event.button == MouseButton.LEFT
+            and self._on_selection_start
+        ):
+            self._on_selection_start(
+                mouse_event.position.x,
+                mouse_event.position.y,
+            )
+            return None
+        if (
+            mouse_event.event_type == MouseEventType.MOUSE_MOVE
+            and mouse_event.button in {MouseButton.LEFT, MouseButton.UNKNOWN}
+            and self._on_selection_update
+        ):
+            self._on_selection_update(
+                mouse_event.position.x,
+                mouse_event.position.y,
+            )
+            return None
+        if mouse_event.event_type == MouseEventType.MOUSE_UP and self._on_selection_finish:
+            self._on_selection_finish(
+                mouse_event.position.x,
+                mouse_event.position.y,
+            )
+            return None
         if self._mouse_scrolling_enabled:
             if mouse_event.event_type == MouseEventType.SCROLL_UP and self._on_scroll_up:
                 self._on_scroll_up()
@@ -115,28 +170,78 @@ class TerminalSession:
         )
         stop_event = asyncio.Event()
         received_output = asyncio.Event()
+        selection: TerminalSelection | None = None
 
         await _wake_serial_console(writer)
         status.message = "Connected. Ctrl-Q detaches."
 
+        def clear_selection() -> None:
+            nonlocal selection
+            selection = None
+
+        def clamp_selection_point(x: int, y: int) -> tuple[int, int]:
+            row = min(max(y, 0), emulator.screen.lines - 1)
+            column = min(max(x, 0), emulator.screen.columns - 1)
+            return row, column
+
+        def begin_selection(x: int, y: int) -> None:
+            nonlocal selection
+            row, column = clamp_selection_point(x, y)
+            selection = TerminalSelection(
+                anchor_row=row,
+                anchor_column=column,
+                row=row,
+                column=column,
+            )
+            status.message = "Selecting text..."
+            app.invalidate()
+
+        def update_selection(x: int, y: int) -> None:
+            nonlocal selection
+            if selection is None:
+                return
+            row, column = clamp_selection_point(x, y)
+            selection.row = row
+            selection.column = column
+            app.invalidate()
+
+        def finish_selection(x: int, y: int) -> None:
+            nonlocal selection
+            if selection is None:
+                return
+            update_selection(x, y)
+            selected_text = emulator.selected_text(selection.normalized)
+            copied = copy_text_to_host_clipboard(selected_text, output=app.output)
+            status.message = (
+                "Selection copied."
+                if copied
+                else "Selection captured, but clipboard export failed."
+            )
+            app.invalidate()
+
         def scroll_up(lines: int = 1) -> None:
+            clear_selection()
             emulator.scroll_up(lines)
             app.invalidate()
 
         def scroll_down(lines: int = 1) -> None:
+            clear_selection()
             emulator.scroll_down(lines)
             app.invalidate()
 
         def render_terminal() -> list[tuple[str, str]]:
             app = get_app()
             _resize_emulator_to_output(app=app, emulator=emulator)
-            return emulator.as_formatted_text()
+            current_selection = None if selection is None else selection.normalized
+            return emulator.as_formatted_text(selection=current_selection)
 
         def render_status() -> list[tuple[str, str]]:
             scrollback_suffix = " | Scrollback" if emulator.is_scrollback_active else ""
+            selection_suffix = " | Selection" if selection is not None else ""
             text = (
                 f" {status.vm_name} | {status.vm_state} | "
-                f"UART1:{status.serial_port} | {status.message}{scrollback_suffix} "
+                f"UART1:{status.serial_port} | "
+                f"{status.message}{scrollback_suffix}{selection_suffix} "
             )
             return [("reverse", text)]
 
@@ -147,6 +252,9 @@ class TerminalSession:
             on_scroll_up=scroll_up,
             on_scroll_down=scroll_down,
             mouse_scrolling_enabled=_should_enable_mouse_scrolling(),
+            on_selection_start=begin_selection,
+            on_selection_update=update_selection,
+            on_selection_finish=finish_selection,
         )
         status_control = FormattedTextControl(text=render_status)
         layout = Layout(
@@ -188,18 +296,21 @@ class TerminalSession:
         @bindings.add(Keys.Escape, Keys.Left)
         def _scroll_to_top(event) -> None:
             """Jump to the oldest retained local scrollback output."""
+            clear_selection()
             emulator.scroll_to_top()
             event.app.invalidate()
 
         @bindings.add(Keys.Escape, Keys.Right)
         def _scroll_to_bottom(event) -> None:
             """Jump back to the live end of local output."""
+            clear_selection()
             emulator.scroll_to_bottom()
             event.app.invalidate()
 
         @bindings.add(Keys.Any)
         def _forward_key(event) -> None:
             """Forward arbitrary key input to the serial transport."""
+            clear_selection()
             key_press = event.key_sequence[-1]
             payload = key_press_to_bytes(key_press)
             if payload is None:
@@ -210,7 +321,7 @@ class TerminalSession:
             layout=layout,
             key_bindings=bindings,
             full_screen=_should_use_full_screen(),
-            mouse_support=_should_enable_mouse_scrolling(),
+            mouse_support=True,
             terminal_size_polling_interval=0.25,
         )
 
@@ -225,6 +336,7 @@ class TerminalSession:
                         _safe_exit_application(app)
                         return
                     received_output.set()
+                    clear_selection()
                     emulator.feed(data)
                     responses = query_responder.collect_responses(
                         data,
@@ -251,6 +363,7 @@ class TerminalSession:
                     current_size = _resize_emulator_to_output(app=app, emulator=emulator)
                     if current_size != previous_size:
                         previous_size = current_size
+                        clear_selection()
                         app.invalidate()
             except Exception as error:
                 if stop_event.is_set():
