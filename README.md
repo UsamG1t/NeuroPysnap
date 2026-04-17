@@ -146,7 +146,7 @@ applies these clone-time changes:
 
 The setting is intended for images and labs used in these CMC MSU courses:
 
-- `LinuxNetwork <https://uneex.org/LecturesCMC/LinuxNetwork2026>`_
-- `Nets: Introduction <https://asvk.cs.msu.ru/uchebnyj-process/chitaemye-kursy/vvedenie-v-seti-evm/>`_
-- `Methodics of Linux Net Protocols <https://github.com/UsamG1t/Methodics_LinuxNetProtocols>`_
-- `Labs of Linux Net Protocols <https://github.com/UsamG1t/Nets_ASVK_Labs>`_
+- [LinuxNetwork](https://uneex.org/LecturesCMC/LinuxNetwork2026)
+- [Nets: Introduction](https://asvk.cs.msu.ru/uchebnyj-process/chitaemye-kursy/vvedenie-v-seti-evm/)
+- [Methodics of Linux Net Protocols](https://github.com/UsamG1t/Methodics_LinuxNetProtocols)
+- [Labs of Linux Net Protocols](https://github.com/UsamG1t/Nets_ASVK_Labs)
