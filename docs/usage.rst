@@ -259,7 +259,9 @@ used serial TCP port, and assigns the next value. If no serial TCP ports are
 configured yet, the automatic sequence starts at ``1024``.
 
 Up to three extra positional arguments configure internal networks for
-``nic1`` through ``nic3`` with the ``intnet`` attachment type.
+``nic2`` through ``nic4`` with the ``intnet`` attachment type. ``nic1`` stays
+in ``nat`` mode, and adapters without an explicit network argument are left
+enabled instead of being forced to ``none``.
 
 If the base VM was previously registered through ``pysnap protosettings``,
 PySnap also applies educational DMI settings to the clone.

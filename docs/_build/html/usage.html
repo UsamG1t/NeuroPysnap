@@ -250,7 +250,9 @@ the base VM group.</p>
 used serial TCP port, and assigns the next value. If no serial TCP ports are
 configured yet, the automatic sequence starts at <code class="docutils literal notranslate"><span class="pre">1024</span></code>.</p>
 <p>Up to three extra positional arguments configure internal networks for
-<code class="docutils literal notranslate"><span class="pre">nic1</span></code> through <code class="docutils literal notranslate"><span class="pre">nic3</span></code> with the <code class="docutils literal notranslate"><span class="pre">intnet</span></code> attachment type.</p>
+<code class="docutils literal notranslate"><span class="pre">nic2</span></code> through <code class="docutils literal notranslate"><span class="pre">nic4</span></code> with the <code class="docutils literal notranslate"><span class="pre">intnet</span></code> attachment type. <code class="docutils literal notranslate"><span class="pre">nic1</span></code> stays
+in <code class="docutils literal notranslate"><span class="pre">nat</span></code> mode, and adapters without an explicit network argument are left
+enabled instead of being forced to <code class="docutils literal notranslate"><span class="pre">none</span></code>.</p>
 <p>If the base VM was previously registered through <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">protosettings</span></code>,
 PySnap also applies educational DMI settings to the clone.</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap clone BaseVM CloneVM -p 2345 intnet1 intnet2 intnet3

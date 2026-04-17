@@ -431,23 +431,18 @@ class VBoxManageClient:
     def configure_internal_networks(
         self, vm_name: str, networks: Sequence[str]
     ) -> None:
-        """Configure up to three internal network adapters.
+        """Configure clone networking without disabling inherited adapters.
 
         :param vm_name: VM name.
-        :param networks: Internal network names.
+        :param networks: Internal network names mapped onto ``NIC2``-``NIC4``.
         :raises PySnapError: If more than three networks are provided.
         """
         if len(networks) > 3:
             raise PySnapError("At most three internal network names can be provided.")
 
-        arguments: list[str] = ["modifyvm", vm_name]
-        for index in range(1, 4):
-            if index <= len(networks):
-                arguments.extend(
-                    [f"--nic{index}", "intnet", f"--intnet{index}", networks[index - 1]]
-                )
-            else:
-                arguments.extend([f"--nic{index}", "none"])
+        arguments: list[str] = ["modifyvm", vm_name, "--nic1", "nat"]
+        for index, network_name in enumerate(networks, start=2):
+            arguments.extend([f"--nic{index}", "intnet", f"--intnet{index}", network_name])
         self.runner.run(arguments)
 
     def set_metadata(self, vm_name: str, metadata: dict[str, str]) -> None:

@@ -11,6 +11,8 @@ terminal, and removing virtual machines with dependency checks.
 - List VirtualBox groups and their member virtual machines.
 - Show VM name, group, and configured serial TCP port.
 - Create linked clones with inherited groups and internal network mapping.
+- Keep clone ``NIC1`` on NAT while mapping requested internal networks onto
+  ``NIC2``-``NIC4`` without disabling omitted adapters.
 - Register special base VMs whose clones receive additional DMI settings.
 - Configure `UART1` as a `tcpserver` endpoint.
 - Plug a stopped VM into the PySnap connection model by assigning a safe

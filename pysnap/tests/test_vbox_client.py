@@ -131,6 +131,43 @@ class VBoxManageClientTests(unittest.TestCase):
             ],
         )
 
+    def test_configure_internal_networks_keeps_nat_and_uses_nic2_to_nic4(self) -> None:
+        """Keep NIC1 on NAT and map requested networks onto NIC2-NIC4."""
+        runner = FakeRunner()
+        client = VBoxManageClient(runner=runner)
+
+        client.configure_internal_networks("srv", ("intnet-a", "intnet-b"))
+
+        self.assertEqual(
+            runner.commands,
+            [
+                (
+                    "modifyvm",
+                    "srv",
+                    "--nic1",
+                    "nat",
+                    "--nic2",
+                    "intnet",
+                    "--intnet2",
+                    "intnet-a",
+                    "--nic3",
+                    "intnet",
+                    "--intnet3",
+                    "intnet-b",
+                )
+            ],
+        )
+
+    def test_configure_internal_networks_does_not_disable_unspecified_adapters(self) -> None:
+        """Leave omitted adapters untouched instead of forcing them to ``none``."""
+        runner = FakeRunner()
+        client = VBoxManageClient(runner=runner)
+
+        client.configure_internal_networks("srv", ("intnet-a",))
+
+        self.assertNotIn("--nic4", runner.commands[0])
+        self.assertNotIn("none", runner.commands[0])
+
     def test_get_vm_info_reads_serial_tcp_port(self) -> None:
         """Read the TCP port configured in UART1 machine-readable properties."""
         runner = FakeRunner(
