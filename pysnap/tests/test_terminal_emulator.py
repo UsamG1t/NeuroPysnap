@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from pysnap.terminal.emulator import TerminalEmulator
+from pysnap.terminal.emulator import TerminalEmulator, _normalize_style_color
 
 
 def _visible_lines(emulator: TerminalEmulator) -> list[str]:
@@ -20,6 +20,22 @@ def _visible_lines(emulator: TerminalEmulator) -> list[str]:
 
 class TerminalEmulatorTests(unittest.TestCase):
     """Verify local scrollback navigation."""
+
+    def test_normalize_style_color_prefixes_plain_hex_values(self) -> None:
+        """Translate raw rrggbb values into prompt-toolkit hex colors."""
+        self.assertEqual(_normalize_style_color("8a8a8a"), "#8a8a8a")
+
+    def test_normalize_style_color_maps_bright_ansi_names(self) -> None:
+        """Translate pyte bright colors to prompt-toolkit ANSI names."""
+        self.assertEqual(_normalize_style_color("brightred"), "ansibrightred")
+
+    def test_normalize_style_color_leaves_named_colors_unchanged(self) -> None:
+        """Keep ordinary named colors compatible with prompt-toolkit."""
+        self.assertEqual(_normalize_style_color("red"), "red")
+
+    def test_normalize_style_color_ignores_default_color(self) -> None:
+        """Skip default color markers instead of rendering invalid styles."""
+        self.assertIsNone(_normalize_style_color("default"))
 
     def test_scroll_up_and_down_navigate_local_history(self) -> None:
         """Expose older and newer lines without affecting guest output."""

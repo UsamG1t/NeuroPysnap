@@ -2,8 +2,24 @@
 
 from __future__ import annotations
 
+import re
+
 import pyte
 from pyte.screens import HistoryScreen
+
+_HEX_COLOR_RE = re.compile(r"^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$")
+_ANSI_BRIGHT_COLOR_ALIASES = {
+    "brightblack": "ansibrightblack",
+    "brightred": "ansibrightred",
+    "brightgreen": "ansibrightgreen",
+    "brightbrown": "ansibrightyellow",
+    "brightyellow": "ansibrightyellow",
+    "brightblue": "ansibrightblue",
+    "brightmagenta": "ansibrightmagenta",
+    "brightcyan": "ansibrightcyan",
+    "brightwhite": "ansiwhite",
+    "bfightmagenta": "ansibrightmagenta",
+}
 
 
 class TerminalEmulator:
@@ -178,10 +194,12 @@ class TerminalEmulator:
         :returns: Prompt-toolkit style tokens.
         """
         style_parts: list[str] = []
-        if char.fg != "default":
-            style_parts.append(f"fg:{char.fg}")
-        if char.bg != "default":
-            style_parts.append(f"bg:{char.bg}")
+        foreground = _normalize_style_color(char.fg)
+        background = _normalize_style_color(char.bg)
+        if foreground:
+            style_parts.append(f"fg:{foreground}")
+        if background:
+            style_parts.append(f"bg:{background}")
         if char.bold:
             style_parts.append("bold")
         if char.italics:
@@ -193,6 +211,29 @@ class TerminalEmulator:
         if char.reverse:
             style_parts.append("reverse")
         return style_parts
+
+
+def _normalize_style_color(color: str) -> str | None:
+    """Normalize one ``pyte`` color value for prompt-toolkit.
+
+    ``pyte`` may expose colors as plain hex strings like ``8a8a8a`` or as
+    bright ANSI names such as ``brightred``. Prompt-toolkit expects hex colors
+    with a leading ``#`` and uses ``ansibright*`` names for bright ANSI tones.
+
+    :param color: Raw color string from ``pyte``.
+    :returns: A prompt-toolkit compatible color token or ``None`` for default.
+    """
+    if color in {"", "default"}:
+        return None
+
+    lowered = color.lower()
+    if lowered in _ANSI_BRIGHT_COLOR_ALIASES:
+        return _ANSI_BRIGHT_COLOR_ALIASES[lowered]
+    if color.startswith("#") and _HEX_COLOR_RE.fullmatch(color[1:]):
+        return color
+    if _HEX_COLOR_RE.fullmatch(color):
+        return f"#{color}"
+    return color
 
 
 def _cell_in_selection(
