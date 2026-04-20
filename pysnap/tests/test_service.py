@@ -230,9 +230,16 @@ class FakeClient:
             metadata=current.metadata,
         )
 
-    def configure_internal_networks(self, vm_name: str, networks: tuple[str, ...]) -> None:
+    def configure_internal_networks(
+        self,
+        vm_name: str,
+        networks: tuple[str, ...],
+        preserve_primary_nat: bool = False,
+    ) -> None:
         """Record network configuration."""
-        self.calls.append(("configure_internal_networks", vm_name, networks))
+        self.calls.append(
+            ("configure_internal_networks", vm_name, networks, preserve_primary_nat)
+        )
 
     def configure_dmi_system_information(
         self,
@@ -366,6 +373,15 @@ class ServiceTests(unittest.TestCase):
             client.calls,
         )
         self.assertIn(("configure_serial_port", "clone-vm", 2345), client.calls)
+        self.assertIn(
+            (
+                "configure_internal_networks",
+                "clone-vm",
+                ("intnet-a", "intnet-b"),
+                False,
+            ),
+            client.calls,
+        )
 
     def test_clone_vm_auto_assigns_next_serial_port(self) -> None:
         """Assign the next TCP port when ``-p`` is omitted."""
@@ -640,6 +656,7 @@ class ServiceTests(unittest.TestCase):
                 "configure_internal_networks",
                 "pysnap-it-case1234-clone-a",
                 ("intnet", "virtnet"),
+                False,
             ),
             client.calls,
         )
@@ -648,6 +665,7 @@ class ServiceTests(unittest.TestCase):
                 "configure_internal_networks",
                 "pysnap-it-case1234-clone-b",
                 ("intnet", "deepnet"),
+                False,
             ),
             client.calls,
         )
@@ -656,6 +674,7 @@ class ServiceTests(unittest.TestCase):
                 "configure_internal_networks",
                 "pysnap-it-case1234-clone-c",
                 ("deepnet", "virtnet"),
+                False,
             ),
             client.calls,
         )
@@ -1188,6 +1207,15 @@ class ServiceTests(unittest.TestCase):
                 "clone-vm",
                 "clone-vm",
                 "port2345.intnet.deepnet",
+            ),
+            client.calls,
+        )
+        self.assertIn(
+            (
+                "configure_internal_networks",
+                "clone-vm",
+                ("intnet", "deepnet"),
+                True,
             ),
             client.calls,
         )

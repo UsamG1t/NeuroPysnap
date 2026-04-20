@@ -398,13 +398,15 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pysnap.vbox.client.VBoxManageClient.configure_internal_networks">
-<span class="sig-name descname"><span class="pre">configure_internal_networks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">networks</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#VBoxManageClient.configure_internal_networks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.VBoxManageClient.configure_internal_networks" title="Link to this definition">¶</a></dt>
-<dd><p>Configure clone networking without disabling inherited adapters.</p>
+<span class="sig-name descname"><span class="pre">configure_internal_networks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">networks</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preserve_primary_nat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/vbox/client.html#VBoxManageClient.configure_internal_networks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.vbox.client.VBoxManageClient.configure_internal_networks" title="Link to this definition">¶</a></dt>
+<dd><p>Configure clone networking according to the requested layout.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>vm_name</strong> (<em>str</em>) – VM name.</p></li>
-<li><p><strong>networks</strong> (<em>Sequence</em><em>[</em><em>str</em><em>]</em>) – Internal network names mapped onto <code class="docutils literal notranslate"><span class="pre">NIC2</span></code>-<code class="docutils literal notranslate"><span class="pre">NIC4</span></code>.</p></li>
+<li><p><strong>networks</strong> (<em>Sequence</em><em>[</em><em>str</em><em>]</em>) – Internal network names.</p></li>
+<li><p><strong>preserve_primary_nat</strong> (<em>bool</em>) – Keep <code class="docutils literal notranslate"><span class="pre">NIC1</span></code> on NAT and place networks on
+<code class="docutils literal notranslate"><span class="pre">NIC2</span></code>-<code class="docutils literal notranslate"><span class="pre">NIC4</span></code> without disabling omitted adapters.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>

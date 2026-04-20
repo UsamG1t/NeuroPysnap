@@ -258,10 +258,16 @@ When ``-p`` is omitted, PySnap scans existing VMs, finds the maximum already
 used serial TCP port, and assigns the next value. If no serial TCP ports are
 configured yet, the automatic sequence starts at ``1024``.
 
-Up to three extra positional arguments configure internal networks for
-``nic2`` through ``nic4`` with the ``intnet`` attachment type. ``nic1`` stays
-in ``nat`` mode, and adapters without an explicit network argument are left
-enabled instead of being forced to ``none``.
+Up to three extra positional arguments configure internal networks. PySnap uses
+two layouts depending on whether the base VM was registered through
+``pysnap protosettings``:
+
+- for ordinary base VMs, the legacy layout is used: networks are mapped
+  sequentially onto ``nic1`` through ``nic3``, and omitted adapters are set to
+  ``none``
+- for proto-settings base VMs, ``nic1`` stays in ``nat`` mode, the requested
+  networks are mapped onto ``nic2`` through ``nic4``, and omitted adapters are
+  left enabled
 
 If the base VM was previously registered through ``pysnap protosettings``,
 PySnap also applies educational DMI settings to the clone.

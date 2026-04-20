@@ -429,20 +429,37 @@ class VBoxManageClient:
         )
 
     def configure_internal_networks(
-        self, vm_name: str, networks: Sequence[str]
+        self,
+        vm_name: str,
+        networks: Sequence[str],
+        preserve_primary_nat: bool = False,
     ) -> None:
-        """Configure clone networking without disabling inherited adapters.
+        """Configure clone networking according to the requested layout.
 
         :param vm_name: VM name.
-        :param networks: Internal network names mapped onto ``NIC2``-``NIC4``.
+        :param networks: Internal network names.
+        :param preserve_primary_nat: Keep ``NIC1`` on NAT and place networks on
+            ``NIC2``-``NIC4`` without disabling omitted adapters.
         :raises PySnapError: If more than three networks are provided.
         """
         if len(networks) > 3:
             raise PySnapError("At most three internal network names can be provided.")
 
-        arguments: list[str] = ["modifyvm", vm_name, "--nic1", "nat"]
-        for index, network_name in enumerate(networks, start=2):
-            arguments.extend([f"--nic{index}", "intnet", f"--intnet{index}", network_name])
+        arguments: list[str] = ["modifyvm", vm_name]
+        if preserve_primary_nat:
+            arguments.extend(["--nic1", "nat"])
+            for index, network_name in enumerate(networks, start=2):
+                arguments.extend(
+                    [f"--nic{index}", "intnet", f"--intnet{index}", network_name]
+                )
+        else:
+            for index in range(1, 4):
+                if index <= len(networks):
+                    arguments.extend(
+                        [f"--nic{index}", "intnet", f"--intnet{index}", networks[index - 1]]
+                    )
+                else:
+                    arguments.extend([f"--nic{index}", "none"])
         self.runner.run(arguments)
 
     def set_metadata(self, vm_name: str, metadata: dict[str, str]) -> None:

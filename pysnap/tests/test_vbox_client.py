@@ -131,8 +131,8 @@ class VBoxManageClientTests(unittest.TestCase):
             ],
         )
 
-    def test_configure_internal_networks_keeps_nat_and_uses_nic2_to_nic4(self) -> None:
-        """Keep NIC1 on NAT and map requested networks onto NIC2-NIC4."""
+    def test_configure_internal_networks_uses_legacy_sequential_layout_by_default(self) -> None:
+        """Map requested networks onto NIC1-NIC3 and disable omitted adapters."""
         runner = FakeRunner()
         client = VBoxManageClient(runner=runner)
 
@@ -145,27 +145,34 @@ class VBoxManageClientTests(unittest.TestCase):
                     "modifyvm",
                     "srv",
                     "--nic1",
-                    "nat",
+                    "intnet",
+                    "--intnet1",
+                    "intnet-a",
                     "--nic2",
                     "intnet",
                     "--intnet2",
-                    "intnet-a",
-                    "--nic3",
-                    "intnet",
-                    "--intnet3",
                     "intnet-b",
+                    "--nic3",
+                    "none",
                 )
             ],
         )
 
-    def test_configure_internal_networks_does_not_disable_unspecified_adapters(self) -> None:
-        """Leave omitted adapters untouched instead of forcing them to ``none``."""
+    def test_configure_internal_networks_keeps_nat_and_uses_nic2_to_nic4_in_proto_mode(self) -> None:
+        """Keep NIC1 on NAT and map requested networks onto NIC2-NIC4."""
         runner = FakeRunner()
         client = VBoxManageClient(runner=runner)
 
-        client.configure_internal_networks("srv", ("intnet-a",))
+        client.configure_internal_networks(
+            "srv",
+            ("intnet-a",),
+            preserve_primary_nat=True,
+        )
 
-        self.assertNotIn("--nic4", runner.commands[0])
+        self.assertIn("--nic1", runner.commands[0])
+        self.assertIn("nat", runner.commands[0])
+        self.assertIn("--nic2", runner.commands[0])
+        self.assertNotIn("--nic3", runner.commands[0])
         self.assertNotIn("none", runner.commands[0])
 
     def test_get_vm_info_reads_serial_tcp_port(self) -> None:

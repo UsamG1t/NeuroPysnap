@@ -506,9 +506,14 @@ class PySnapService:
             snapshot_name=snapshot_name,
         )
 
+        proto_settings_enabled = self.proto_settings_store.contains(base_vm)
         self.client.configure_serial_port(clone_vm, serial_port)
         if networks:
-            self.client.configure_internal_networks(clone_vm, networks)
+            self.client.configure_internal_networks(
+                clone_vm,
+                networks,
+                preserve_primary_nat=proto_settings_enabled,
+            )
 
         self.client.set_metadata(
             clone_vm,
@@ -518,7 +523,7 @@ class PySnapService:
                 "pysnap/parent": base_vm,
             },
         )
-        if self.proto_settings_store.contains(base_vm):
+        if proto_settings_enabled:
             self.client.configure_dmi_system_information(
                 clone_vm,
                 system_vendor=clone_vm,

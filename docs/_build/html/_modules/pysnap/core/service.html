@@ -577,9 +577,14 @@
             <span class="n">snapshot_name</span><span class="o">=</span><span class="n">snapshot_name</span><span class="p">,</span>
         <span class="p">)</span>
 
+        <span class="n">proto_settings_enabled</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">proto_settings_store</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">base_vm</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">configure_serial_port</span><span class="p">(</span><span class="n">clone_vm</span><span class="p">,</span> <span class="n">serial_port</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">networks</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">configure_internal_networks</span><span class="p">(</span><span class="n">clone_vm</span><span class="p">,</span> <span class="n">networks</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">configure_internal_networks</span><span class="p">(</span>
+                <span class="n">clone_vm</span><span class="p">,</span>
+                <span class="n">networks</span><span class="p">,</span>
+                <span class="n">preserve_primary_nat</span><span class="o">=</span><span class="n">proto_settings_enabled</span><span class="p">,</span>
+            <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">set_metadata</span><span class="p">(</span>
             <span class="n">clone_vm</span><span class="p">,</span>
@@ -589,7 +594,7 @@
                 <span class="s2">&quot;pysnap/parent&quot;</span><span class="p">:</span> <span class="n">base_vm</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">proto_settings_store</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">base_vm</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">proto_settings_enabled</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">configure_dmi_system_information</span><span class="p">(</span>
                 <span class="n">clone_vm</span><span class="p">,</span>
                 <span class="n">system_vendor</span><span class="o">=</span><span class="n">clone_vm</span><span class="p">,</span>
