@@ -6,5 +6,3 @@ __pycache__/
 *~
 .codex*
 .vscode*
-pysnap/docs/*
-!pysnap/docs/.gitignore
