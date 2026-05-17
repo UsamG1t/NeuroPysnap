@@ -1,31 +1,35 @@
-[build-system]
-requires = ["setuptools>=69", "wheel>=0.45", "Sphinx>=9.1.0"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "pysnap"
-version = "0.1.1"
+version = "1.0.0"
 description = "VirtualBox appliance importer and linked clone manager."
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 license = "MIT"
 authors = [
   { name = "PySnap Authors" },
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Operating System :: OS Independent",
 ]
 dependencies = [
-  "prompt_toolkit>=3.0.52",
-  "pyte>=0.8.2",
+  "prompt_toolkit>=3.0.36",
+  "pyte>=0.8.0",
 ]
+
+[build-system]
+requires = ["setuptools>=61", "wheel>=0.38", "Sphinx>=7.2"]
+build-backend = "setuptools.build_meta"
 
 [project.optional-dependencies]
 build = [
-  "build>=1.2.2",
-  "doit>=0.36.0",
+  "build>=1.0.0",
+  "doit>=0.34.0",
+  "tomli>=2.0.1; python_version < '3.11'",
 ]
 
 [project.scripts]

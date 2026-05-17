@@ -9,10 +9,12 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from pysnap import __version__
+
 project = "PySnap"
 author = "PySnap Authors"
 copyright = "2026, PySnap Authors"
-release = "0.1.0"
+release = __version__
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -27,6 +29,10 @@ language = "en"
 
 autodoc_member_order = "bysource"
 autodoc_typehints = "description"
+autodoc_mock_imports = [
+    "prompt_toolkit",
+    "pyte",
+]
 autodoc_type_aliases = {
     "SessionRegistry": "pysnap.runtime.sessions.SessionRegistry",
 }

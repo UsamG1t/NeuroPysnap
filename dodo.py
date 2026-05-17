@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 import shutil
-import tomllib
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised on Python < 3.11
+    import tomli as tomllib
 
 
 ROOT = Path(__file__).resolve().parent
@@ -24,12 +28,39 @@ DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build"
 EGG_INFO_DIR = ROOT / "pysnap.egg-info"
 DOIT_DB = ROOT / ".doit.db"
-ROOT_PYCACHE_DIR = ROOT / "__pycache__"
 SPHINX_GRAPHVIZ_TAG = ["-t", "graphviz"] if shutil.which("dot") else []
 
 DOIT_CONFIG = {
     "default_tasks": ["test", "docs", "wheel"],
 }
+
+
+def _remove_generated_artifacts() -> None:
+    """Delete generated artifacts while preserving tracked documentation sources."""
+
+    for path in (
+        DOCS_BUILD_DIR,
+        DIST_DIR,
+        BUILD_DIR,
+        EGG_INFO_DIR,
+        PACKAGED_DOCS_DIR,
+    ):
+        if path.exists():
+            shutil.rmtree(path)
+
+    for pycache_dir in ROOT.rglob("__pycache__"):
+        if pycache_dir.is_dir():
+            shutil.rmtree(pycache_dir)
+
+    for compiled_file in ROOT.rglob("*.py[cod]"):
+        if compiled_file.is_file():
+            compiled_file.unlink()
+
+    if DOIT_DB.exists():
+        DOIT_DB.unlink()
+
+    PACKAGED_DOCS_DIR.mkdir(parents=True, exist_ok=True)
+    (PACKAGED_DOCS_DIR / ".gitignore").write_text("*\n!.gitignore\n", encoding="utf-8")
 
 
 def task_test() -> dict:
@@ -138,33 +169,19 @@ def task_package_docs() -> dict:
     }
 
 
-def task_cleanup() -> dict:
+def task_erase() -> dict:
     """Remove generated build, documentation, and packaging artifacts."""
 
-    def clean() -> None:
-        """Delete generated artifacts from previous runs."""
+    return {
+        "actions": [_remove_generated_artifacts],
+        "verbosity": 2,
+    }
 
-        for path in (
-            DOCS_BUILD_DIR,
-            DOCS_API_DIR,
-            DIST_DIR,
-            BUILD_DIR,
-            EGG_INFO_DIR,
-            PACKAGED_DOCS_DIR,
-        ):
-            if path.exists():
-                shutil.rmtree(path)
-        for path in (ROOT_PYCACHE_DIR,):
-            if path.exists():
-                shutil.rmtree(path)
-        if DOIT_DB.exists():
-            DOIT_DB.unlink()
-        DOCS_API_DIR.mkdir(parents=True, exist_ok=True)
-        (DOCS_API_DIR / ".gitignore").write_text("*\n!.gitignore\n", encoding="utf-8")
-        PACKAGED_DOCS_DIR.mkdir(parents=True, exist_ok=True)
-        (PACKAGED_DOCS_DIR / ".gitignore").write_text("*\n!.gitignore\n", encoding="utf-8")
+
+def task_cleanup() -> dict:
+    """Backward-compatible alias for ``doit erase``."""
 
     return {
-        "actions": [clean],
+        "actions": [_remove_generated_artifacts],
         "verbosity": 2,
     }
