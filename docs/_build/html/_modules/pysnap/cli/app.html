@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pysnap.cli.app &#8212; PySnap 1.0.0 documentation</title>
+    <title>pysnap.cli.app &#8212; PySnap 1.1.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
-    <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../../../_static/documentation_options.js?v=fc837d61"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -37,6 +37,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">TextIO</span>
@@ -51,7 +52,7 @@
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.service</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapService</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.docview</span><span class="w"> </span><span class="kn">import</span> <span class="n">open_bundled_documentation</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">CommandExecutionError</span><span class="p">,</span> <span class="n">PySnapError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.terminal.session</span><span class="w"> </span><span class="kn">import</span> <span class="n">TerminalSession</span>
 
 
@@ -155,7 +156,8 @@
             <span class="s2">&quot;  pysnap monitor</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="s2">&quot;  pysnap stop [VM | --all]</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="s2">&quot;  pysnap clone BASE_VM CLONE_VM [-p PORT] [INTNET1 [INTNET2 [INTNET3]]]</span><span class="se">\n</span><span class="s2">&quot;</span>
-            <span class="s2">&quot;  pysnap erase [--all | --group GROUP | VM]&quot;</span>
+            <span class="s2">&quot;  pysnap erase [--clones-only] [--all | --group GROUP | VM]</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="s2">&quot;  pysnap full-clean [--path DIRECTORY ...]&quot;</span>
         <span class="p">),</span>
         <span class="n">formatter_class</span><span class="o">=</span><span class="n">argparse</span><span class="o">.</span><span class="n">RawDescriptionHelpFormatter</span><span class="p">,</span>
         <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
@@ -172,6 +174,7 @@
     <span class="n">service</span><span class="p">:</span> <span class="n">PySnapService</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">stderr</span><span class="p">:</span> <span class="n">TextIO</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">stdin</span><span class="p">:</span> <span class="n">TextIO</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Execute the CLI.</span>
 
@@ -179,12 +182,14 @@
 <span class="sd">    :param service: Optional application service.</span>
 <span class="sd">    :param stdout: Output stream for regular messages.</span>
 <span class="sd">    :param stderr: Output stream for errors.</span>
+<span class="sd">    :param stdin: Input stream for interactive confirmations.</span>
 <span class="sd">    :returns: Process exit code.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">arguments</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">argv</span> <span class="k">if</span> <span class="n">argv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
     <span class="n">app_service</span> <span class="o">=</span> <span class="n">service</span> <span class="ow">or</span> <span class="n">PySnapService</span><span class="p">()</span>
     <span class="n">output</span> <span class="o">=</span> <span class="n">stdout</span> <span class="ow">or</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span>
     <span class="n">error_output</span> <span class="o">=</span> <span class="n">stderr</span> <span class="ow">or</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span>
+    <span class="n">input_stream</span> <span class="o">=</span> <span class="n">stdin</span> <span class="ow">or</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdin</span>
     <span class="n">root_parser</span> <span class="o">=</span> <span class="n">build_root_parser</span><span class="p">(</span><span class="n">stdout</span><span class="o">=</span><span class="n">output</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">error_output</span><span class="p">)</span>
 
     <span class="k">try</span><span class="p">:</span>
@@ -199,8 +204,11 @@
             <span class="n">root_parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="n">command</span><span class="p">])</span>
             <span class="k">return</span> <span class="mi">0</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;list&quot;</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="n">format_groups</span><span class="p">(</span><span class="n">app_service</span><span class="o">.</span><span class="n">list_groups</span><span class="p">()),</span> <span class="n">file</span><span class="o">=</span><span class="n">output</span><span class="p">)</span>
-            <span class="k">return</span> <span class="mi">0</span>
+            <span class="k">return</span> <span class="n">_run_list</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;full-clean&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_run_full_clean</span><span class="p">(</span>
+                <span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">,</span> <span class="n">input_stream</span>
+            <span class="p">)</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;import&quot;</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_run_import</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;protosettings&quot;</span><span class="p">:</span>
@@ -242,6 +250,35 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">run_cli</span><span class="p">(</span><span class="n">argv</span><span class="o">=</span><span class="n">argv</span><span class="p">)</span></div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_list</span><span class="p">(</span>
+    <span class="n">arguments</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">service</span><span class="p">:</span> <span class="n">PySnapService</span><span class="p">,</span>
+    <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+    <span class="n">stderr</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run the ``list`` subcommand.</span>
+
+<span class="sd">    :param arguments: Subcommand arguments.</span>
+<span class="sd">    :param service: Application service.</span>
+<span class="sd">    :param stdout: Output stream.</span>
+<span class="sd">    :param stderr: Error stream.</span>
+<span class="sd">    :returns: Process exit code.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s2">&quot;pysnap list&quot;</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">groups</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">list_groups</span><span class="p">()</span>
+    <span class="k">except</span> <span class="n">CommandExecutionError</span><span class="p">:</span>
+        <span class="c1"># ``VBoxManage list`` fails or times out when the VirtualBox data</span>
+        <span class="c1"># directories are missing or corrupted, for example right after</span>
+        <span class="c1"># ``pysnap full-clean``. An empty listing is the correct answer for</span>
+        <span class="c1"># the user in that situation, so report the stub and exit cleanly.</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">format_groups</span><span class="p">([]),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">format_groups</span><span class="p">(</span><span class="n">groups</span><span class="p">),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">0</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_run_show</span><span class="p">(</span>
@@ -377,7 +414,11 @@
         <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;*&quot;</span><span class="p">,</span>
         <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Up to three internal network names.&quot;</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
+    <span class="c1"># ``pysnap clone BASE CLONE -p PORT NET...`` places an optional between</span>
+    <span class="c1"># positional groups. Plain ``parse_args`` supports this only from the</span>
+    <span class="c1"># argparse shipped with Python 3.13, so intermixed parsing keeps the</span>
+    <span class="c1"># documented syntax working on every supported interpreter.</span>
+    <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_intermixed_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">networks</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
         <span class="n">parser</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;at most three internal network names may be provided&quot;</span><span class="p">)</span>
     <span class="n">vm_info</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">clone_vm</span><span class="p">(</span>
@@ -506,22 +547,145 @@
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;vm&quot;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;?&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Virtual machine name to remove.&quot;</span><span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--all&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Remove all registered VMs.&quot;</span><span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--group&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Remove all VMs from the specified group.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--clones-only&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Restrict the operation to VMs created as PySnap linked clones.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
     <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
 
     <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">all</span><span class="p">,</span> <span class="n">namespace</span><span class="o">.</span><span class="n">group</span><span class="p">,</span> <span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">))</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">parser</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;exactly one of &quot;--all&quot;, &quot;--group&quot;, or &quot;VM&quot; must be provided&#39;</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">namespace</span><span class="o">.</span><span class="n">all</span><span class="p">:</span>
-        <span class="n">deleted</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">erase_all</span><span class="p">()</span>
+        <span class="n">deleted</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">erase_clones</span><span class="p">()</span> <span class="k">if</span> <span class="n">namespace</span><span class="o">.</span><span class="n">clones_only</span> <span class="k">else</span> <span class="n">service</span><span class="o">.</span><span class="n">erase_all</span><span class="p">()</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Erased virtual machines: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">deleted</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">deleted</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;none&#39;</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
         <span class="k">return</span> <span class="mi">0</span>
     <span class="k">if</span> <span class="n">namespace</span><span class="o">.</span><span class="n">group</span><span class="p">:</span>
-        <span class="n">deleted</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">erase_group</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">group</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Erased virtual machines: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">deleted</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">namespace</span><span class="o">.</span><span class="n">clones_only</span><span class="p">:</span>
+            <span class="n">deleted</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">erase_clones</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">group</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">deleted</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">erase_group</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">group</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Erased virtual machines: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">deleted</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">deleted</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;none&#39;</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
         <span class="k">return</span> <span class="mi">0</span>
+
+    <span class="k">if</span> <span class="n">namespace</span><span class="o">.</span><span class="n">clones_only</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">service</span><span class="o">.</span><span class="n">is_clone_vm</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="si">}</span><span class="s1">&quot; is not a clone. Verify the &#39;</span>
+            <span class="s2">&quot;operation or remove the --clones-only flag.&quot;</span><span class="p">,</span>
+            <span class="n">file</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="mi">1</span>
 
     <span class="n">service</span><span class="o">.</span><span class="n">erase_vm</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Erased virtual machine: </span><span class="si">{</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_default_virtualbox_directories</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the default VirtualBox data directories for the current OS.</span>
+
+<span class="sd">    The machine folder defaults to ``~/VirtualBox VMs`` on every platform,</span>
+<span class="sd">    while the configuration directory follows the VirtualBox conventions:</span>
+<span class="sd">    ``~/.config/VirtualBox`` on Linux and other Unix systems,</span>
+<span class="sd">    ``~/Library/VirtualBox`` on macOS, and ``~/.VirtualBox`` on Windows.</span>
+<span class="sd">    An explicit ``VBOX_USER_HOME`` environment variable overrides the</span>
+<span class="sd">    configuration directory on every platform.</span>
+
+<span class="sd">    :returns: Directories removed by ``pysnap full-clean`` by default.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">machine_folder</span> <span class="o">=</span> <span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;VirtualBox VMs&quot;</span>
+    <span class="n">vbox_user_home</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;VBOX_USER_HOME&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">vbox_user_home</span><span class="p">:</span>
+        <span class="n">config_folder</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">vbox_user_home</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">&quot;win32&quot;</span><span class="p">:</span>
+        <span class="n">config_folder</span> <span class="o">=</span> <span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;.VirtualBox&quot;</span>
+    <span class="k">elif</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">&quot;darwin&quot;</span><span class="p">:</span>
+        <span class="n">config_folder</span> <span class="o">=</span> <span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;Library&quot;</span> <span class="o">/</span> <span class="s2">&quot;VirtualBox&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">config_folder</span> <span class="o">=</span> <span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;.config&quot;</span> <span class="o">/</span> <span class="s2">&quot;VirtualBox&quot;</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">machine_folder</span><span class="p">,</span> <span class="n">config_folder</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_confirmation</span><span class="p">(</span><span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span> <span class="n">stdin</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Prompt for one confirmation line on the interactive input stream.</span>
+
+<span class="sd">    :param prompt: Prompt text shown before reading.</span>
+<span class="sd">    :param stdout: Output stream for the prompt.</span>
+<span class="sd">    :param stdin: Input stream for the answer.</span>
+<span class="sd">    :returns: Stripped answer text, empty on end of input.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">stdout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>
+    <span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">stdin</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_full_clean</span><span class="p">(</span>
+    <span class="n">arguments</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">service</span><span class="p">:</span> <span class="n">PySnapService</span><span class="p">,</span>
+    <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+    <span class="n">stderr</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+    <span class="n">stdin</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run the ``full-clean`` subcommand.</span>
+
+<span class="sd">    :param arguments: Subcommand arguments.</span>
+<span class="sd">    :param service: Application service.</span>
+<span class="sd">    :param stdout: Output stream.</span>
+<span class="sd">    :param stderr: Error stream.</span>
+<span class="sd">    :param stdin: Input stream for interactive confirmations.</span>
+<span class="sd">    :returns: Process exit code.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="s2">&quot;pysnap full-clean&quot;</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Permanently delete the VirtualBox machine and configuration &quot;</span>
+            <span class="s2">&quot;directories. Stop VirtualBox and all VMs before running this.&quot;</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--path&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;append&quot;</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">&quot;DIRECTORY&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Directory to delete instead of the default VirtualBox &quot;</span>
+            <span class="s2">&quot;directories. May be repeated for several directories.&quot;</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">namespace</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">raw_path</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span> <span class="k">for</span> <span class="n">raw_path</span> <span class="ow">in</span> <span class="n">namespace</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="n">_default_virtualbox_directories</span><span class="p">()</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The following directories will be permanently deleted:&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">:</span>
+        <span class="n">suffix</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="n">target</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot; (missing)&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;- </span><span class="si">{</span><span class="n">target</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+
+    <span class="n">first_answer</span> <span class="o">=</span> <span class="n">_read_confirmation</span><span class="p">(</span>
+        <span class="s1">&#39;Type &quot;yes&quot; to continue: &#39;</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">stdin</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">first_answer</span> <span class="o">!=</span> <span class="s2">&quot;yes&quot;</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Full clean cancelled.&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">1</span>
+    <span class="n">second_answer</span> <span class="o">=</span> <span class="n">_read_confirmation</span><span class="p">(</span>
+        <span class="s1">&#39;This cannot be undone. Type &quot;delete&quot; to confirm: &#39;</span><span class="p">,</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stdin</span><span class="o">=</span><span class="n">stdin</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">second_answer</span> <span class="o">!=</span> <span class="s2">&quot;delete&quot;</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Full clean cancelled.&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">1</span>
+
+    <span class="n">removed</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">full_clean</span><span class="p">(</span><span class="n">targets</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Removed directories: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">removed</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">removed</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;none&#39;</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+    <span class="p">)</span>
     <span class="k">return</span> <span class="mi">0</span>
 
 

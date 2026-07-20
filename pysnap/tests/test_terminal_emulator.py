@@ -68,6 +68,42 @@ class TerminalEmulatorTests(unittest.TestCase):
         self.assertEqual(_visible_lines(emulator), ["4", "5", ""])
         self.assertFalse(emulator.is_scrollback_active)
 
+    def test_feed_returns_to_live_bottom_before_parsing(self) -> None:
+        """Keep new guest output intact when the local view is scrolled back."""
+        emulator = TerminalEmulator(columns=10, lines=3)
+        emulator.feed(b"1\r\n2\r\n3\r\n4\r\n5\r\n")
+
+        emulator.scroll_up(2)
+        self.assertTrue(emulator.is_scrollback_active)
+
+        emulator.feed(b"6\r\n")
+
+        self.assertFalse(emulator.is_scrollback_active)
+        self.assertEqual(_visible_lines(emulator), ["5", "6", ""])
+
+    def test_as_formatted_text_merges_same_styled_runs(self) -> None:
+        """Emit one fragment per styled run instead of one per screen cell."""
+        emulator = TerminalEmulator(columns=10, lines=3)
+        emulator.feed(b"alpha")
+
+        fragments = emulator.as_formatted_text()
+
+        self.assertEqual(fragments[0], ("", "alpha"))
+        self.assertIn(("reverse", " "), fragments)
+        self.assertLess(len(fragments), 10)
+        rendered_lines = "".join(text for _, text in fragments).split("\n")
+        self.assertEqual([line.rstrip() for line in rendered_lines], ["alpha", "", ""])
+
+    def test_as_formatted_text_merges_selection_into_runs(self) -> None:
+        """Highlight a selected run as one reversed fragment."""
+        emulator = TerminalEmulator(columns=10, lines=3)
+        emulator.feed(b"alpha")
+
+        fragments = emulator.as_formatted_text(selection=((0, 0), (0, 2)))
+
+        self.assertEqual(fragments[0], ("reverse", "alp"))
+        self.assertEqual(fragments[1], ("", "ha"))
+
     def test_selected_text_reads_visible_range(self) -> None:
         """Extract selected text from the currently visible screen area."""
         emulator = TerminalEmulator(columns=10, lines=3)

@@ -39,12 +39,20 @@ class TerminalEmulator:
         """
         self.screen = HistoryScreen(columns, lines, history=history)
         self.stream = pyte.ByteStream(self.screen)
+        self._style_cache: dict[tuple, str] = {}
 
     def feed(self, data: bytes) -> None:
         """Feed new bytes into the terminal parser.
 
+        Parsing while the local viewport is scrolled back would write into
+        the manually rotated history buffers and lose lines, so the view
+        first returns to the live bottom. This mirrors the common
+        jump-to-bottom-on-output behavior of desktop terminals.
+
         :param data: Raw bytes read from the VM serial socket.
         """
+        if self.is_scrollback_active:
+            self.scroll_to_bottom()
         self.stream.feed(data)
 
     def resize(self, columns: int, lines: int) -> None:
@@ -101,14 +109,22 @@ class TerminalEmulator:
         cursor = self.screen.cursor
         for y in range(self.screen.lines):
             line = self.screen.buffer[y]
+            run_style = ""
+            run_characters: list[str] = []
             for x in range(self.screen.columns):
                 char = line[x]
-                style_parts = self._style_parts(char)
+                style = self._cell_style(char)
                 if selection and _cell_in_selection(y=y, x=x, selection=selection):
-                    style_parts.append("reverse")
+                    style = f"{style} reverse".strip()
                 if not cursor.hidden and cursor.x == x and cursor.y == y:
-                    style_parts.append("reverse")
-                fragments.append((" ".join(style_parts), char.data))
+                    style = f"{style} reverse".strip()
+                if style != run_style and run_characters:
+                    fragments.append((run_style, "".join(run_characters)))
+                    run_characters = []
+                run_style = style
+                run_characters.append(char.data)
+            if run_characters:
+                fragments.append((run_style, "".join(run_characters)))
             if y != self.screen.lines - 1:
                 fragments.append(("", "\n"))
         return fragments
@@ -186,6 +202,30 @@ class TerminalEmulator:
         self.screen.dirty = set(range(self.screen.lines))
         self.screen.after_event("next_page")
         return True
+
+    def _cell_style(self, char: pyte.screens.Char) -> str:
+        """Return the cached prompt-toolkit style string for one cell.
+
+        Screens repeat a small number of distinct styles across thousands of
+        cells, so caching the joined style string keeps rendering cheap.
+
+        :param char: Character cell from the virtual screen.
+        :returns: Prompt-toolkit style string.
+        """
+        key = (
+            char.fg,
+            char.bg,
+            char.bold,
+            char.italics,
+            char.underscore,
+            char.strikethrough,
+            char.reverse,
+        )
+        cached = self._style_cache.get(key)
+        if cached is None:
+            cached = " ".join(self._style_parts(char))
+            self._style_cache[key] = cached
+        return cached
 
     def _style_parts(self, char: pyte.screens.Char) -> list[str]:
         """Translate a ``pyte`` character style into prompt_toolkit styles.

@@ -5,9 +5,10 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
+import shutil
 import socket
 from time import monotonic, sleep
-from typing import Callable, ContextManager, Iterator
+from typing import Callable, ContextManager, Iterator, Sequence
 from uuid import uuid4
 
 from pysnap.config.protosettings import ProtoSettingsStore
@@ -647,6 +648,77 @@ class PySnapService:
         self._delete_with_retries(vm_names)
         return sorted(vm_names)
 
+    def erase_clones(self, group_name: str | None = None) -> list[str]:
+        """Erase all managed clone VMs, optionally limited to one group.
+
+        Clones are recognized through the ``pysnap/kind`` and ``pysnap/parent``
+        metadata written by :meth:`clone_vm`, so no separate clone registry has
+        to be kept in sync with VirtualBox.
+
+        :param group_name: Optional group that limits the deleted clones.
+        :returns: Names of removed clone VMs.
+        :raises PySnapError: If the group is empty or clones outside the
+            selection still depend on the selected clones.
+        """
+        all_infos = self._collect_vm_infos()
+        candidates = all_infos
+        if group_name is not None:
+            normalized_group = normalize_group_name(group_name)
+            candidates = [info for info in all_infos if normalized_group in info.groups]
+            if not candidates:
+                raise PySnapError(
+                    f'Group "{normalized_group}" does not contain any VMs.'
+                )
+
+        selected = [info.name for info in candidates if self._is_clone_info(info)]
+        if not selected:
+            return []
+
+        blocked = self._find_external_dependents(selected, all_infos)
+        if blocked:
+            raise PySnapError(
+                "Cannot erase the selected clones because clones outside the "
+                f"selection depend on them: {', '.join(sorted(blocked))}."
+            )
+
+        self._delete_with_retries(selected)
+        return sorted(selected)
+
+    def is_clone_vm(self, vm_name: str) -> bool:
+        """Return whether one VM was created as a managed linked clone.
+
+        :param vm_name: VM name to check.
+        :returns: ``True`` when the VM is a managed clone.
+        :raises VMNotFoundError: If the VM does not exist.
+        """
+        return self._is_clone_info(self._require_vm(vm_name))
+
+    def full_clean(self, paths: Sequence[Path]) -> list[str]:
+        """Delete VirtualBox data directories from the host file system.
+
+        :param paths: Directories to remove recursively.
+        :returns: Paths of directories that were removed.
+        :raises PySnapError: If one or more directories cannot be removed.
+        """
+        removed: list[str] = []
+        failures: list[str] = []
+        for path in paths:
+            target = Path(path).expanduser()
+            if not target.exists():
+                continue
+            try:
+                shutil.rmtree(target)
+            except OSError as error:
+                failures.append(f"{target}: {error}")
+                continue
+            removed.append(str(target))
+
+        if failures:
+            raise PySnapError(
+                "Unable to remove all requested directories. " + "; ".join(failures)
+            )
+        return removed
+
     def _collect_vm_infos(self) -> list[VMInfo]:
         """Collect detailed information for all VMs.
 
@@ -793,6 +865,16 @@ class PySnapService:
         :returns: ``True`` when the VM exists.
         """
         return any(vm.name == vm_name for vm in self.client.list_vms())
+
+    def _is_clone_info(self, info: VMInfo) -> bool:
+        """Return whether VM information describes a managed linked clone.
+
+        :param info: VM information to inspect.
+        :returns: ``True`` when the VM carries clone metadata.
+        """
+        if info.metadata.get("pysnap/kind") == "clone":
+            return True
+        return info.parent_name is not None
 
     def _display_state(self, raw_state: str, has_live_session: bool) -> str:
         """Map a raw VirtualBox state to a user-facing monitor label.

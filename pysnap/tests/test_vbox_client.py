@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import unittest
 from unittest.mock import patch
 
 from pysnap.core.models import ImportCandidate
+from pysnap.errors import CommandExecutionError
 from pysnap.vbox.client import SubprocessRunner, VBoxManageClient
 
 
@@ -20,15 +22,22 @@ class FakeRunner:
         """
         self.outputs = outputs or {}
         self.commands: list[tuple[str, ...]] = []
+        self.timeouts: list[float | None] = []
 
-    def run(self, arguments: tuple[str, ...] | list[str]) -> str:
+    def run(
+        self,
+        arguments: tuple[str, ...] | list[str],
+        timeout: float | None = None,
+    ) -> str:
         """Record a command and return the configured output.
 
         :param arguments: VBoxManage command arguments.
+        :param timeout: Optional timeout in seconds.
         :returns: Configured command output.
         """
         command = tuple(arguments)
         self.commands.append(command)
+        self.timeouts.append(timeout)
         return self.outputs.get(command, "")
 
     def run_streaming(self, arguments, output_callback) -> str:
@@ -107,6 +116,38 @@ class VBoxManageClientTests(unittest.TestCase):
             runner = SubprocessRunner()
 
         self.assertEqual(runner.executable, expected)
+
+    def test_list_vms_uses_bounded_timeout(self) -> None:
+        """Pass a bounded timeout to the ``list`` commands."""
+        runner = FakeRunner()
+        client = VBoxManageClient(runner=runner)
+
+        client.list_vms()
+        client.list_running_vms()
+
+        self.assertEqual(
+            runner.timeouts,
+            [VBoxManageClient.LIST_COMMAND_TIMEOUT] * 2,
+        )
+
+    def test_subprocess_runner_translates_timeouts_into_command_errors(self) -> None:
+        """Report a subprocess timeout as a command execution error."""
+        with patch("pysnap.vbox.client.shutil.which", return_value="VBoxManage"):
+            runner = SubprocessRunner()
+        timeout_error = subprocess.TimeoutExpired(
+            cmd=["VBoxManage", "list", "vms"],
+            timeout=15.0,
+            output=b"partial",
+        )
+        with patch(
+            "pysnap.vbox.client.subprocess.run",
+            side_effect=timeout_error,
+        ):
+            with self.assertRaises(CommandExecutionError) as context:
+                runner.run(["list", "vms"], timeout=15.0)
+
+        self.assertIn("did not respond within 15.0 seconds", str(context.exception))
+        self.assertEqual(context.exception.stdout, "partial")
 
     def test_configure_serial_port_uses_uart1_tcpserver(self) -> None:
         """Configure UART1 as a TCP server on the requested host port."""

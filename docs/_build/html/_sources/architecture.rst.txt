@@ -70,6 +70,7 @@ PySnap stores management metadata in VirtualBox extra data entries with the
 - mark imported and cloned VMs as managed by PySnap
 - record clone ancestry
 - support dependency checks before erase operations
+- select linked clones for ``erase --clones-only`` without a separate registry
 
 Serial Port Strategy
 --------------------
@@ -89,6 +90,17 @@ and resizes the local emulator to the current visible guest area. Because raw
 serial TCP does not offer a PTY-style ``SIGWINCH`` path into the guest, PySnap
 also replies to xterm-compatible in-band terminal queries such as ``CSI 18 t``
 and ``CSI 6 n`` so guest-side Linux tools can rediscover the current geometry.
+
+Terminal Selection Strategy
+---------------------------
+
+Mouse selection in ``pysnap connect`` only captures text; the copy itself is an
+explicit ``Ctrl-Shift-C`` action. Classic terminals transmit ``Ctrl-Shift-C``
+and ``Ctrl-C`` as the same ``ETX`` byte, so PySnap resolves the chord by
+selection state: with a captured selection it copies to the host clipboard,
+without one it forwards a real interrupt to the guest. Incoming guest output
+drops only the visible highlight and keeps the captured text, which makes
+copying safe while background utilities continue printing.
 
 Proto Settings Strategy
 -----------------------
@@ -113,6 +125,30 @@ PySnap translates raw VirtualBox runtime states into compact monitor labels:
 - ``Changing`` for startup and other transitional states
 - ``Paused`` for paused VMs
 - ``Error`` for explicit error-like VirtualBox states
+
+Host Cleanup Strategy
+---------------------
+
+The ``full-clean`` command removes the VirtualBox machine folder and the
+platform-specific configuration directory directly from the host file system
+through ``shutil.rmtree``. The CLI layer owns the double confirmation dialog,
+while ``PySnapService.full_clean`` performs the removal and reports partial
+failures. The ``VBOX_USER_HOME`` environment variable overrides the detected
+configuration directory, and the repeated ``--path`` option replaces the
+default selection entirely.
+
+Listing Robustness Strategy
+---------------------------
+
+``VBoxManage list`` can block indefinitely when the VirtualBox configuration
+directory is missing while a stale ``VBoxSVC`` process is still running, for
+example right after ``pysnap full-clean``. ``VBoxManageClient`` therefore runs
+the ``list`` commands with a bounded timeout and reports expired timeouts as
+regular command errors. The ``list`` CLI command translates such failures into
+an empty listing, so the user sees ``No virtual machines found.`` instead of a
+hanging process. Other ``VBoxManage`` operations keep running without a
+timeout because imports, snapshots, and clone creation are legitimately
+long-running.
 
 Documentation Packaging Strategy
 --------------------------------

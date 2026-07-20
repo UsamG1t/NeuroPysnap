@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Index &#8212; PySnap 1.0.0 documentation</title>
+    <title>Index &#8212; PySnap 1.1.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
-    <script src="_static/documentation_options.js?v=8d563738"></script>
+    <script src="_static/documentation_options.js?v=fc837d61"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="#" />
@@ -78,6 +78,10 @@
 <h2 id="B">B</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.begin">begin() (pysnap.terminal.session.SelectionTracker method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.cli.html#pysnap.cli.app.build_root_parser">build_root_parser() (in module pysnap.cli.app)</a>
 </li>
   </ul></td>
@@ -86,6 +90,12 @@
 <h2 id="C">C</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.captured_text">captured_text (pysnap.terminal.session.SelectionTracker attribute)</a>
+</li>
+      <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.clear">clear() (pysnap.terminal.session.SelectionTracker method)</a>
+</li>
+      <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.clear_highlight">clear_highlight() (pysnap.terminal.session.SelectionTracker method)</a>
+</li>
       <li><a href="api/pysnap.cli.html#pysnap.cli.app.CliArgumentParser">CliArgumentParser (class in pysnap.cli.app)</a>
 </li>
       <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.clone_linked">clone_linked() (pysnap.vbox.client.VBoxManageClient method)</a>
@@ -94,12 +104,12 @@
 </li>
       <li><a href="api/pysnap.terminal.html#pysnap.terminal.protocol.TerminalQueryResponder.collect_responses">collect_responses() (pysnap.terminal.protocol.TerminalQueryResponder method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.TerminalSelection.column">column (pysnap.terminal.session.TerminalSelection attribute)</a>
 </li>
       <li><a href="api/pysnap.html#pysnap.errors.CommandExecutionError">CommandExecutionError</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.configure_dmi_system_information">configure_dmi_system_information() (pysnap.vbox.client.VBoxManageClient method)</a>
 </li>
       <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.configure_internal_networks">configure_internal_networks() (pysnap.vbox.client.VBoxManageClient method)</a>
@@ -154,10 +164,12 @@
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.erase_all">erase_all() (pysnap.core.service.PySnapService method)</a>
 </li>
-      <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.erase_group">erase_group() (pysnap.core.service.PySnapService method)</a>
+      <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.erase_clones">erase_clones() (pysnap.core.service.PySnapService method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.erase_group">erase_group() (pysnap.core.service.PySnapService method)</a>
+</li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.erase_vm">erase_vm() (pysnap.core.service.PySnapService method)</a>
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.ERROR_STATES">ERROR_STATES (pysnap.core.service.PySnapService attribute)</a>
@@ -173,7 +185,11 @@
       <li><a href="api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.feed">feed() (pysnap.terminal.emulator.TerminalEmulator method)</a>
 </li>
       <li><a href="api/pysnap.cli.html#pysnap.cli.formatters.ImportProgressBar.finish">finish() (pysnap.cli.formatters.ImportProgressBar method)</a>
+
+      <ul>
+        <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.finish">(pysnap.terminal.session.SelectionTracker method)</a>
 </li>
+      </ul></li>
       <li><a href="api/pysnap.cli.html#pysnap.cli.formatters.format_groups">format_groups() (in module pysnap.cli.formatters)</a>
 </li>
   </ul></td>
@@ -185,6 +201,8 @@
       <li><a href="api/pysnap.cli.html#pysnap.cli.formatters.format_monitor_records">format_monitor_records() (in module pysnap.cli.formatters)</a>
 </li>
       <li><a href="api/pysnap.cli.html#pysnap.cli.formatters.format_vm_info">format_vm_info() (in module pysnap.cli.formatters)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.full_clean">full_clean() (pysnap.core.service.PySnapService method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -228,13 +246,19 @@
 </li>
       <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.IMPORT_PROGRESS_PATTERN">IMPORT_PROGRESS_PATTERN (pysnap.vbox.client.VBoxManageClient attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.core.html#pysnap.core.models.ImportCandidate">ImportCandidate (class in pysnap.core.models)</a>
 </li>
       <li><a href="api/pysnap.cli.html#pysnap.cli.formatters.ImportProgressBar">ImportProgressBar (class in pysnap.cli.formatters)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.core.html#pysnap.core.models.IntegrationTestResult">IntegrationTestResult (class in pysnap.core.models)</a>
+</li>
+      <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.is_active">is_active (pysnap.terminal.session.SelectionTracker property)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.is_clone_vm">is_clone_vm() (pysnap.core.service.PySnapService method)</a>
+</li>
+      <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.TerminalSelection.is_collapsed">is_collapsed (pysnap.terminal.session.TerminalSelection property)</a>
 </li>
       <li><a href="api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.is_scrollback_active">is_scrollback_active (pysnap.terminal.emulator.TerminalEmulator property)</a>
 </li>
@@ -253,6 +277,8 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.cli.html#pysnap.cli.formatters.ImportProgressBar.label">label (pysnap.cli.formatters.ImportProgressBar attribute)</a>
+</li>
+      <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.LIST_COMMAND_TIMEOUT">LIST_COMMAND_TIMEOUT (pysnap.vbox.client.VBoxManageClient attribute)</a>
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.list_groups">list_groups() (pysnap.core.service.PySnapService method)</a>
 </li>
@@ -653,6 +679,10 @@
 </li>
       <li><a href="api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.selected_text">selected_text() (pysnap.terminal.emulator.TerminalEmulator method)</a>
 </li>
+      <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.selection">selection (pysnap.terminal.session.SelectionTracker attribute)</a>
+</li>
+      <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker">SelectionTracker (class in pysnap.terminal.session)</a>
+</li>
       <li><a href="api/pysnap.terminal.html#pysnap.terminal.transport.serial_connection_probe">serial_connection_probe() (in module pysnap.terminal.transport)</a>
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.models.VMInfo.serial_port">serial_port (pysnap.core.models.VMInfo attribute)</a>
@@ -669,10 +699,10 @@
 </li>
       <li><a href="api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRecord">SessionRecord (class in pysnap.runtime.sessions)</a>
 </li>
-      <li><a href="api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRegistry">SessionRegistry (class in pysnap.runtime.sessions)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRegistry">SessionRegistry (class in pysnap.runtime.sessions)</a>
+</li>
       <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.SessionStatus">SessionStatus (class in pysnap.terminal.session)</a>
 </li>
       <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.set_metadata">set_metadata() (pysnap.vbox.client.VBoxManageClient method)</a>
@@ -707,6 +737,8 @@
 <h2 id="T">T</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.take_captured_text">take_captured_text() (pysnap.terminal.session.SelectionTracker method)</a>
+</li>
       <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.take_snapshot">take_snapshot() (pysnap.vbox.client.VBoxManageClient method)</a>
 </li>
       <li><a href="api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator">TerminalEmulator (class in pysnap.terminal.emulator)</a>
@@ -726,7 +758,11 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.cli.html#pysnap.cli.formatters.ImportProgressBar.update">update() (pysnap.cli.formatters.ImportProgressBar method)</a>
+
+      <ul>
+        <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.update">(pysnap.terminal.session.SelectionTracker method)</a>
 </li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.core.html#pysnap.core.models.VMInfo.uuid">uuid (pysnap.core.models.VMInfo attribute)</a>

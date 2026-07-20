@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import sys
 from typing import Sequence, TextIO
@@ -17,7 +18,7 @@ from pysnap.cli.formatters import (
 )
 from pysnap.core.service import PySnapService
 from pysnap.docview import open_bundled_documentation
-from pysnap.errors import PySnapError
+from pysnap.errors import CommandExecutionError, PySnapError
 from pysnap.terminal.session import TerminalSession
 
 
@@ -110,7 +111,8 @@ def build_root_parser(
             "  pysnap monitor\n"
             "  pysnap stop [VM | --all]\n"
             "  pysnap clone BASE_VM CLONE_VM [-p PORT] [INTNET1 [INTNET2 [INTNET3]]]\n"
-            "  pysnap erase [--all | --group GROUP | VM]"
+            "  pysnap erase [--clones-only] [--all | --group GROUP | VM]\n"
+            "  pysnap full-clean [--path DIRECTORY ...]"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         stdout=stdout,
@@ -124,6 +126,7 @@ def run_cli(
     service: PySnapService | None = None,
     stdout: TextIO | None = None,
     stderr: TextIO | None = None,
+    stdin: TextIO | None = None,
 ) -> int:
     """Execute the CLI.
 
@@ -131,12 +134,14 @@ def run_cli(
     :param service: Optional application service.
     :param stdout: Output stream for regular messages.
     :param stderr: Output stream for errors.
+    :param stdin: Input stream for interactive confirmations.
     :returns: Process exit code.
     """
     arguments = list(argv if argv is not None else sys.argv[1:])
     app_service = service or PySnapService()
     output = stdout or sys.stdout
     error_output = stderr or sys.stderr
+    input_stream = stdin or sys.stdin
     root_parser = build_root_parser(stdout=output, stderr=error_output)
 
     try:
@@ -151,8 +156,11 @@ def run_cli(
             root_parser.parse_args([command])
             return 0
         if command == "list":
-            print(format_groups(app_service.list_groups()), file=output)
-            return 0
+            return _run_list(arguments[1:], app_service, output, error_output)
+        if command == "full-clean":
+            return _run_full_clean(
+                arguments[1:], app_service, output, error_output, input_stream
+            )
         if command == "import":
             return _run_import(arguments[1:], app_service, output, error_output)
         if command == "protosettings":
@@ -190,6 +198,35 @@ def main(argv: Sequence[str] | None = None) -> int:
     :returns: Process exit code.
     """
     return run_cli(argv=argv)
+
+
+def _run_list(
+    arguments: Sequence[str],
+    service: PySnapService,
+    stdout: TextIO,
+    stderr: TextIO,
+) -> int:
+    """Run the ``list`` subcommand.
+
+    :param arguments: Subcommand arguments.
+    :param service: Application service.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :returns: Process exit code.
+    """
+    parser = CliArgumentParser(prog="pysnap list", stdout=stdout, stderr=stderr)
+    parser.parse_args(list(arguments))
+    try:
+        groups = service.list_groups()
+    except CommandExecutionError:
+        # ``VBoxManage list`` fails or times out when the VirtualBox data
+        # directories are missing or corrupted, for example right after
+        # ``pysnap full-clean``. An empty listing is the correct answer for
+        # the user in that situation, so report the stub and exit cleanly.
+        print(format_groups([]), file=stdout)
+        return 0
+    print(format_groups(groups), file=stdout)
+    return 0
 
 
 def _run_show(
@@ -325,7 +362,11 @@ def _run_clone(
         nargs="*",
         help="Up to three internal network names.",
     )
-    namespace = parser.parse_args(list(arguments))
+    # ``pysnap clone BASE CLONE -p PORT NET...`` places an optional between
+    # positional groups. Plain ``parse_args`` supports this only from the
+    # argparse shipped with Python 3.13, so intermixed parsing keeps the
+    # documented syntax working on every supported interpreter.
+    namespace = parser.parse_intermixed_args(list(arguments))
     if len(namespace.networks) > 3:
         parser.error("at most three internal network names may be provided")
     vm_info = service.clone_vm(
@@ -454,22 +495,145 @@ def _run_erase(
     parser.add_argument("vm", nargs="?", help="Virtual machine name to remove.")
     parser.add_argument("--all", action="store_true", help="Remove all registered VMs.")
     parser.add_argument("--group", help="Remove all VMs from the specified group.")
+    parser.add_argument(
+        "--clones-only",
+        action="store_true",
+        help="Restrict the operation to VMs created as PySnap linked clones.",
+    )
     namespace = parser.parse_args(list(arguments))
 
     if sum(bool(value) for value in (namespace.all, namespace.group, namespace.vm)) != 1:
         parser.error('exactly one of "--all", "--group", or "VM" must be provided')
 
     if namespace.all:
-        deleted = service.erase_all()
+        deleted = service.erase_clones() if namespace.clones_only else service.erase_all()
         print(f"Erased virtual machines: {', '.join(deleted) if deleted else 'none'}", file=stdout)
         return 0
     if namespace.group:
-        deleted = service.erase_group(namespace.group)
-        print(f"Erased virtual machines: {', '.join(deleted)}", file=stdout)
+        if namespace.clones_only:
+            deleted = service.erase_clones(namespace.group)
+        else:
+            deleted = service.erase_group(namespace.group)
+        print(f"Erased virtual machines: {', '.join(deleted) if deleted else 'none'}", file=stdout)
         return 0
+
+    if namespace.clones_only and not service.is_clone_vm(namespace.vm):
+        print(
+            f'Virtual machine "{namespace.vm}" is not a clone. Verify the '
+            "operation or remove the --clones-only flag.",
+            file=stderr,
+        )
+        return 1
 
     service.erase_vm(namespace.vm)
     print(f'Erased virtual machine: {namespace.vm}', file=stdout)
+    return 0
+
+
+def _default_virtualbox_directories() -> tuple[Path, ...]:
+    """Return the default VirtualBox data directories for the current OS.
+
+    The machine folder defaults to ``~/VirtualBox VMs`` on every platform,
+    while the configuration directory follows the VirtualBox conventions:
+    ``~/.config/VirtualBox`` on Linux and other Unix systems,
+    ``~/Library/VirtualBox`` on macOS, and ``~/.VirtualBox`` on Windows.
+    An explicit ``VBOX_USER_HOME`` environment variable overrides the
+    configuration directory on every platform.
+
+    :returns: Directories removed by ``pysnap full-clean`` by default.
+    """
+    machine_folder = Path.home() / "VirtualBox VMs"
+    vbox_user_home = os.environ.get("VBOX_USER_HOME")
+    if vbox_user_home:
+        config_folder = Path(vbox_user_home).expanduser()
+    elif sys.platform == "win32":
+        config_folder = Path.home() / ".VirtualBox"
+    elif sys.platform == "darwin":
+        config_folder = Path.home() / "Library" / "VirtualBox"
+    else:
+        config_folder = Path.home() / ".config" / "VirtualBox"
+    return (machine_folder, config_folder)
+
+
+def _read_confirmation(prompt: str, stdout: TextIO, stdin: TextIO) -> str:
+    """Prompt for one confirmation line on the interactive input stream.
+
+    :param prompt: Prompt text shown before reading.
+    :param stdout: Output stream for the prompt.
+    :param stdin: Input stream for the answer.
+    :returns: Stripped answer text, empty on end of input.
+    """
+    stdout.write(prompt)
+    stdout.flush()
+    return stdin.readline().strip()
+
+
+def _run_full_clean(
+    arguments: Sequence[str],
+    service: PySnapService,
+    stdout: TextIO,
+    stderr: TextIO,
+    stdin: TextIO,
+) -> int:
+    """Run the ``full-clean`` subcommand.
+
+    :param arguments: Subcommand arguments.
+    :param service: Application service.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :param stdin: Input stream for interactive confirmations.
+    :returns: Process exit code.
+    """
+    parser = CliArgumentParser(
+        prog="pysnap full-clean",
+        description=(
+            "Permanently delete the VirtualBox machine and configuration "
+            "directories. Stop VirtualBox and all VMs before running this."
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    parser.add_argument(
+        "--path",
+        action="append",
+        metavar="DIRECTORY",
+        help=(
+            "Directory to delete instead of the default VirtualBox "
+            "directories. May be repeated for several directories."
+        ),
+    )
+    namespace = parser.parse_args(list(arguments))
+
+    if namespace.path:
+        targets = tuple(Path(raw_path).expanduser() for raw_path in namespace.path)
+    else:
+        targets = _default_virtualbox_directories()
+
+    print("The following directories will be permanently deleted:", file=stdout)
+    for target in targets:
+        suffix = "" if target.exists() else " (missing)"
+        print(f"- {target}{suffix}", file=stdout)
+
+    first_answer = _read_confirmation(
+        'Type "yes" to continue: ', stdout=stdout, stdin=stdin
+    )
+    if first_answer != "yes":
+        print("Full clean cancelled.", file=stdout)
+        return 1
+    second_answer = _read_confirmation(
+        'This cannot be undone. Type "delete" to confirm: ',
+        stdout=stdout,
+        stdin=stdin,
+    )
+    if second_answer != "delete":
+        print("Full clean cancelled.", file=stdout)
+        return 1
+
+    removed = service.full_clean(targets)
+    print(
+        f"Removed directories: {', '.join(removed) if removed else 'none'}",
+        file=stdout,
+    )
     return 0
 
 

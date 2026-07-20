@@ -616,6 +616,117 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(delete_calls[0], ("delete_vm", "clone-vm"))
         self.assertEqual(delete_calls[1], ("delete_vm", "base-vm"))
 
+    def test_erase_clones_removes_only_clone_vms(self) -> None:
+        """Delete every managed clone while keeping base VMs registered."""
+        client = self._build_clone_topology_client()
+
+        service = self.make_service(client=client)
+        deleted = service.erase_clones()
+
+        self.assertEqual(deleted, ["lab-clone", "net-clone"])
+        self.assertIn("base-vm", client.references)
+        self.assertNotIn("lab-clone", client.references)
+        self.assertNotIn("net-clone", client.references)
+
+    def test_erase_clones_filters_by_group(self) -> None:
+        """Restrict clone deletion to the requested group."""
+        client = self._build_clone_topology_client()
+
+        service = self.make_service(client=client)
+        deleted = service.erase_clones("Lab")
+
+        self.assertEqual(deleted, ["lab-clone"])
+        self.assertIn("base-vm", client.references)
+        self.assertIn("net-clone", client.references)
+
+    def test_erase_clones_reports_empty_group(self) -> None:
+        """Reject clone deletion for groups without any VMs."""
+        client = self._build_clone_topology_client()
+
+        service = self.make_service(client=client)
+        with self.assertRaises(PySnapError) as context:
+            service.erase_clones("Empty")
+
+        self.assertIn('Group "/Empty" does not contain any VMs.', str(context.exception))
+
+    def test_erase_clones_blocks_dependents_outside_group(self) -> None:
+        """Reject group-limited clone deletion when outside clones depend on it."""
+        client = self._build_clone_topology_client()
+        client.references["nested-clone"] = VMReference("nested-clone", "uuid-nested")
+        client.infos["nested-clone"] = VMInfo(
+            name="nested-clone",
+            uuid="uuid-nested",
+            groups=("/Net",),
+            parent_name="lab-clone",
+            managed=True,
+            metadata={"pysnap/kind": "clone", "pysnap/parent": "lab-clone"},
+        )
+
+        service = self.make_service(client=client)
+        with self.assertRaises(PySnapError) as context:
+            service.erase_clones("Lab")
+
+        self.assertIn("depend on them: lab-clone", str(context.exception))
+        self.assertIn("lab-clone", client.references)
+
+    def test_is_clone_vm_uses_clone_metadata(self) -> None:
+        """Recognize clones through the metadata written during cloning."""
+        client = self._build_clone_topology_client()
+
+        service = self.make_service(client=client)
+
+        self.assertTrue(service.is_clone_vm("lab-clone"))
+        self.assertFalse(service.is_clone_vm("base-vm"))
+
+    def test_full_clean_removes_only_existing_directories(self) -> None:
+        """Remove existing directories recursively and skip missing ones."""
+        client = FakeClient()
+        service = self.make_service(client=client)
+        with tempfile.TemporaryDirectory() as workspace:
+            machine_folder = Path(workspace) / "VirtualBox VMs"
+            (machine_folder / "srv").mkdir(parents=True)
+            (machine_folder / "srv" / "srv.vbox").write_text("", encoding="utf-8")
+            missing_folder = Path(workspace) / ".config" / "VirtualBox"
+
+            removed = service.full_clean((machine_folder, missing_folder))
+
+            self.assertEqual(removed, [str(machine_folder)])
+            self.assertFalse(machine_folder.exists())
+
+    def _build_clone_topology_client(self) -> FakeClient:
+        """Build a fake client with one base VM and clones in two groups.
+
+        :returns: Configured fake client.
+        """
+        client = FakeClient()
+        client.references["base-vm"] = VMReference("base-vm", "uuid-base")
+        client.references["lab-clone"] = VMReference("lab-clone", "uuid-lab")
+        client.references["net-clone"] = VMReference("net-clone", "uuid-net")
+        client.infos["base-vm"] = VMInfo(
+            name="base-vm",
+            uuid="uuid-base",
+            groups=("/Lab",),
+            managed=True,
+            metadata={"pysnap/kind": "base"},
+        )
+        client.infos["lab-clone"] = VMInfo(
+            name="lab-clone",
+            uuid="uuid-lab",
+            groups=("/Lab",),
+            parent_name="base-vm",
+            managed=True,
+            metadata={"pysnap/kind": "clone", "pysnap/parent": "base-vm"},
+        )
+        client.infos["net-clone"] = VMInfo(
+            name="net-clone",
+            uuid="uuid-net",
+            groups=("/Net",),
+            parent_name="base-vm",
+            managed=True,
+            metadata={"pysnap/kind": "clone", "pysnap/parent": "base-vm"},
+        )
+        return client
+
     def test_run_integration_test_creates_triangle_and_deletes_vms(self) -> None:
         """Run the integration workflow on a fake appliance."""
         client = FakeClient()

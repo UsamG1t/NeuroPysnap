@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import io
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from pysnap.cli.app import run_cli
+from pysnap.errors import CommandExecutionError
 from pysnap.core.models import (
     IntegrationTestResult,
     VMGroup,
@@ -26,9 +28,16 @@ class FakeService:
         self.proto_settings_vm: str | None = None
         self.stopped_vm: str | None = None
         self.stop_all_requested = False
+        self.erased_vm: str | None = None
+        self.erase_clones_group: object = "unused"
+        self.full_clean_paths: tuple | None = None
+        self.clone_vm_names: set[str] = {"clone-vm"}
+        self.list_groups_error: Exception | None = None
 
     def list_groups(self) -> list[VMGroup]:
-        """Return a static group list."""
+        """Return a static group list or raise the configured error."""
+        if self.list_groups_error is not None:
+            raise self.list_groups_error
         return [VMGroup(name="/Lab", vm_names=("base-vm", "clone-vm"))]
 
     def show_vm(self, vm_name: str) -> VMInfo:
@@ -111,7 +120,8 @@ class FakeService:
         return ("base-vm", vm_name) if vm_name != "base-vm" else ("base-vm",)
 
     def erase_vm(self, vm_name: str) -> None:
-        """Pretend to erase one VM."""
+        """Record one erase request."""
+        self.erased_vm = vm_name
 
     def erase_group(self, group_name: str) -> list[str]:
         """Pretend to erase a group."""
@@ -120,6 +130,20 @@ class FakeService:
     def erase_all(self) -> list[str]:
         """Pretend to erase all VMs."""
         return ["base-vm", "clone-vm"]
+
+    def erase_clones(self, group_name: str | None = None) -> list[str]:
+        """Record a clones-only erase request."""
+        self.erase_clones_group = group_name
+        return ["clone-vm"]
+
+    def is_clone_vm(self, vm_name: str) -> bool:
+        """Report whether one fake VM counts as a clone."""
+        return vm_name in self.clone_vm_names
+
+    def full_clean(self, paths) -> list[str]:
+        """Record a full-clean request and report the paths as removed."""
+        self.full_clean_paths = tuple(str(path) for path in paths)
+        return [str(path) for path in paths]
 
     def list_monitored_vms(self) -> list[VMMonitorRecord]:
         """Return compact runtime monitor data."""
@@ -232,6 +256,156 @@ class CliTests(unittest.TestCase):
         self.assertIn("Group: /Lab", stdout.getvalue())
         self.assertIn("- base-vm", stdout.getvalue())
         self.assertEqual("", stderr.getvalue())
+
+    def test_list_command_reports_stub_when_vm_data_is_unavailable(self) -> None:
+        """Report an empty listing when VBoxManage cannot deliver VM data."""
+        service = FakeService()
+        service.list_groups_error = CommandExecutionError(
+            ["VBoxManage", "list", "vms"],
+            "",
+            "VBoxManage did not respond within 15.0 seconds.",
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        exit_code = run_cli(["list"], service=service, stdout=stdout, stderr=stderr)
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("No virtual machines found.", stdout.getvalue())
+        self.assertEqual("", stderr.getvalue())
+
+    def test_erase_clones_only_erases_all_clones(self) -> None:
+        """Delete only clones when ``--clones-only`` is combined with ``--all``."""
+        service = FakeService()
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        exit_code = run_cli(
+            ["erase", "--all", "--clones-only"],
+            service=service,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIsNone(service.erase_clones_group)
+        self.assertIn("Erased virtual machines: clone-vm", stdout.getvalue())
+
+    def test_erase_clones_only_passes_group_filter(self) -> None:
+        """Forward the group filter to clones-only deletion."""
+        service = FakeService()
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        exit_code = run_cli(
+            ["erase", "--group", "Lab", "--clones-only"],
+            service=service,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(service.erase_clones_group, "Lab")
+        self.assertIn("Erased virtual machines: clone-vm", stdout.getvalue())
+
+    def test_erase_clones_only_deletes_single_clone(self) -> None:
+        """Keep normal single-VM deletion behavior for clones."""
+        service = FakeService()
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        exit_code = run_cli(
+            ["erase", "clone-vm", "--clones-only"],
+            service=service,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(service.erased_vm, "clone-vm")
+        self.assertIn("Erased virtual machine: clone-vm", stdout.getvalue())
+
+    def test_erase_clones_only_refuses_base_vm(self) -> None:
+        """Warn and skip deletion when the target VM is not a clone."""
+        service = FakeService()
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        exit_code = run_cli(
+            ["erase", "base-vm", "--clones-only"],
+            service=service,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+        self.assertEqual(exit_code, 1)
+        self.assertIsNone(service.erased_vm)
+        self.assertIn(
+            'Virtual machine "base-vm" is not a clone. Verify the operation '
+            "or remove the --clones-only flag.",
+            stderr.getvalue(),
+        )
+
+    def test_full_clean_requires_double_confirmation(self) -> None:
+        """Delete the requested directories only after both confirmations."""
+        service = FakeService()
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        stdin = io.StringIO("yes\ndelete\n")
+
+        exit_code = run_cli(
+            ["full-clean", "--path", "/tmp/custom-vms", "--path", "/tmp/custom-config"],
+            service=service,
+            stdout=stdout,
+            stderr=stderr,
+            stdin=stdin,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            service.full_clean_paths,
+            (str(Path("/tmp/custom-vms")), str(Path("/tmp/custom-config"))),
+        )
+        self.assertIn("will be permanently deleted", stdout.getvalue())
+        self.assertIn("Removed directories:", stdout.getvalue())
+
+    def test_full_clean_cancels_without_second_confirmation(self) -> None:
+        """Cancel the cleanup when the second confirmation does not match."""
+        service = FakeService()
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        stdin = io.StringIO("yes\nno\n")
+
+        exit_code = run_cli(
+            ["full-clean", "--path", "/tmp/custom-vms"],
+            service=service,
+            stdout=stdout,
+            stderr=stderr,
+            stdin=stdin,
+        )
+
+        self.assertEqual(exit_code, 1)
+        self.assertIsNone(service.full_clean_paths)
+        self.assertIn("Full clean cancelled.", stdout.getvalue())
+
+    def test_full_clean_cancels_on_end_of_input(self) -> None:
+        """Cancel the cleanup when no confirmation can be read."""
+        service = FakeService()
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        stdin = io.StringIO("")
+
+        exit_code = run_cli(
+            ["full-clean", "--path", "/tmp/custom-vms"],
+            service=service,
+            stdout=stdout,
+            stderr=stderr,
+            stdin=stdin,
+        )
+
+        self.assertEqual(exit_code, 1)
+        self.assertIsNone(service.full_clean_paths)
+        self.assertIn("Full clean cancelled.", stdout.getvalue())
 
     def test_import_command_formats_result_and_progress(self) -> None:
         """Render import progress and final import output."""

@@ -32,6 +32,12 @@ List Virtual Machines
 The ``list`` command prints all detected VirtualBox groups and the names of the
 virtual machines inside each group.
 
+When the VirtualBox data directories are missing or the ``VBoxManage`` service
+does not respond, for example right after ``pysnap full-clean``, the ``list``
+command prints ``No virtual machines found.`` and exits cleanly. PySnap runs
+the underlying ``VBoxManage list`` calls with a bounded timeout, so a stale
+``VBoxSVC`` process cannot block the listing forever.
+
 .. code-block:: text
 
    pysnap list
@@ -187,10 +193,18 @@ PySnap also keeps a local scrollback buffer for the attached session:
 - ``Alt-Down`` scrolls one line toward newer output
 - ``Alt-Left`` jumps to the oldest retained output
 - ``Alt-Right`` jumps back to the live output bottom
-- dragging with the left mouse button selects visible terminal text and copies
-  it to the host clipboard on mouse release
+- dragging with the left mouse button selects visible terminal text and
+  captures it for copying
+- ``Ctrl-Shift-C`` copies the captured selection to the host clipboard
 - on Linux, the mouse wheel or touchpad scroll gesture also moves through the
   local scrollback buffer
+
+Classic terminal emulators deliver ``Ctrl-Shift-C`` and ``Ctrl-C`` as the same
+byte, so PySnap disambiguates them by selection state. While a captured
+selection exists, the chord only copies. Without one, it forwards a real
+``Ctrl-C`` interrupt to the guest. Incoming guest output removes the visible
+highlight but keeps the captured text, so copying stays possible while
+utilities keep printing in the background.
 
 While the session is attached, PySnap continuously tracks the outer terminal
 size and resizes the visible guest text area to match it. This also works
@@ -290,6 +304,22 @@ The single-VM erase mode refuses deletion when dependent clones still exist.
 The group erase mode refuses deletion when descendants outside the target group
 still depend on the selected VMs.
 
+Every erase mode accepts the ``--clones-only`` flag, which restricts the
+operation to VMs created as PySnap linked clones:
+
+- ``pysnap erase --all --clones-only`` removes every linked clone and keeps the
+  imported base VMs registered.
+- ``pysnap erase --group GROUP --clones-only`` removes only the linked clones
+  inside one group. The operation is refused when clones outside the group
+  still depend on the selected clones.
+- ``pysnap erase VM --clones-only`` behaves like the normal single-VM erase for
+  a clone. For a base VM, PySnap prints a warning and refuses the deletion, so
+  the flag stays safe in scripted cleanups.
+
+PySnap recognizes clones through the ``pysnap/kind`` and ``pysnap/parent``
+metadata written into VirtualBox extra data during cloning, so the clone list
+stays correct without a separate registry file.
+
 When a VM is removed successfully, PySnap also removes its name from the
 proto-settings file if it was registered there.
 
@@ -298,3 +328,36 @@ proto-settings file if it was registered there.
    pysnap erase BaseVM
    pysnap erase --group /Lab
    pysnap erase --all
+   pysnap erase --all --clones-only
+   pysnap erase --group /Lab --clones-only
+   pysnap erase CloneVM --clones-only
+
+Remove All VirtualBox Data
+--------------------------
+
+The ``full-clean`` command permanently deletes the VirtualBox machine folder
+and the VirtualBox configuration directory from the host file system. Stop
+VirtualBox and all virtual machines before running it.
+
+Without ``--path``, PySnap removes ``~/VirtualBox VMs`` together with the
+OS-specific configuration directory:
+
+- ``~/.config/VirtualBox`` on Linux and other Unix systems
+- ``~/Library/VirtualBox`` on macOS
+- ``~/.VirtualBox`` on Windows
+- the directory from ``VBOX_USER_HOME`` when the variable is set
+
+The repeated ``--path`` option replaces the default selection with explicit
+directories. This covers custom machine-folder locations configured through
+``VBoxManage setproperty machinefolder``.
+
+The command prints the target directories, marks missing ones, and asks for two
+different explicit confirmations: ``yes`` on the first prompt and ``delete`` on
+the second one. Any other answer cancels the cleanup without touching the file
+system. Directories are removed recursively through ``shutil.rmtree``, so the
+same behavior applies on every supported operating system.
+
+.. code-block:: text
+
+   pysnap full-clean
+   pysnap full-clean --path /data/vms --path /data/vbox-config

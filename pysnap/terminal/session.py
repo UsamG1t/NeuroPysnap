@@ -54,6 +54,116 @@ class TerminalSelection:
             return start, end
         return end, start
 
+    @property
+    def is_collapsed(self) -> bool:
+        """Return whether the selection never left its anchor cell."""
+        return (self.anchor_row, self.anchor_column) == (self.row, self.column)
+
+
+class SelectionTracker:
+    """Track the visible drag selection and the text captured from it.
+
+    The tracker separates two lifetimes: the on-screen highlight, which
+    becomes stale as soon as new guest output moves the underlying cells,
+    and the captured text, which stays valid until the user copies it or
+    starts interacting with the guest again. This lets the copy chord work
+    while background utilities keep printing.
+    """
+
+    def __init__(self, emulator: TerminalEmulator) -> None:
+        """Initialize the selection tracker.
+
+        :param emulator: Guest terminal emulator that owns the screen cells.
+        """
+        self._emulator = emulator
+        self.selection: TerminalSelection | None = None
+        self.captured_text: str | None = None
+
+    @property
+    def is_active(self) -> bool:
+        """Return whether a highlight or captured text is currently held."""
+        return self.selection is not None or self.captured_text is not None
+
+    def begin(self, x: int, y: int) -> None:
+        """Start a new drag selection at one screen cell.
+
+        :param x: Column of the drag start.
+        :param y: Row of the drag start.
+        """
+        row, column = self._clamp(x, y)
+        self.selection = TerminalSelection(
+            anchor_row=row,
+            anchor_column=column,
+            row=row,
+            column=column,
+        )
+        self.captured_text = None
+
+    def update(self, x: int, y: int) -> None:
+        """Extend the active drag selection to one screen cell.
+
+        :param x: Column of the drag position.
+        :param y: Row of the drag position.
+        """
+        if self.selection is None:
+            return
+        row, column = self._clamp(x, y)
+        self.selection.row = row
+        self.selection.column = column
+
+    def finish(self, x: int, y: int) -> bool:
+        """Finalize the drag and capture the selected text.
+
+        A click that never left its anchor cell is treated as a plain click
+        and clears any previous selection instead of capturing one cell.
+
+        :param x: Column of the drag end.
+        :param y: Row of the drag end.
+        :returns: ``True`` when non-empty text was captured.
+        """
+        if self.selection is None:
+            return False
+        self.update(x, y)
+        if self.selection.is_collapsed:
+            self.clear()
+            return False
+        self.captured_text = (
+            self._emulator.selected_text(self.selection.normalized) or None
+        )
+        if self.captured_text is None:
+            self.clear()
+            return False
+        return True
+
+    def take_captured_text(self) -> str | None:
+        """Return the captured text and reset the tracker.
+
+        :returns: Captured text or ``None`` when nothing is selected.
+        """
+        text = self.captured_text
+        self.clear()
+        return text
+
+    def clear_highlight(self) -> None:
+        """Drop the stale on-screen highlight but keep the captured text."""
+        self.selection = None
+
+    def clear(self) -> None:
+        """Drop both the on-screen highlight and the captured text."""
+        self.selection = None
+        self.captured_text = None
+
+    def _clamp(self, x: int, y: int) -> tuple[int, int]:
+        """Clamp one mouse position to valid screen coordinates.
+
+        :param x: Raw column reported by the mouse event.
+        :param y: Raw row reported by the mouse event.
+        :returns: Clamped ``(row, column)`` coordinates.
+        """
+        row = min(max(y, 0), self._emulator.screen.lines - 1)
+        column = min(max(x, 0), self._emulator.screen.columns - 1)
+        return row, column
+
 
 class ScrollableTerminalControl(FormattedTextControl):
     """Formatted text control with optional local scrollback mouse support."""
@@ -170,74 +280,45 @@ class TerminalSession:
         )
         stop_event = asyncio.Event()
         received_output = asyncio.Event()
-        selection: TerminalSelection | None = None
+        selection_tracker = SelectionTracker(emulator)
 
         await _wake_serial_console(writer)
         status.message = "Connected. Ctrl-Q detaches."
 
-        def clear_selection() -> None:
-            nonlocal selection
-            selection = None
-
-        def clamp_selection_point(x: int, y: int) -> tuple[int, int]:
-            row = min(max(y, 0), emulator.screen.lines - 1)
-            column = min(max(x, 0), emulator.screen.columns - 1)
-            return row, column
-
         def begin_selection(x: int, y: int) -> None:
-            nonlocal selection
-            row, column = clamp_selection_point(x, y)
-            selection = TerminalSelection(
-                anchor_row=row,
-                anchor_column=column,
-                row=row,
-                column=column,
-            )
+            selection_tracker.begin(x, y)
             status.message = "Selecting text..."
             app.invalidate()
 
         def update_selection(x: int, y: int) -> None:
-            nonlocal selection
-            if selection is None:
-                return
-            row, column = clamp_selection_point(x, y)
-            selection.row = row
-            selection.column = column
+            selection_tracker.update(x, y)
             app.invalidate()
 
         def finish_selection(x: int, y: int) -> None:
-            nonlocal selection
-            if selection is None:
-                return
-            update_selection(x, y)
-            selected_text = emulator.selected_text(selection.normalized)
-            copied = copy_text_to_host_clipboard(selected_text, output=app.output)
-            status.message = (
-                "Selection copied."
-                if copied
-                else "Selection captured, but clipboard export failed."
-            )
+            if selection_tracker.finish(x, y):
+                status.message = "Selection ready. Ctrl+Shift+C copies."
             app.invalidate()
 
         def scroll_up(lines: int = 1) -> None:
-            clear_selection()
+            selection_tracker.clear_highlight()
             emulator.scroll_up(lines)
             app.invalidate()
 
         def scroll_down(lines: int = 1) -> None:
-            clear_selection()
+            selection_tracker.clear_highlight()
             emulator.scroll_down(lines)
             app.invalidate()
 
         def render_terminal() -> list[tuple[str, str]]:
             app = get_app()
             _resize_emulator_to_output(app=app, emulator=emulator)
+            selection = selection_tracker.selection
             current_selection = None if selection is None else selection.normalized
             return emulator.as_formatted_text(selection=current_selection)
 
         def render_status() -> list[tuple[str, str]]:
             scrollback_suffix = " | Scrollback" if emulator.is_scrollback_active else ""
-            selection_suffix = " | Selection" if selection is not None else ""
+            selection_suffix = " | Selection" if selection_tracker.is_active else ""
             text = (
                 f" {status.vm_name} | {status.vm_state} | "
                 f"UART1:{status.serial_port} | "
@@ -296,21 +377,42 @@ class TerminalSession:
         @bindings.add(Keys.Escape, Keys.Left)
         def _scroll_to_top(event) -> None:
             """Jump to the oldest retained local scrollback output."""
-            clear_selection()
+            selection_tracker.clear_highlight()
             emulator.scroll_to_top()
             event.app.invalidate()
 
         @bindings.add(Keys.Escape, Keys.Right)
         def _scroll_to_bottom(event) -> None:
             """Jump back to the live end of local output."""
-            clear_selection()
+            selection_tracker.clear_highlight()
             emulator.scroll_to_bottom()
+            event.app.invalidate()
+
+        @bindings.add(Keys.ControlC)
+        def _copy_or_interrupt(event) -> None:
+            """Copy the captured selection or forward an interrupt to the guest.
+
+            Classic terminals deliver ``Ctrl+Shift+C`` and ``Ctrl+C`` as the
+            same ``ETX`` byte, so PySnap disambiguates by selection state:
+            with a captured selection the chord copies without touching the
+            guest, and without one it forwards a real ``Ctrl+C``.
+            """
+            captured_text = selection_tracker.take_captured_text()
+            if captured_text is None:
+                writer.write(b"\x03")
+                return
+            copied = copy_text_to_host_clipboard(captured_text, output=event.app.output)
+            status.message = (
+                "Selection copied."
+                if copied
+                else "Selection captured, but clipboard export failed."
+            )
             event.app.invalidate()
 
         @bindings.add(Keys.Any)
         def _forward_key(event) -> None:
             """Forward arbitrary key input to the serial transport."""
-            clear_selection()
+            selection_tracker.clear()
             key_press = event.key_sequence[-1]
             payload = key_press_to_bytes(key_press)
             if payload is None:
@@ -324,30 +426,53 @@ class TerminalSession:
             mouse_support=True,
             terminal_size_polling_interval=0.25,
         )
+        # Guest-side editors rely on a snappy lone Escape key. The default
+        # prompt-toolkit flush timeouts hold Escape for up to half a second
+        # because of the Alt+Arrow scrollback bindings, which reads as input
+        # lag inside Vim, so both timeouts are tightened here.
+        app.timeoutlen = 0.5
+        app.ttimeoutlen = 0.05
+
+        def report_connection_closed() -> None:
+            status.vm_state = "Changing"
+            status.message = "Serial connection closed."
+            stop_event.set()
+            _safe_exit_application(app)
 
         async def reader_loop() -> None:
             try:
                 while not stop_event.is_set():
-                    data = await reader.read(4096)
+                    data = await reader.read(_READ_CHUNK_SIZE)
                     if not data:
-                        status.vm_state = "Changing"
-                        status.message = "Serial connection closed."
-                        stop_event.set()
-                        _safe_exit_application(app)
+                        report_connection_closed()
                         return
                     received_output.set()
-                    clear_selection()
-                    emulator.feed(data)
-                    responses = query_responder.collect_responses(
-                        data,
-                        emulator=emulator,
-                        columns=_output_columns(app),
-                        lines=_output_lines(app),
-                    )
-                    if responses:
+                    selection_tracker.clear_highlight()
+                    responses: list[bytes] = []
+                    closed = False
+                    while data:
+                        emulator.feed(data)
+                        responses.extend(
+                            query_responder.collect_responses(
+                                data,
+                                emulator=emulator,
+                                columns=_output_columns(app),
+                                lines=_output_lines(app),
+                            )
+                        )
+                        data = await _read_pending_burst(reader)
+                        if data is None:
+                            break
+                        if not data:
+                            closed = True
+                            break
+                    if responses and not closed:
                         for response in responses:
                             writer.write(response)
                         await writer.drain()
+                    if closed:
+                        report_connection_closed()
+                        return
                     app.invalidate()
             except OSError as error:
                 status.vm_state = "Changing"
@@ -363,7 +488,7 @@ class TerminalSession:
                     current_size = _resize_emulator_to_output(app=app, emulator=emulator)
                     if current_size != previous_size:
                         previous_size = current_size
-                        clear_selection()
+                        selection_tracker.clear_highlight()
                         app.invalidate()
             except Exception as error:
                 if stop_event.is_set():
@@ -412,6 +537,30 @@ class TerminalSession:
             stop_event.set()
             writer.close()
             await writer.wait_closed()
+
+
+_READ_CHUNK_SIZE = 65536
+_READ_BURST_TIMEOUT = 0.01
+
+
+async def _read_pending_burst(reader: asyncio.StreamReader) -> bytes | None:
+    """Return one immediately-following chunk of a fast output burst.
+
+    Fast guest output such as full-screen editor redraws arrives as many
+    small TCP chunks. Coalescing chunks that follow within a short window
+    lets the reader loop redraw once per burst instead of once per chunk.
+
+    :param reader: Async stream reader bound to the serial TCP transport.
+    :returns: More bytes, ``b""`` when the connection closed, or ``None``
+        when the guest paused.
+    """
+    try:
+        return await asyncio.wait_for(
+            reader.read(_READ_CHUNK_SIZE),
+            timeout=_READ_BURST_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        return None
 
 
 async def _wake_serial_console(writer) -> None:

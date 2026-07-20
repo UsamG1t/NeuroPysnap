@@ -29,10 +29,11 @@ from pysnap.vbox.parsers import (
 class RunnerProtocol(Protocol):
     """Describe the command runner used by the client."""
 
-    def run(self, arguments: Sequence[str]) -> str:
+    def run(self, arguments: Sequence[str], timeout: float | None = None) -> str:
         """Execute a command and return its standard output.
 
         :param arguments: Arguments passed to ``VBoxManage``.
+        :param timeout: Optional timeout in seconds.
         :returns: Standard output.
         """
         pass
@@ -79,12 +80,14 @@ class SubprocessRunner(RunnerProtocol):
         """
         self.executable = self._resolve_executable(executable)
 
-    def run(self, arguments: Sequence[str]) -> str:
+    def run(self, arguments: Sequence[str], timeout: float | None = None) -> str:
         """Execute ``VBoxManage`` and return standard output.
 
         :param arguments: Arguments passed to ``VBoxManage``.
+        :param timeout: Optional timeout in seconds.
         :returns: Standard output text.
-        :raises CommandExecutionError: If the command exits unsuccessfully.
+        :raises CommandExecutionError: If the command exits unsuccessfully or
+            does not finish before the timeout expires.
         """
         command = [self.executable, *arguments]
         try:
@@ -93,9 +96,16 @@ class SubprocessRunner(RunnerProtocol):
                 capture_output=True,
                 check=False,
                 text=True,
+                timeout=timeout,
             )
         except FileNotFoundError as error:
             raise CommandExecutionError(command, "", str(error)) from error
+        except subprocess.TimeoutExpired as error:
+            raise CommandExecutionError(
+                command,
+                self._decode_captured_stream(error.stdout),
+                f"VBoxManage did not respond within {timeout} seconds.",
+            ) from error
 
         if completed.returncode != 0:
             raise CommandExecutionError(command, completed.stdout, completed.stderr)
@@ -164,6 +174,18 @@ class SubprocessRunner(RunnerProtocol):
 
         return requested
 
+    def _decode_captured_stream(self, captured: str | bytes | None) -> str:
+        """Decode output captured before a subprocess timeout.
+
+        :param captured: Raw captured stream content, if any.
+        :returns: Text representation of the captured content.
+        """
+        if captured is None:
+            return ""
+        if isinstance(captured, bytes):
+            return captured.decode("utf-8", errors="replace")
+        return captured
+
     def _looks_like_filesystem_path(self, value: str) -> bool:
         """Return whether a command value looks like a filesystem path.
 
@@ -207,6 +229,11 @@ class VBoxManageClient:
     IMPORT_PROGRESS_PATTERN = re.compile(r"(?P<percent>\d{1,3})%")
     DMI_SYSTEM_VENDOR_KEY = "VBoxInternal/Devices/pcbios/0/Config/DmiSystemVendor"
     DMI_SYSTEM_SKU_KEY = "VBoxInternal/Devices/pcbios/0/Config/DmiSystemSKU"
+    # ``VBoxManage list`` can block forever when the VirtualBox configuration
+    # directory is missing or corrupted while a stale ``VBoxSVC`` still runs,
+    # for example right after the machine and configuration folders were
+    # deleted. A bounded timeout turns that hang into a reportable error.
+    LIST_COMMAND_TIMEOUT = 15.0
 
     def __init__(self, runner: RunnerProtocol | None = None) -> None:
         """Initialize the VirtualBox client.
@@ -220,14 +247,18 @@ class VBoxManageClient:
 
         :returns: Parsed VM references.
         """
-        return parse_list_vms(self.runner.run(["list", "vms"]))
+        return parse_list_vms(
+            self.runner.run(["list", "vms"], timeout=self.LIST_COMMAND_TIMEOUT)
+        )
 
     def list_running_vms(self) -> list[VMReference]:
         """List all currently running VMs.
 
         :returns: Parsed references for running VMs.
         """
-        return parse_list_vms(self.runner.run(["list", "runningvms"]))
+        return parse_list_vms(
+            self.runner.run(["list", "runningvms"], timeout=self.LIST_COMMAND_TIMEOUT)
+        )
 
     def get_vm_info(self, vm_name: str) -> VMInfo:
         """Read detailed information about a VM.

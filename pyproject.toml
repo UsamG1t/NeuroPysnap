@@ -1,6 +1,6 @@
 [project]
 name = "pysnap"
-version = "1.0.0"
+version = "1.1.0"
 description = "VirtualBox appliance importer and linked clone manager."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,11 +22,18 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["setuptools>=61", "wheel>=0.38", "Sphinx>=7.2"]
+# ``license = "MIT"`` uses the PEP 639 string form, which setuptools
+# understands only from release 77 onward. Older setuptools rejects the
+# whole ``[project]`` table, so the wheel build silently depends on a
+# modern local toolchain when ``--no-isolation`` is used.
+requires = ["setuptools>=77", "wheel>=0.38", "Sphinx>=7.2"]
 build-backend = "setuptools.build_meta"
 
 [project.optional-dependencies]
 build = [
+  "setuptools>=77",
+  "wheel>=0.38",
+  "Sphinx>=7.2",
   "build>=1.0.0",
   "doit>=0.34.0",
   "tomli>=2.0.1; python_version < '3.11'",
