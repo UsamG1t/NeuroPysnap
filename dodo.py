@@ -35,6 +35,36 @@ DOIT_CONFIG = {
 }
 
 
+def _package_source_files() -> list[str]:
+    """Collect the package sources that invalidate generated artifacts.
+
+    Globbing keeps newly added modules covered without editing this file.
+
+    :returns: Repository-relative paths of the package sources.
+    """
+
+    return sorted(
+        str(path.relative_to(ROOT))
+        for path in (ROOT / "pysnap").rglob("*.py")
+        if "tests" not in path.relative_to(ROOT).parts
+    )
+
+
+def _documentation_source_files() -> list[str]:
+    """Collect the hand-written and generated documentation sources.
+
+    The generated ``docs/api`` stubs are included so that a rebuilt API tree
+    also triggers a documentation rebuild.
+
+    :returns: Repository-relative paths of the documentation sources.
+    """
+
+    sources = [ROOT / "README.md", DOCS_DIR / "conf.py"]
+    sources.extend(sorted(DOCS_DIR.glob("*.rst")))
+    sources.extend(sorted(DOCS_API_DIR.glob("*.rst")))
+    return [str(path.relative_to(ROOT)) for path in sources if path.is_file()]
+
+
 def _remove_generated_artifacts() -> None:
     """Delete generated artifacts while preserving tracked documentation sources."""
 
@@ -79,14 +109,7 @@ def task_apidoc() -> dict:
         "actions": [
             f"{SPHINX_APIDOC} --force --module-first -o {DOCS_API_DIR} pysnap pysnap/tests"
         ],
-        "file_dep": [
-            "pysnap/__init__.py",
-            "pysnap/cli/app.py",
-            "pysnap/core/service.py",
-            "pysnap/runtime/sessions.py",
-            "pysnap/terminal/session.py",
-            "pysnap/vbox/client.py",
-        ],
+        "file_dep": _package_source_files(),
         "targets": [str(DOCS_API_DIR / "modules.rst")],
         "verbosity": 2,
     }
@@ -107,13 +130,7 @@ def task_docs() -> dict:
                 str(DOCS_BUILD_DIR / "html"),
             ]
         ],
-        "file_dep": [
-            "docs/conf.py",
-            "docs/index.rst",
-            "docs/usage.rst",
-            "docs/architecture.rst",
-            "README.md",
-        ],
+        "file_dep": _documentation_source_files(),
         "task_dep": ["apidoc"],
         "targets": [str(DOCS_BUILD_DIR / "html" / "index.html")],
         "verbosity": 2,
@@ -127,17 +144,7 @@ def task_wheel() -> dict:
         "actions": [
             [PYTHON, "-m", "build", "--wheel", "--no-isolation", "--outdir", str(DIST_DIR)],
         ],
-        "file_dep": [
-            "pyproject.toml",
-            "README.md",
-            "pysnap/__init__.py",
-            "pysnap/cli/app.py",
-            "pysnap/core/service.py",
-            "pysnap/docview.py",
-            "pysnap/runtime/sessions.py",
-            "pysnap/terminal/session.py",
-            "pysnap/vbox/client.py",
-        ],
+        "file_dep": ["pyproject.toml", "README.md", *_package_source_files()],
         "task_dep": ["package_docs"],
         "targets": [str(DIST_DIR / f"pysnap-{PROJECT_VERSION}-py3-none-any.whl")],
         "verbosity": 2,
