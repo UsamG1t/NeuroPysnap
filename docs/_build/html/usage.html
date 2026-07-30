@@ -159,8 +159,26 @@ built-in terminal interface.</p>
 pysnap connect MyVM
 </pre></div>
 </div>
-<p>Graphviz example diagrams are rendered automatically when the <code class="docutils literal notranslate"><span class="pre">dot</span></code>
-executable is available on the documentation build host.</p>
+<figure class="align-default" id="id1">
+<div class="graphviz"><object data="_images/graphviz-0762cb5041f7f586a4ba8947fad473d58e4ee9f6.svg" type="image/svg+xml" class="graphviz">
+<p class="warning">digraph plug_connect_workflow {
+    rankdir=LR;
+    node [shape=box, style=&quot;rounded,filled&quot;, fillcolor=&quot;#f6f6f6&quot;];
+
+    plug [label=&quot;pysnap plug VM&quot;];
+    modifyvm [label=&quot;VBoxManage modifyvm\n--uart1 0x3F8 4\n--uartmode1 tcpserver PORT&quot;];
+    vm [label=&quot;VM with UART1 tcpserver&quot;, shape=ellipse, fillcolor=&quot;#fff8dc&quot;];
+    connect [label=&quot;pysnap connect VM&quot;];
+    headless [label=&quot;VBoxManage startvm\n--type=headless&quot;];
+    terminal [label=&quot;PySnap terminal session&quot;];
+
+    plug -&gt; modifyvm -&gt; vm;
+    connect -&gt; headless -&gt; terminal -&gt; vm;
+}</p></object></div>
+<figcaption>
+<p><span class="caption-text">Plug-and-connect workflow for an existing VM.</span><a class="headerlink" href="#id1" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
 </section>
 <section id="connect-to-a-headless-virtual-machine">
 <h2>Connect to a Headless Virtual Machine<a class="headerlink" href="#connect-to-a-headless-virtual-machine" title="Link to this heading">¶</a></h2>

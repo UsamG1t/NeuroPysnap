@@ -53,8 +53,31 @@ key mapping, terminal-query responder, and interactive UI session logic.</p></li
 </section>
 <section id="package-relationship-diagram">
 <h2>Package Relationship Diagram<a class="headerlink" href="#package-relationship-diagram" title="Link to this heading">¶</a></h2>
-<p>Graphviz relationship diagrams are enabled automatically when the <code class="docutils literal notranslate"><span class="pre">dot</span></code>
-executable is available on the build host.</p>
+<figure class="align-default" id="id1">
+<div class="graphviz"><object data="_images/graphviz-3da8d4884c529effd49ee631a5805943116f5019.svg" type="image/svg+xml" class="graphviz">
+<p class="warning">digraph package_relationships {
+    rankdir=LR;
+    node [shape=box, style=&quot;rounded,filled&quot;, fillcolor=&quot;#f6f6f6&quot;];
+
+    cli [label=&quot;pysnap.cli&quot;];
+    config [label=&quot;pysnap.config&quot;];
+    core [label=&quot;pysnap.core&quot;];
+    runtime [label=&quot;pysnap.runtime&quot;];
+    terminal [label=&quot;pysnap.terminal&quot;];
+    vbox [label=&quot;pysnap.vbox&quot;];
+
+    cli -&gt; core [label=&quot;command dispatch&quot;];
+    cli -&gt; terminal [label=&quot;connect&quot;];
+    core -&gt; config [label=&quot;.ptotosettings&quot;];
+    core -&gt; runtime [label=&quot;session registry&quot;];
+    core -&gt; vbox [label=&quot;VBoxManage operations&quot;];
+    terminal -&gt; core [label=&quot;prepare VM&quot;];
+    terminal -&gt; runtime [label=&quot;live session&quot;];
+}</p></object></div>
+<figcaption>
+<p><span class="caption-text">High-level relationships between PySnap packages.</span><a class="headerlink" href="#id1" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
 </section>
 <section id="execution-flow">
 <h2>Execution Flow<a class="headerlink" href="#execution-flow" title="Link to this heading">¶</a></h2>
