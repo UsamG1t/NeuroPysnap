@@ -31,13 +31,13 @@ with (ROOT / "pyproject.toml").open("rb") as _pyproject_file:
     _distribution_name = tomllib.load(_pyproject_file)["project"]["name"]
 
 REPOSITORY_URL = "https://github.com/UsamG1t/NeuroPysnap"
-REPOSITORY_BRANCH = "main"
+REPOSITORY_BRANCH = "master"
 _wheel_file_name = (
     f"{re.sub(r'[-_.]+', '_', _distribution_name).lower()}"
     f"-{release}-py3-none-any.whl"
 )
 _latest_wheel_url = (
-    f"{REPOSITORY_URL}/raw/{REPOSITORY_BRANCH}/dist/{_wheel_file_name}"
+    f"{REPOSITORY_URL}/raw/refs/heads/{REPOSITORY_BRANCH}/dist/{_wheel_file_name}"
 )
 _dist_directory_url = f"{REPOSITORY_URL}/tree/{REPOSITORY_BRANCH}/dist"
 
