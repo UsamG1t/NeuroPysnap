@@ -5,19 +5,22 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import shutil
 from typing import Sequence, TextIO
 
 from pysnap.core.service import PySnapService
+from pysnap.errors import PySnapError
+from pysnap.report.highlight import highlight_transcript
 from pysnap.report.models import (
     CellStyle,
     CommandRecord,
     Recording,
     StyledRun,
     Transcript,
-    TranscriptLine,
 )
+from pysnap.report.player import DEFAULT_MAX_DELAY, PlaybackController, ReplayPlayer
 from pysnap.report.recording import load_report
-from pysnap.report.render import PROMPT_PATTERN, render_transcript
+from pysnap.report.render import render_transcript
 
 _ANSI_COLORS = {
     "black": 0,
@@ -32,15 +35,6 @@ _ANSI_COLORS = {
 }
 _HEX_COLOR = re.compile(r"^[0-9a-fA-F]{6}$")
 _RESET = "\x1b[0m"
-
-# Colors of the ``report`` prompt parts in ``pysnap report text``: the prompt
-# is recorded without colors, so PySnap highlights it like a typical colored
-# bash prompt.
-PROMPT_USER_STYLE = CellStyle(fg="green", bold=True)
-PROMPT_HOST_STYLE = CellStyle(fg="cyan", bold=True)
-PROMPT_DIRECTORY_STYLE = CellStyle(fg="blue", bold=True)
-PROMPT_MARK_STYLE = CellStyle(bold=True)
-COMMAND_STYLE = CellStyle(bold=True)
 
 
 def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentParser:
@@ -85,6 +79,40 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
         default="auto",
         help="Highlight output: auto (default) colors only a terminal.",
     )
+    text.add_argument(
+        "--no-pager",
+        action="store_true",
+        help="Print directly even when the text is longer than the terminal.",
+    )
+
+    show = subcommands.add_parser(
+        "show",
+        help="Replay a report with its timing in a safe terminal view.",
+        description=(
+            "Replay a recorded session with its timing. Keys: Space pause, "
+            "+/- speed, n/p next or previous command, Home/End start or end, "
+            "q quit; while paused Alt+Up/Down scroll the history."
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    show.add_argument("report", help="Report file, for example report.01.first.")
+    show.add_argument(
+        "--speed",
+        type=float,
+        default=1.0,
+        help="Initial speed: 0.25, 0.5, 1, 2, 4, 8 or 16 (default 1).",
+    )
+    show.add_argument(
+        "--max-delay",
+        type=float,
+        default=DEFAULT_MAX_DELAY,
+        metavar="SECONDS",
+        help=(
+            "Shorten pauses longer than this, like scriptreplay -m "
+            f"(default {DEFAULT_MAX_DELAY:g}; 0 keeps real pauses)."
+        ),
+    )
     return parser
 
 
@@ -105,6 +133,8 @@ def run_report_command(
     namespace = build_report_parser(stdout, stderr).parse_args(list(arguments))
     if namespace.subcommand == "text":
         return _run_text(namespace, stdout, stderr)
+    if namespace.subcommand == "show":
+        return _run_show(namespace, stdout, stderr)
     return 1
 
 
@@ -123,8 +153,40 @@ def _run_text(namespace: argparse.Namespace, stdout: TextIO, stderr: TextIO) -> 
         print(format_command_list(transcript.commands), file=stdout)
         return 0
     color = _use_color(namespace.color, stdout)
+    if not namespace.no_pager and _needs_pager(len(transcript.lines), stdout):
+        from pysnap.report.viewer import run_pager
+
+        highlighted = highlight_transcript(transcript)
+        if not color:
+            highlighted = [(StyledRun("".join(run.text for run in runs)),) for runs in highlighted]
+        run_pager(recording.source_name, highlighted)
+        return 0
     for line in format_transcript(transcript, color=color):
         print(line, file=stdout)
+    return 0
+
+
+def _run_show(namespace: argparse.Namespace, stdout: TextIO, stderr: TextIO) -> int:
+    """Run ``pysnap report show``.
+
+    :param namespace: Parsed arguments.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :returns: Process exit code.
+    :raises PySnapError: When the output is not an interactive terminal.
+    """
+    if not _is_terminal(stdout):
+        raise PySnapError(
+            "pysnap report show needs an interactive terminal; "
+            "use pysnap report text for redirected output."
+        )
+    recording = load_report(namespace.report)
+    transcript = render_transcript(recording)
+    _print_diagnostics(recording, transcript, stderr)
+    player = ReplayPlayer(recording, transcript, max_delay=namespace.max_delay)
+    from pysnap.report.viewer import run_player
+
+    run_player(PlaybackController(player, speed=namespace.speed), recording.source_name)
     return 0
 
 
@@ -135,22 +197,9 @@ def format_transcript(transcript: Transcript, *, color: bool) -> list[str]:
     :param color: Whether to emit ANSI styles.
     :returns: Output lines.
     """
-    highlighted = {command.line: command for command in transcript.commands}
-    continuation: set[int] = set()
-    for command in transcript.commands:
-        continuation.update(range(command.line + 1, command.output_start))
-
-    rendered: list[str] = []
-    for number, line in enumerate(transcript.lines):
-        if not color:
-            rendered.append(line.text)
-        elif number in highlighted:
-            rendered.append(_render_runs(_command_line_runs(line, highlighted[number])))
-        elif number in continuation:
-            rendered.append(_render_runs([StyledRun(line.text, COMMAND_STYLE)]))
-        else:
-            rendered.append(_render_runs(line.runs))
-    return rendered
+    if not color:
+        return [line.text for line in transcript.lines]
+    return [_render_runs(runs) for runs in highlight_transcript(transcript)]
 
 
 def format_command_list(commands: Sequence[CommandRecord]) -> str:
@@ -170,32 +219,6 @@ def format_command_list(commands: Sequence[CommandRecord]) -> str:
             line += f"  [prompt: {command.prompt}]"
         rendered.append(line)
     return "\n".join(rendered)
-
-
-def _command_line_runs(line: TranscriptLine, command: CommandRecord) -> list[StyledRun]:
-    """Style the first line of a command: prompt parts and the input."""
-    text = line.text
-    prompt_text, input_text = text[: command.column], text[command.column:]
-    runs: list[StyledRun] = []
-    match = PROMPT_PATTERN.match(prompt_text.rstrip())
-    if match is not None:
-        runs.extend(
-            [
-                StyledRun("["),
-                StyledRun(match["user"], PROMPT_USER_STYLE),
-                StyledRun("@"),
-                StyledRun(f"{match['task']}-{match['host']}", PROMPT_HOST_STYLE),
-                StyledRun(" "),
-                StyledRun(match["dir"], PROMPT_DIRECTORY_STYLE),
-                StyledRun("]"),
-                StyledRun(prompt_text.rstrip()[-1], PROMPT_MARK_STYLE),
-                StyledRun(prompt_text[len(prompt_text.rstrip()):]),
-            ]
-        )
-    else:
-        runs.append(StyledRun(prompt_text))
-    runs.append(StyledRun(input_text, COMMAND_STYLE))
-    return runs
 
 
 def _render_runs(runs: Sequence[StyledRun]) -> str:
@@ -248,8 +271,24 @@ def _use_color(mode: str, stdout: TextIO) -> bool:
         return True
     if mode == "never" or os.environ.get("NO_COLOR"):
         return False
-    isatty = getattr(stdout, "isatty", None)
+    return _is_terminal(stdout)
+
+
+def _is_terminal(stream: TextIO) -> bool:
+    """Return whether a stream is an interactive terminal."""
+    isatty = getattr(stream, "isatty", None)
     return bool(isatty and isatty())
+
+
+def _needs_pager(line_count: int, stdout: TextIO) -> bool:
+    """Return whether ``text`` output should open the pager.
+
+    The pager opens only for a terminal and only when the text does not fit
+    on the screen.
+    """
+    if not _is_terminal(stdout):
+        return False
+    return line_count > shutil.get_terminal_size(fallback=(80, 24)).lines
 
 
 def _print_diagnostics(recording: Recording, transcript: Transcript, stderr: TextIO) -> None:

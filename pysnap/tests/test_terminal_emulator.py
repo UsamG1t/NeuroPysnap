@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import unittest
 
-from pysnap.terminal.emulator import TerminalEmulator, _normalize_style_color
+from pysnap.terminal.emulator import (
+    TerminalEmulator,
+    _normalize_style_color,
+    is_invisible_character,
+)
 
 
 def _visible_lines(emulator: TerminalEmulator) -> list[str]:
@@ -36,6 +40,30 @@ class TerminalEmulatorTests(unittest.TestCase):
     def test_normalize_style_color_ignores_default_color(self) -> None:
         """Skip default color markers instead of rendering invalid styles."""
         self.assertIsNone(_normalize_style_color("default"))
+
+    def test_invisible_characters_do_not_hide_following_text(self) -> None:
+        """Skip zero-width characters instead of losing the rest of the chunk."""
+        emulator = TerminalEmulator(columns=20, lines=2)
+        emulator.feed("ab\u202ecd x\u200by".encode())
+
+        self.assertEqual(_visible_lines(emulator)[0], "abcd xy")
+
+    def test_invisible_characters_can_be_shown_as_placeholders(self) -> None:
+        """Draw a visible placeholder when one is requested."""
+        emulator = TerminalEmulator(columns=20, lines=2, invisible_replacement="?")
+        emulator.feed("ab\u202ecd".encode())
+
+        self.assertEqual(_visible_lines(emulator)[0], "ab?cd")
+
+    def test_combining_marks_are_not_invisible(self) -> None:
+        """Keep combining accents attached to their base character."""
+        self.assertFalse(is_invisible_character("\u0301"))
+        self.assertTrue(is_invisible_character("\u200b"))
+        self.assertFalse(is_invisible_character("a"))
+        emulator = TerminalEmulator(columns=20, lines=2)
+        emulator.feed("e\u0301!".encode())
+
+        self.assertEqual(_visible_lines(emulator)[0], "\u00e9!")
 
     def test_scroll_up_and_down_navigate_local_history(self) -> None:
         """Expose older and newer lines without affecting guest output."""

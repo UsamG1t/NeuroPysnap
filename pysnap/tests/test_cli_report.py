@@ -138,12 +138,76 @@ class ReportTextCommandTests(unittest.TestCase):
         self.assertEqual(output, "")
         self.assertTrue(errors.startswith("Error: File"))
 
+    def test_opens_the_pager_only_for_long_text_on_terminals(self) -> None:
+        """Page long text on terminals and print it otherwise."""
+        size = __import__("os").terminal_size((80, 5))
+        with patch("pysnap.cli.report.shutil.get_terminal_size", return_value=size), patch(
+            "pysnap.report.viewer.run_pager"
+        ) as run_pager:
+            code, output, _ = self._run("report", "text", str(self.report), stdout=_TtyStringIO())
+            _, piped, _ = self._run("report", "text", str(self.report))
+            _, no_pager, _ = self._run(
+                "report", "text", str(self.report), "--no-pager", stdout=_TtyStringIO()
+            )
+
+        self.assertEqual(code, 0)
+        self.assertEqual(output, "")
+        run_pager.assert_called_once()
+        title, lines = run_pager.call_args.args
+        self.assertEqual(title, "report.01.first")
+        self.assertEqual(len(lines), 7)
+        self.assertEqual(lines[0][-1].text, "ip a show eth1")
+        self.assertIn("exit", piped)
+        self.assertIn("exit", no_pager)
+
+    def test_prints_short_text_without_the_pager(self) -> None:
+        """Print text that fits on the terminal directly."""
+        size = __import__("os").terminal_size((80, 50))
+        with patch("pysnap.cli.report.shutil.get_terminal_size", return_value=size), patch(
+            "pysnap.report.viewer.run_pager"
+        ) as run_pager:
+            _, output, _ = self._run("report", "text", str(self.report), stdout=_TtyStringIO())
+
+        run_pager.assert_not_called()
+        self.assertIn("exit", output)
+
+    def test_show_starts_the_player_with_options(self) -> None:
+        """Start the player with the requested speed and pause limit."""
+        with patch("pysnap.report.viewer.run_player") as run_player:
+            code, _, _ = self._run(
+                "report", "show", str(self.report), "--speed", "4", "--max-delay", "0.5",
+                stdout=_TtyStringIO(),
+            )
+
+        self.assertEqual(code, 0)
+        controller, title = run_player.call_args.args
+        self.assertEqual(title, "report.01.first")
+        self.assertEqual(controller.speed, 4.0)
+        self.assertTrue(controller.playing)
+        self.assertEqual(len(controller.player.command_times), 2)
+        self.assertTrue(all(event_delay <= 0.5 + 1e-9 for event_delay in _delays(controller.player)))
+
+    def test_show_requires_a_terminal(self) -> None:
+        """Refuse to replay into redirected output."""
+        with patch("pysnap.report.viewer.run_player") as run_player:
+            code, _, errors = self._run("report", "show", str(self.report))
+
+        self.assertEqual(code, 1)
+        self.assertIn("interactive terminal", errors)
+        run_player.assert_not_called()
+
     def test_requires_a_subcommand(self) -> None:
         """Refuse ``pysnap report`` without a subcommand."""
         code, _, errors = self._run("report")
 
         self.assertEqual(code, 2)
         self.assertIn("SUBCOMMAND", errors)
+
+
+def _delays(player) -> list[float]:
+    """Return the gaps between consecutive events on the player timeline."""
+    times = [0.0, *player.event_times]
+    return [later - earlier for earlier, later in zip(times, times[1:])]
 
 
 if __name__ == "__main__":

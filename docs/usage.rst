@@ -387,6 +387,20 @@ so the list shows what was actually executed.
 Problems found in the report, such as a truncated recording, are printed as
 warnings to the error stream; the available text is still shown.
 
+When the output is a terminal and the text is longer than the screen, ``text``
+opens a pager. Like ``less -S``, the pager keeps the recorded line layout:
+lines longer than the window are cut at its edge, and ``>`` or ``<`` in the
+edge column marks text hidden to the right or left.
+
+- ``Up``/``Down`` or ``k``/``j`` scroll by a line
+- ``PageUp``/``PageDown``, ``b`` and ``Space`` scroll by a page
+- ``g``/``Home`` and ``G``/``End`` jump to the start or end
+- ``Left``/``Right`` shift the view by half the window width
+- the mouse wheel scrolls on Linux
+- ``q`` or ``Ctrl-Q`` quits
+
+``--no-pager`` prints the text directly.
+
 .. code-block:: text
 
    pysnap report text report.01.first
@@ -394,4 +408,28 @@ warnings to the error stream; the available text is still shown.
    1  00:17.05  ip a show eth1
    2  00:29.86  ping -c5 10.9.0.2
    pysnap report text report.01.first --color never > report.01.first.txt
+   pysnap report text report.01.first --no-pager
+
+The ``show`` subcommand replays the session with its timing in a safe
+terminal view of the recorded size. Pauses longer than ``--max-delay``
+seconds (1 by default, ``0`` keeps the real pauses) are shortened, like
+``scriptreplay -m``, and ``--speed`` selects the initial speed. When the
+window is smaller than the recorded screen, the view is clipped around the
+cursor and the status line reports the recorded size.
+
+- ``Space`` pauses and resumes playback; resuming at the end starts over
+- ``+`` and ``-`` change the speed between x0.25 and x16
+- ``n`` and ``p`` jump to the start of the next or previous command
+- ``Home`` and ``End`` jump to the start or the end of the recording
+- while paused, ``Alt-Up``/``Alt-Down`` and the mouse wheel on Linux scroll
+  the screen history
+- ``q`` or ``Ctrl-Q`` quits
+
+Characters that would be invisible, such as zero-width spaces or
+bidirectional overrides, are shown as ``?`` in ``text`` and ``show``.
+
+.. code-block:: text
+
+   pysnap report show report.01.first
+   pysnap report show report.01.first --speed 4 --max-delay 0.5
 

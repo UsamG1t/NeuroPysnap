@@ -114,7 +114,8 @@ def build_root_parser(
             "  pysnap clone BASE_VM CLONE_VM [-p PORT] [INTNET1 [INTNET2 [INTNET3]]]\n"
             "  pysnap erase [--clones-only] [--all | --group GROUP | VM]\n"
             "  pysnap full-clean [--path DIRECTORY ...]\n"
-            "  pysnap report text REPORT [--commands] [--color WHEN]"
+            "  pysnap report text REPORT [--commands] [--color WHEN] [--no-pager]\n"
+            "  pysnap report show REPORT [--speed X] [--max-delay SECONDS]"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         stdout=stdout,

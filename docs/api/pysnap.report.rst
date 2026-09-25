@@ -17,10 +17,26 @@ pysnap.report.archive module
    :show-inheritance:
    :undoc-members:
 
+pysnap.report.highlight module
+------------------------------
+
+.. automodule:: pysnap.report.highlight
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 pysnap.report.models module
 ---------------------------
 
 .. automodule:: pysnap.report.models
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pysnap.report.player module
+---------------------------
+
+.. automodule:: pysnap.report.player
    :members:
    :show-inheritance:
    :undoc-members:
@@ -37,6 +53,14 @@ pysnap.report.render module
 ---------------------------
 
 .. automodule:: pysnap.report.render
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pysnap.report.viewer module
+---------------------------
+
+.. automodule:: pysnap.report.viewer
    :members:
    :show-inheritance:
    :undoc-members:

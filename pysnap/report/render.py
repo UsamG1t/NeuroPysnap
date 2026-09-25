@@ -18,12 +18,9 @@ from __future__ import annotations
 
 import re
 from typing import Callable
-import unicodedata
 
 import pyte
-# ``pyte`` decides what to draw with this cached ``wcwidth``; using the same
-# function keeps the visibility rule identical and adds no dependency.
-from pyte.screens import Char, Margins, wcwidth
+from pyte.screens import Char, Margins
 
 from pysnap.report.models import (
     CellStyle,
@@ -36,6 +33,7 @@ from pysnap.report.models import (
     Transcript,
     TranscriptLine,
 )
+from pysnap.terminal.emulator import is_invisible_character
 
 DEFAULT_COLUMNS = 80
 DEFAULT_LINES = 24
@@ -200,12 +198,9 @@ class _Renderer:
 
     def _handle_signal(self, data: bytes) -> None:
         """Apply a recorded terminal resize."""
-        match = _RESIZE_PATTERN.search(data.decode("ascii", errors="replace"))
-        if match and int(match["rows"]) > 0 and int(match["cols"]) > 0:
-            self.screen.resize(
-                self._clamp_size(int(match["rows"])),
-                self._clamp_size(int(match["cols"])),
-            )
+        size = parse_resize(data)
+        if size is not None:
+            self.screen.resize(self._clamp_size(size[0]), self._clamp_size(size[1]))
 
     def _clamp_size(self, size: int) -> int:
         """Limit a recorded screen dimension, reporting the first clamp."""
@@ -344,6 +339,18 @@ def render_transcript(
     return _Renderer(recording, max_lines, max_screen_size).run()
 
 
+def parse_resize(data: bytes) -> tuple[int, int] | None:
+    """Parse a ``SIGWINCH ROWS=<n> COLS=<n>`` signal entry.
+
+    :param data: Signal description from an ``S`` timing entry.
+    :returns: ``(rows, columns)`` or ``None`` for other or invalid signals.
+    """
+    match = _RESIZE_PATTERN.search(data.decode("ascii", errors="replace"))
+    if match is None or int(match["rows"]) <= 0 or int(match["cols"]) <= 0:
+        return None
+    return int(match["rows"]), int(match["cols"])
+
+
 def parse_prompt(prompt: str) -> PromptInfo | None:
     """Parse the prompt installed by ``report``.
 
@@ -369,10 +376,7 @@ def _prompt_width(row_text: str) -> int:
 
 def _visible_character(char: str) -> str:
     """Replace a character ``pyte`` would silently drop with ``?``."""
-    width = wcwidth(char)
-    if width < 0 or (width == 0 and not unicodedata.combining(char)):
-        return "?"
-    return char
+    return "?" if is_invisible_character(char) else char
 
 
 def _row_has_text(row: dict[int, Char]) -> bool:

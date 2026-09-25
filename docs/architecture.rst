@@ -12,7 +12,8 @@ Package Layout
 - ``pysnap/docs`` stores compiled HTML documentation bundled with the wheel.
 - ``pysnap.report`` reads session reports recorded inside VMs by the
   ``report`` utility: safe archive loading, parsing of the ``script``
-  recording and rendering of the session text and commands.
+  recording, rendering of the session text and commands, timed replay and
+  the interactive pager and player.
 - ``pysnap.runtime`` contains the live-session registry shared by runtime tools.
 - ``pysnap.terminal`` contains the built-in serial terminal transport, emulator,
   key mapping, terminal-query responder, and interactive UI session logic.
@@ -42,6 +43,7 @@ Package Relationship Diagram
           cli -> core [label="command dispatch"];
           cli -> terminal [label="connect"];
           cli -> report [label="report"];
+          report -> terminal [label="emulator, UI controls"];
           core -> config [label=".ptotosettings"];
           core -> runtime [label="session registry"];
           core -> vbox [label="VBoxManage operations"];
@@ -210,6 +212,38 @@ skipped by starting the command after the last ``report`` prompt in the line.
 entered commands, keeps the colors produced by the guest, and emits ANSI
 styles only for terminals unless ``--color`` says otherwise. The styles are
 generated from the parsed cell attributes, never copied from the report.
+
+Report Viewing Strategy
+-----------------------
+
+``pysnap.report.highlight`` turns a transcript into styled runs with the
+highlighted ``report`` prompt and bold commands; the ANSI printer of
+``pysnap report text`` and the pager both draw these runs. The pager opens
+only when the output is a terminal and the text is longer than the screen.
+A report is an image of a fixed-width terminal, so the pager cuts long lines
+at the window edge like ``less -S`` instead of wrapping them: tables such as
+``ip route`` or ``tcpdump -X`` dumps keep their columns, edge markers show
+hidden text, and ``Left``/``Right`` shift the view by half a window.
+
+``pysnap.report.player`` replays a recording without any user interface: it
+owns a ``TerminalEmulator`` of the recorded size and moves it to any moment of
+a compressed timeline on which every pause is limited to ``--max-delay``
+seconds, like ``scriptreplay -m``. Seeking backwards replays from the start.
+``PlaybackController`` holds the play, pause, speed and command-jump state
+that the key bindings change. ``pysnap.report.viewer`` draws the player in a
+full-screen window at the recorded size; when the window is smaller, the view
+is clipped around the cursor and the status line says so. Both viewers reuse
+the scrollable control and mouse-wheel handling of ``pysnap connect``.
+
+Invisible Character Strategy
+----------------------------
+
+``pyte`` stops drawing the rest of an output chunk at the first character
+without width that is not a combining mark, such as U+200B or U+202E. The
+``TerminalEmulator`` therefore replaces such characters before drawing: the
+live ``pysnap connect`` terminal skips them like a regular terminal does,
+while report views show them as ``?`` so that hidden characters in a student
+report stay visible to the reader.
 
 Documentation Packaging Strategy
 --------------------------------
