@@ -10,6 +10,9 @@ Package Layout
 - ``pysnap.config`` contains persistent configuration helpers.
 - ``pysnap.core`` contains domain models and the main application service.
 - ``pysnap/docs`` stores compiled HTML documentation bundled with the wheel.
+- ``pysnap.report`` reads session reports recorded inside VMs by the
+  ``report`` utility: safe archive loading and parsing of the ``script``
+  recording.
 - ``pysnap.runtime`` contains the live-session registry shared by runtime tools.
 - ``pysnap.terminal`` contains the built-in serial terminal transport, emulator,
   key mapping, terminal-query responder, and interactive UI session logic.
@@ -149,6 +152,32 @@ an empty listing, so the user sees ``No virtual machines found.`` instead of a
 hanging process. Other ``VBoxManage`` operations keep running without a
 timeout because imports, snapshots, and clone creation are legitimately
 long-running.
+
+Report Reading Strategy
+-----------------------
+
+Students record their work inside the educational VMs with the ``report``
+utility from the `vbsnap <https://github.com/FrBrGeorge/vbsnap>`_ scripts. It
+runs ``script -I IN.txt -O OUT.txt -B BOTH.txt -T TIME.txt`` and packs the
+logs together with ``lscpu`` output (``CPU.txt``) into a ``tar.gz`` file named
+``report.<NN>.<host>``.
+
+A report is untrusted input, so ``pysnap.report.archive`` never extracts it
+to disk. The archive is streamed once through a byte counter: only regular
+files with the five known names are read into memory, while links, devices,
+path-traversal names and unknown entries are skipped with a diagnostic. The
+compressed size, the size of one member and the total decompressed size are
+bounded by ``ReportLimits``, which protects against decompression bombs.
+
+``pysnap.report.recording`` parses the multi-stream timing log of
+util-linux ``script``. ``H`` lines carry headers such as ``START_TIME``,
+``COLUMNS``, ``DURATION`` and ``EXIT_CODE``; ``I`` and ``O`` lines carry the
+byte sizes of input and output chunks; ``S`` lines carry signals such as
+terminal resizes. The byte sizes address the stream logs between their
+``Script started on`` line and ``Script done on`` trailer, so the parser can
+check that the timing log and the stream logs describe exactly the same bytes.
+Truncated or inconsistent reports produce diagnostics instead of errors; only
+a report without ``TIME.txt`` or ``OUT.txt`` is rejected.
 
 Documentation Packaging Strategy
 --------------------------------
