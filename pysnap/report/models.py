@@ -124,3 +124,96 @@ class Recording:
     cpu_info: str = ""
     mtimes: dict[str, int] = field(default_factory=dict)
     diagnostics: tuple[ReportDiagnostic, ...] = ()
+
+
+@dataclass(frozen=True)
+class CellStyle:
+    """Represent the visual attributes of rendered terminal text.
+
+    Colors keep the ``pyte`` notation: ``"default"``, an ANSI color name such
+    as ``"red"`` or ``"brightred"``, or a six-digit hex value.
+    """
+
+    fg: str = "default"
+    bg: str = "default"
+    bold: bool = False
+    italics: bool = False
+    underscore: bool = False
+    strikethrough: bool = False
+    reverse: bool = False
+
+
+PLAIN_STYLE = CellStyle()
+
+
+@dataclass(frozen=True)
+class StyledRun:
+    """Represent consecutive characters that share one style."""
+
+    text: str
+    style: CellStyle = PLAIN_STYLE
+
+
+@dataclass(frozen=True)
+class TranscriptLine:
+    """Represent one rendered line of the session transcript."""
+
+    runs: tuple[StyledRun, ...] = ()
+
+    @property
+    def text(self) -> str:
+        """Return the plain text of the line."""
+        return "".join(run.text for run in self.runs)
+
+
+@dataclass(frozen=True)
+class PromptInfo:
+    """Represent the parts of the prompt installed by ``report``.
+
+    ``report`` sets ``PS1="[\\u@NN-HOST \\W]# "``.
+    """
+
+    user: str
+    task: int
+    host: str
+    directory: str
+
+
+@dataclass(frozen=True)
+class CommandRecord:
+    """Represent one input line submitted with Enter.
+
+    :param index: Zero-based position among all recorded commands.
+    :param time: Recording time of the Enter key press in seconds.
+    :param line: Transcript line where the input starts.
+    :param column: Column where the input starts, i.e. the prompt width.
+    :param prompt: Text left of the input on its first line.
+    :param text: Submitted input as displayed by the shell.
+    :param prompt_info: Parsed ``report`` prompt, ``None`` for other prompts
+        such as ``vtysh`` or a remote shell.
+    :param first_event: Index of the first input event of this line.
+    :param enter_event: Index of the input event that contained Enter.
+    :param output_start: First transcript line after the input.
+    :param output_end: Transcript line after the last output line.
+    """
+
+    index: int
+    time: float
+    line: int
+    column: int
+    prompt: str
+    text: str
+    prompt_info: PromptInfo | None
+    first_event: int
+    enter_event: int
+    output_start: int
+    output_end: int
+
+
+@dataclass(frozen=True)
+class Transcript:
+    """Represent the rendered session: final text and recognized commands."""
+
+    lines: tuple[TranscriptLine, ...]
+    commands: tuple[CommandRecord, ...]
+    diagnostics: tuple[ReportDiagnostic, ...] = ()

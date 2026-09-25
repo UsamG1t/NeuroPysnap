@@ -35,6 +35,8 @@ terminal, and removing virtual machines with dependency checks.
 - Wipe the VirtualBox machine and configuration directories with
   `pysnap full-clean` after a double interactive confirmation, with
   OS-specific defaults and explicit `--path` overrides.
+- Read student session reports recorded with the ``report`` utility safely
+  and print their text with highlighted prompts and commands.
 - Run an end-to-end integration test that now verifies VM startup and monitor
   state transitions in addition to creation and cleanup.
 
@@ -55,6 +57,7 @@ pysnap stop [<VM> | --all]
 pysnap clone <BaseVM> <CloneVM> [-p PORT] [<int1-net> [<int2-net> [<int3-net>]]]
 pysnap erase [--clones-only] [--all | --group GROUP | <VM>]
 pysnap full-clean [--path DIRECTORY ...]
+pysnap report text REPORT [--commands] [--color WHEN]
 ```
 
 ## Development
@@ -171,6 +174,15 @@ pysnap full-clean --path /data/vms --path /data/vbox-config
 When the VirtualBox data directories are missing, for example right after a
 full clean, `pysnap list` reports `No virtual machines found.` and exits
 cleanly instead of waiting on an unresponsive `VBoxManage`.
+
+Print a student report as text or list the entered commands:
+
+```bash
+pysnap report text report.01.first
+pysnap report text report.01.first --commands
+1  00:17.05  ip a show eth1
+2  00:29.86  ping -c5 10.9.0.2
+```
 
 ## Proto Settings
 

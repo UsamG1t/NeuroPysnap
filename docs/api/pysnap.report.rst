@@ -32,3 +32,11 @@ pysnap.report.recording module
    :members:
    :show-inheritance:
    :undoc-members:
+
+pysnap.report.render module
+---------------------------
+
+.. automodule:: pysnap.report.render
+   :members:
+   :show-inheritance:
+   :undoc-members:

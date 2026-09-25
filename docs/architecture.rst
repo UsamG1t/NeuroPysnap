@@ -11,8 +11,8 @@ Package Layout
 - ``pysnap.core`` contains domain models and the main application service.
 - ``pysnap/docs`` stores compiled HTML documentation bundled with the wheel.
 - ``pysnap.report`` reads session reports recorded inside VMs by the
-  ``report`` utility: safe archive loading and parsing of the ``script``
-  recording.
+  ``report`` utility: safe archive loading, parsing of the ``script``
+  recording and rendering of the session text and commands.
 - ``pysnap.runtime`` contains the live-session registry shared by runtime tools.
 - ``pysnap.terminal`` contains the built-in serial terminal transport, emulator,
   key mapping, terminal-query responder, and interactive UI session logic.
@@ -34,12 +34,14 @@ Package Relationship Diagram
           cli [label="pysnap.cli"];
           config [label="pysnap.config"];
           core [label="pysnap.core"];
+          report [label="pysnap.report"];
           runtime [label="pysnap.runtime"];
           terminal [label="pysnap.terminal"];
           vbox [label="pysnap.vbox"];
 
           cli -> core [label="command dispatch"];
           cli -> terminal [label="connect"];
+          cli -> report [label="report"];
           core -> config [label=".ptotosettings"];
           core -> runtime [label="session registry"];
           core -> vbox [label="VBoxManage operations"];
@@ -178,6 +180,36 @@ terminal resizes. The byte sizes address the stream logs between their
 check that the timing log and the stream logs describe exactly the same bytes.
 Truncated or inconsistent reports produce diagnostics instead of errors; only
 a report without ``TIME.txt`` or ``OUT.txt`` is rejected.
+
+Report Rendering Strategy
+-------------------------
+
+``pysnap.report.render`` replays the recorded output through a ``pyte``
+screen of the recorded size and applies recorded terminal resizes. Lines that
+scroll off the top, lines dropped when the screen shrinks and the visible
+text wiped by a full-screen erase such as ``clear`` are copied into the
+transcript, so the transcript holds everything the student saw. Characters
+without width that ``pyte`` would silently drop, together with control
+characters and bidirectional overrides, are shown as ``?``: the reader never
+sees hidden text, and nothing from the report reaches the reader's terminal
+as a control sequence. Recorded screen sizes are clamped (1000 rows and
+columns by default) and the transcript length is bounded, so a crafted report
+cannot make rendering arbitrarily expensive.
+
+Commands are read from the screen, not from the raw keystrokes, because the
+keystrokes contain line editing, cursor movement and history recall that only
+the shell resolves. The input of a line starts where the cursor stood at its
+first keystroke, which also covers prompts of other programs such as
+``vtysh`` or a remote shell. When Enter is pressed, the next output chunk is
+fed up to its first line feed and the logical input line, including wrapped
+rows, is read at that moment. ``Ctrl-C``, ``Ctrl-D`` and ``Ctrl-Z`` abandon
+the current input line. Keys typed ahead while a program was running are
+skipped by starting the command after the last ``report`` prompt in the line.
+
+``pysnap report text`` highlights the ``report`` prompt parts and the
+entered commands, keeps the colors produced by the guest, and emits ANSI
+styles only for terminals unless ``--color`` says otherwise. The styles are
+generated from the parsed cell attributes, never copied from the report.
 
 Documentation Packaging Strategy
 --------------------------------

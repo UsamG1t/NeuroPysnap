@@ -16,6 +16,7 @@ from pysnap.cli.formatters import (
     format_monitor_records,
     format_vm_info,
 )
+from pysnap.cli.report import run_report_command
 from pysnap.core.service import PySnapService
 from pysnap.docview import open_bundled_documentation
 from pysnap.errors import CommandExecutionError, PySnapError
@@ -112,7 +113,8 @@ def build_root_parser(
             "  pysnap stop [VM | --all]\n"
             "  pysnap clone BASE_VM CLONE_VM [-p PORT] [INTNET1 [INTNET2 [INTNET3]]]\n"
             "  pysnap erase [--clones-only] [--all | --group GROUP | VM]\n"
-            "  pysnap full-clean [--path DIRECTORY ...]"
+            "  pysnap full-clean [--path DIRECTORY ...]\n"
+            "  pysnap report text REPORT [--commands] [--color WHEN]"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         stdout=stdout,
@@ -181,6 +183,8 @@ def run_cli(
             return _run_clone(arguments[1:], app_service, output, error_output)
         if command == "erase":
             return _run_erase(arguments[1:], app_service, output, error_output)
+        if command == "report":
+            return run_report_command(arguments[1:], app_service, output, error_output)
         root_parser.error("unknown command. Run `pysnap --help` to see available commands.")
     except ParserExit as error:
         return error.status

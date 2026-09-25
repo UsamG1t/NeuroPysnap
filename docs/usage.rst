@@ -361,3 +361,37 @@ same behavior applies on every supported operating system.
 
    pysnap full-clean
    pysnap full-clean --path /data/vms --path /data/vbox-config
+
+Read Session Reports
+--------------------
+
+Students record their work inside the educational VMs with the ``report``
+utility, which produces a ``report.<NN>.<host>`` archive. The
+``pysnap report`` command reads such archives safely: nothing is extracted to
+disk and nothing from the report is sent to the terminal as a raw control
+sequence.
+
+The ``text`` subcommand prints the text of the session without timing, as the
+student saw it. The prompt installed by ``report`` is highlighted and the
+entered commands are shown in bold; colors produced inside the VM are kept.
+Colors are used only when the output is a terminal; ``--color always`` or
+``--color never`` overrides the detection, and the ``NO_COLOR`` environment
+variable disables colors.
+
+The ``--commands`` option prints only the numbered list of entered commands
+with the time since the start of the recording. Commands typed at the prompt
+of another program, for example inside ``vtysh``, are marked with that
+prompt. Line editing, history recall and interrupted commands are resolved,
+so the list shows what was actually executed.
+
+Problems found in the report, such as a truncated recording, are printed as
+warnings to the error stream; the available text is still shown.
+
+.. code-block:: text
+
+   pysnap report text report.01.first
+   pysnap report text report.01.first --commands
+   1  00:17.05  ip a show eth1
+   2  00:29.86  ping -c5 10.9.0.2
+   pysnap report text report.01.first --color never > report.01.first.txt
+
