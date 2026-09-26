@@ -269,6 +269,20 @@ stops it on pathological check files: the best complete assignment is used
 and a warning is printed. Explanations for failed items are computed after
 the search from the final label values.
 
+Report Transfer Strategy
+------------------------
+
+``pysnap.report.extract`` reuses the ``UART1`` TCP endpoint of the VM. The
+service checks the VM state, the serial port and the session registry first,
+because VirtualBox accepts only one client on the port. On the console the
+transfer relies on the guest shell and coreutils only: an arithmetic ``echo``
+proves a working shell (its answer never appears in the echoed command), one
+command prints the file as a single ``base64`` line and its ``sha256sum``
+between random markers, and the markers are split in the command so that the
+echo of the command never looks like a marker. The host verifies the
+checksum and writes the file atomically. The ``report`` prompt is detected
+before any command is sent, so a running recording is never modified.
+
 Invisible Character Strategy
 ----------------------------
 

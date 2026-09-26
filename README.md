@@ -40,7 +40,8 @@ terminal, and removing virtual machines with dependency checks.
   them with timing, speed control and jumps between commands; show report
   information and statistics: identity, timing, commands, pauses, typing,
   pasted input, addresses and integrity checks; grade a report against a
-  TOML check file with expected commands, output blocks and labeled values.
+  TOML check file with expected commands, output blocks and labeled values;
+  copy reports out of running VMs through the serial console.
 - Run an end-to-end integration test that now verifies VM startup and monitor
   state transitions in addition to creation and cleanup.
 
@@ -64,6 +65,7 @@ pysnap full-clean [--path DIRECTORY ...]
 pysnap report text REPORT [--commands] [--color WHEN] [--no-pager]
 pysnap report show REPORT [--speed X] [--max-delay SECONDS]
 pysnap report check REPORT [CHECK]
+pysnap report extract VM NAME [--output PATH] [--force]
 ```
 
 ## Development

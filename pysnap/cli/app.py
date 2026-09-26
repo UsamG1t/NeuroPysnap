@@ -116,7 +116,8 @@ def build_root_parser(
             "  pysnap full-clean [--path DIRECTORY ...]\n"
             "  pysnap report text REPORT [--commands] [--color WHEN] [--no-pager]\n"
             "  pysnap report show REPORT [--speed X] [--max-delay SECONDS]\n"
-            "  pysnap report check REPORT [CHECK]"
+            "  pysnap report check REPORT [CHECK]\n"
+            "  pysnap report extract VM NAME [--output PATH] [--force]"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         stdout=stdout,

@@ -259,6 +259,41 @@ class ReportTextCommandTests(unittest.TestCase):
         self.assertEqual(output, "")
         self.assertIn("[grading] table with total and scale is required", errors)
 
+    def test_extract_copies_and_validates_the_file(self) -> None:
+        """Print the transfer summary and warn when the file is no report."""
+        from pysnap.report.extract import ExtractResult
+
+        target = Path(self._temp_dir.name) / "copied"
+
+        def fake_extract(service, vm, name, *, destination, force):
+            target.write_bytes(self.report.read_bytes() if name == "report.01.first" else b"text")
+            return ExtractResult(vm, f'"$HOME"/{name}', target, 3, "abc")
+
+        with patch("pysnap.cli.report.extract_file", side_effect=fake_extract) as extract:
+            code, output, errors = self._run(
+                "report", "extract", "first", "report.01.first", "--output", str(target), "--force"
+            )
+            _, _, warning = self._run("report", "extract", "first", "notes.txt", "--output", str(target))
+
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            output.strip(),
+            f'Extracted "$HOME"/report.01.first from first to {target} (3 bytes, sha256 abc).',
+        )
+        self.assertEqual(errors, "")
+        self.assertEqual(extract.call_args_list[0].kwargs, {"destination": target, "force": True})
+        self.assertIn("Warning: the file is not a readable report", warning)
+
+    def test_extract_reports_errors(self) -> None:
+        """Show transfer problems as errors."""
+        from pysnap.report.extract import ExtractError
+
+        with patch("pysnap.cli.report.extract_file", side_effect=ExtractError("boom")):
+            code, _, errors = self._run("report", "extract", "first", "report.01.first")
+
+        self.assertEqual(code, 1)
+        self.assertEqual(errors.strip(), "Error: boom")
+
     def test_requires_a_subcommand(self) -> None:
         """Refuse ``pysnap report`` without a subcommand."""
         code, _, errors = self._run("report")
