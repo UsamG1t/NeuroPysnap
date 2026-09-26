@@ -22,10 +22,7 @@ release = __version__
 # ``pyproject.toml`` and the current release, following the default
 # ``python -m build --wheel`` naming rules for a pure-Python package:
 # the escaped distribution name plus the ``py3-none-any`` tags.
-try:
-    import tomllib
-except ModuleNotFoundError:  # Python 3.10
-    import tomli as tomllib
+import tomllib
 
 with (ROOT / "pyproject.toml").open("rb") as _pyproject_file:
     _distribution_name = tomllib.load(_pyproject_file)["project"]["name"]

@@ -17,10 +17,26 @@ pysnap.report.archive module
    :show-inheritance:
    :undoc-members:
 
+pysnap.report.checkfile module
+------------------------------
+
+.. automodule:: pysnap.report.checkfile
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 pysnap.report.highlight module
 ------------------------------
 
 .. automodule:: pysnap.report.highlight
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+pysnap.report.matcher module
+----------------------------
+
+.. automodule:: pysnap.report.matcher
    :members:
    :show-inheritance:
    :undoc-members:

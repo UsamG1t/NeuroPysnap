@@ -21,6 +21,8 @@ from pysnap.report.models import (
 from pysnap.report.player import DEFAULT_MAX_DELAY, PlaybackController, ReplayPlayer
 from pysnap.report.recording import load_report
 from pysnap.report.render import render_transcript
+from pysnap.report.checkfile import load_check
+from pysnap.report.matcher import CheckResult, run_check
 from pysnap.report.stats import ReportStats, compute_stats
 
 _ANSI_COLORS = {
@@ -88,15 +90,23 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
 
     check = subcommands.add_parser(
         "check",
-        help="Show report information and statistics.",
+        help="Show report information and check it against a check file.",
         description=(
             "Show where and when a report was recorded, its commands, pauses, "
-            "typing, pasted input, addresses and integrity checks."
+            "typing, pasted input, addresses and integrity checks. With a "
+            "check file, also check the expected commands and output blocks "
+            "and grade the report."
         ),
         stdout=stdout,
         stderr=stderr,
     )
     check.add_argument("report", help="Report file, for example report.01.first.")
+    check.add_argument(
+        "check_file",
+        nargs="?",
+        metavar="CHECK",
+        help="Check file in TOML format, for example lab02-first.check.toml.",
+    )
 
     show = subcommands.add_parser(
         "show",
@@ -160,10 +170,63 @@ def _run_check(namespace: argparse.Namespace, stdout: TextIO) -> int:
     :param stdout: Output stream.
     :returns: Process exit code.
     """
+    spec = load_check(namespace.check_file) if namespace.check_file else None
     recording = load_report(namespace.report)
-    stats = compute_stats(recording, render_transcript(recording))
-    print(format_report_stats(stats), file=stdout)
+    transcript = render_transcript(recording)
+    print(format_report_stats(compute_stats(recording, transcript)), file=stdout)
+    if spec is not None:
+        result = run_check(spec, transcript, report_name=recording.name)
+        print("", file=stdout)
+        print(format_check_result(result, transcript), file=stdout)
     return 0
+
+
+def format_check_result(result: CheckResult, transcript: Transcript) -> str:
+    """Render the per-item results and the grade.
+
+    :param result: Graded check result.
+    :param transcript: Rendered report, used to show what matched.
+    :returns: Multi-line human-readable text.
+    """
+    lines = [f"Checks: {result.check_name}"]
+    for item in result.items:
+        state = "PASS" if item.passed else "FAIL"
+        pattern_lines = item.pattern.split("\n")
+        head = f"  {state}  {item.kind} {item.number}"
+        if item.kind == "command":
+            label = f" [{item.label}]" if item.label != item.pattern else ""
+            lines.append(f"{head}{label}: {item.pattern}")
+            if item.command is not None:
+                matched = transcript.commands[item.command]
+                lines.append(f"        matched command {item.command + 1}: {matched.text}")
+        else:
+            count = f" (found {item.count} times)" if item.passed and item.count > 1 else ""
+            lines.append(f"{head}{count}:")
+            lines += [f"          {line}" for line in pattern_lines]
+            if item.lines:
+                lines.append(f"        first match at transcript line {item.lines[0] + 1}")
+        if not item.passed:
+            lines.append(f"        reason: {item.reason}")
+            if item.closest and item.kind == "command":
+                lines.append(f"        closest entered command: {item.closest}")
+    if result.bindings:
+        values = ", ".join(f"{name}={value}" for name, value in result.bindings.items())
+        lines.append(f"  Values: {values}")
+    passed = sum(1 for item in result.items if item.passed)
+    mark = f", mark {result.mark}" if result.mark is not None else ""
+    lines += [
+        "",
+        f"Result: {passed} of {len(result.items)} checks passed, "
+        f"{result.points:g} of {result.total_points:g} points "
+        f"({result.percent:.1f}%){mark}",
+    ]
+    if result.search_exhausted:
+        lines.append(
+            "WARNING: The check file allows too many combinations; "
+            "the best result found within the search limit is shown."
+        )
+    lines += [f"WARNING: {warning}" for warning in result.warnings]
+    return "\n".join(lines)
 
 
 def format_report_stats(stats: ReportStats) -> str:

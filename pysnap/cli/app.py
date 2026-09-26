@@ -116,7 +116,7 @@ def build_root_parser(
             "  pysnap full-clean [--path DIRECTORY ...]\n"
             "  pysnap report text REPORT [--commands] [--color WHEN] [--no-pager]\n"
             "  pysnap report show REPORT [--speed X] [--max-delay SECONDS]\n"
-            "  pysnap report check REPORT"
+            "  pysnap report check REPORT [CHECK]"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         stdout=stdout,

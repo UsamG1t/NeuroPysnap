@@ -223,6 +223,42 @@ class ReportTextCommandTests(unittest.TestCase):
 
         self.assertIn("WARNING: File name says task 02, host second, but the prompts differ.", output)
 
+    def test_check_grades_a_report_with_a_check_file(self) -> None:
+        """Print the information block, item results and the grade."""
+        check_file = Path(self._temp_dir.name) / "lab.check.toml"
+        check_file.write_text(
+            '[report]\nhost = "first"\n'
+            '[[command]]\nid = "addr"\ncmd = "ip a show <ETH-A>"\n'
+            '[[command]]\ncmd = "ping -c1 <IP-B>"\n'
+            '[[command]]\ncmd = "traceroute <IP-B>"\n'
+            '[[output]]\nof = "addr"\ntext = "inet <IP-A>/<MASK>"\n'
+            '[grading]\ntotal = 10\nscale = [[75, "good"], [0, "poor"]]\n',
+            encoding="utf-8",
+        )
+
+        code, output, _ = self._run("report", "check", str(self.report), str(check_file))
+
+        self.assertEqual(code, 0)
+        checks = output[output.index("Checks: lab.check.toml"):].splitlines()
+        self.assertEqual(checks[1], "  PASS  command 1 [addr]: ip a show <ETH-A>")
+        self.assertEqual(checks[2], "        matched command 1: ip a show eth1")
+        self.assertIn("  FAIL  command 3: traceroute <IP-B>", checks)
+        self.assertIn("        reason: no entered command matches", checks)
+        self.assertIn("  Values: ETH-A=eth1, IP-B=10.9.0.2, IP-A=10.9.0.1", checks)
+        self.assertIn("Result: 3 of 4 checks passed, 7.5 of 10 points (75.0%), mark good", checks)
+        self.assertNotIn("WARNING: The check file", output)
+
+    def test_check_reports_invalid_check_files(self) -> None:
+        """Stop with an error before reading the report."""
+        check_file = Path(self._temp_dir.name) / "bad.check.toml"
+        check_file.write_text("[[command]]\ncmd = 'x'\n", encoding="utf-8")
+
+        code, output, errors = self._run("report", "check", str(self.report), str(check_file))
+
+        self.assertEqual(code, 1)
+        self.assertEqual(output, "")
+        self.assertIn("[grading] table with total and scale is required", errors)
+
     def test_requires_a_subcommand(self) -> None:
         """Refuse ``pysnap report`` without a subcommand."""
         code, _, errors = self._run("report")

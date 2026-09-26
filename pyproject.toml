@@ -1,16 +1,15 @@
 [project]
 name = "pysnap"
-version = "1.1.0"
+version = "2.0.0"
 description = "VirtualBox appliance importer and linked clone manager."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 authors = [
   { name = "PySnap Authors" },
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -36,7 +35,6 @@ build = [
   "Sphinx>=7.2",
   "build>=1.0.0",
   "doit>=0.34.0",
-  "tomli>=2.0.1; python_version < '3.11'",
 ]
 
 [project.scripts]
