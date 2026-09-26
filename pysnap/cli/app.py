@@ -115,7 +115,8 @@ def build_root_parser(
             "  pysnap erase [--clones-only] [--all | --group GROUP | VM]\n"
             "  pysnap full-clean [--path DIRECTORY ...]\n"
             "  pysnap report text REPORT [--commands] [--color WHEN] [--no-pager]\n"
-            "  pysnap report show REPORT [--speed X] [--max-delay SECONDS]"
+            "  pysnap report show REPORT [--speed X] [--max-delay SECONDS]\n"
+            "  pysnap report check REPORT"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         stdout=stdout,

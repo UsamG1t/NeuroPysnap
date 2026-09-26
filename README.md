@@ -37,7 +37,9 @@ terminal, and removing virtual machines with dependency checks.
   OS-specific defaults and explicit `--path` overrides.
 - Read student session reports recorded with the ``report`` utility safely:
   print or page their text with highlighted prompts and commands, or replay
-  them with timing, speed control and jumps between commands.
+  them with timing, speed control and jumps between commands; show report
+  information and statistics: identity, timing, commands, pauses, typing,
+  pasted input, addresses and integrity checks.
 - Run an end-to-end integration test that now verifies VM startup and monitor
   state transitions in addition to creation and cleanup.
 
@@ -60,6 +62,7 @@ pysnap erase [--clones-only] [--all | --group GROUP | <VM>]
 pysnap full-clean [--path DIRECTORY ...]
 pysnap report text REPORT [--commands] [--color WHEN] [--no-pager]
 pysnap report show REPORT [--speed X] [--max-delay SECONDS]
+pysnap report check REPORT
 ```
 
 ## Development

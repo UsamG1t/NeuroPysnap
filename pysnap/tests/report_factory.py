@@ -9,6 +9,7 @@ not from real recordings.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 import io
 from pathlib import Path
 import tarfile
@@ -31,12 +32,14 @@ class ArchiveEntry:
     :param data: Regular-file content, ``None`` for non-regular entries.
     :param kind: ``tarfile`` entry type.
     :param link_target: Target of a symbolic or hard link.
+    :param mtime: Modification time in seconds since the epoch.
     """
 
     name: str
     data: bytes | None = None
     kind: bytes = tarfile.REGTYPE
     link_target: str = ""
+    mtime: int = ARCHIVE_MTIME
 
 
 class ReportBuilder:
@@ -184,6 +187,21 @@ class ReportBuilder:
         self.elapsed += delay
         return self
 
+    def archive_mtimes(self) -> dict[str, int]:
+        """Return member times as ``report`` produces them.
+
+        ``CPU.txt`` is written at the recording start, the other members when
+        ``script`` ends; tar keeps whole seconds.
+
+        :returns: Member names mapped to modification times.
+        """
+        start = int(datetime.fromisoformat(self.start_time).timestamp())
+        end = int(datetime.fromisoformat(self.start_time).timestamp() + self.elapsed)
+        return {
+            "CPU.txt": start,
+            **{name: end for name in ("IN.txt", "OUT.txt", "BOTH.txt", "TIME.txt")},
+        }
+
     def finish(self, exit_code: int = 0, *, cpu_info: str = DEFAULT_CPU_INFO) -> dict[str, bytes]:
         """Close the session with ``Ctrl-D`` and render the report files.
 
@@ -224,15 +242,25 @@ class ReportBuilder:
         }
 
 
-def write_report(path: Path, members: dict[str, bytes]) -> Path:
+def write_report(
+    path: Path,
+    members: dict[str, bytes],
+    mtimes: dict[str, int] | None = None,
+) -> Path:
     """Pack report members the way ``tar -C $BASE -czf NAME .`` does.
 
     :param path: Destination archive path.
     :param members: Member names mapped to their content.
+    :param mtimes: Optional member times, for example from
+        :meth:`ReportBuilder.archive_mtimes`.
     :returns: The destination path.
     """
+    times = mtimes or {}
     entries = [ArchiveEntry("./", kind=tarfile.DIRTYPE)]
-    entries.extend(ArchiveEntry(f"./{name}", data) for name, data in members.items())
+    entries.extend(
+        ArchiveEntry(f"./{name}", data, mtime=times.get(name, ARCHIVE_MTIME))
+        for name, data in members.items()
+    )
     return write_archive(path, entries)
 
 
@@ -247,7 +275,7 @@ def write_archive(path: Path, entries: list[ArchiveEntry]) -> Path:
         for entry in entries:
             info = tarfile.TarInfo(entry.name)
             info.type = entry.kind
-            info.mtime = ARCHIVE_MTIME
+            info.mtime = entry.mtime
             info.linkname = entry.link_target
             payload = None
             if entry.data is not None:

@@ -57,6 +57,14 @@ pysnap.report.render module
    :show-inheritance:
    :undoc-members:
 
+pysnap.report.stats module
+--------------------------
+
+.. automodule:: pysnap.report.stats
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 pysnap.report.viewer module
 ---------------------------
 

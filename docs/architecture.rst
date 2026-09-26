@@ -235,6 +235,19 @@ full-screen window at the recorded size; when the window is smaller, the view
 is clipped around the cursor and the status line says so. Both viewers reuse
 the scrollable control and mouse-wheel handling of ``pysnap connect``.
 
+Report Statistics Strategy
+--------------------------
+
+``pysnap.report.stats`` derives the information block of
+``pysnap report check`` from the report alone. Commands, their prompts and
+their input events come from the rendered transcript; keystrokes are counted
+by splitting input chunks into keys, because the serial console may deliver
+two fast keys in one chunk and an escape sequence such as an arrow key is a
+single key. The pause before a command is the thinking time from the last
+output to its first key, so the run time of the previous program does not
+count. The thresholds, five printable characters for pasted input and two
+seconds for archive times, are parameters of ``compute_stats``.
+
 Invisible Character Strategy
 ----------------------------
 
