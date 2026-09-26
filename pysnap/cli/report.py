@@ -21,6 +21,7 @@ from pysnap.report.models import (
 from pysnap.report.player import DEFAULT_MAX_DELAY, PlaybackController, ReplayPlayer
 from pysnap.report.recording import load_report
 from pysnap.report.render import render_transcript
+from pysnap.report.stats import ReportStats, compute_stats
 
 _ANSI_COLORS = {
     "black": 0,
@@ -85,6 +86,18 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
         help="Print directly even when the text is longer than the terminal.",
     )
 
+    check = subcommands.add_parser(
+        "check",
+        help="Show report information and statistics.",
+        description=(
+            "Show where and when a report was recorded, its commands, pauses, "
+            "typing, pasted input, addresses and integrity checks."
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    check.add_argument("report", help="Report file, for example report.01.first.")
+
     show = subcommands.add_parser(
         "show",
         help="Replay a report with its timing in a safe terminal view.",
@@ -135,7 +148,143 @@ def run_report_command(
         return _run_text(namespace, stdout, stderr)
     if namespace.subcommand == "show":
         return _run_show(namespace, stdout, stderr)
+    if namespace.subcommand == "check":
+        return _run_check(namespace, stdout)
     return 1
+
+
+def _run_check(namespace: argparse.Namespace, stdout: TextIO) -> int:
+    """Run ``pysnap report check``.
+
+    :param namespace: Parsed arguments.
+    :param stdout: Output stream.
+    :returns: Process exit code.
+    """
+    recording = load_report(namespace.report)
+    stats = compute_stats(recording, render_transcript(recording))
+    print(format_report_stats(stats), file=stdout)
+    return 0
+
+
+def format_report_stats(stats: ReportStats) -> str:
+    """Render the report information block.
+
+    :param stats: Report statistics.
+    :returns: Multi-line human-readable text.
+    """
+    lines = [f"Report information: {stats.source_name}", "", "Identity"]
+    file_identity = (
+        f"task {stats.file_task:02d}, host {stats.file_host}"
+        if stats.file_host is not None
+        else "not a report.NN.HOST name"
+    )
+    prompt_identity = (
+        ", ".join(f"task {task:02d}, host {host}" for task, host in stats.prompt_identities)
+        or "no report prompt found"
+    )
+    lines += [
+        f"  File name:  {file_identity}",
+        f"  Prompt:     {prompt_identity}",
+        "",
+        "Timing",
+        f"  Started:    {_format_datetime(stats.start_time)}",
+        f"  Finished:   {_format_datetime(stats.end_time)}",
+        f"  Duration:   {_format_seconds(stats.duration)}",
+        f"  Exit code:  {_format_value(stats.exit_code)}",
+        "",
+        "Environment",
+        f"  Terminal:   {_format_value(stats.tty)}, {_format_value(stats.term)}, "
+        f"{_format_value(stats.columns)}x{_format_value(stats.lines)}",
+        f"  CPU:        {_format_value(stats.cpu_model)}",
+        f"  Hypervisor: {_format_value(stats.hypervisor)}",
+        "",
+        "Commands",
+        f"  Entered:    {len(stats.commands)} ({stats.unique_commands} unique)",
+        f"  Interrupted with Ctrl-C: {_count(stats.commands, 'interrupted')}",
+        f"  Recalled from history:   {_count(stats.commands, 'from_history')}",
+        f"  At other prompts:        {_count(stats.commands, 'foreign_prompt')}",
+    ]
+    if stats.commands:
+        lines.append(
+            f"  Pauses before commands: min {_format_seconds(stats.pause_min)}, "
+            f"median {_format_seconds(stats.pause_median)}, "
+            f"max {_format_seconds(stats.pause_max)} (before: {stats.longest_pause_command})"
+        )
+        width = len(str(len(stats.commands)))
+        for item in stats.commands:
+            marks = [
+                mark
+                for enabled, mark in (
+                    (item.interrupted, "interrupted"),
+                    (item.from_history, "history"),
+                    (item.foreign_prompt, "other prompt"),
+                )
+                if enabled
+            ]
+            suffix = f"  [{', '.join(marks)}]" if marks else ""
+            lines.append(
+                f"  {item.index + 1:>{width}}. pause {_format_seconds(item.pause):>7}  "
+                f"{item.text}{suffix}"
+            )
+    lines += [
+        "",
+        "Typing",
+        f"  Speed:      {_format_rate(stats.typing_speed)}",
+        f"  Backspace:  {_format_share(stats.backspace_share)}",
+        f"  Pasted input: {len(stats.pastes)}",
+    ]
+    for paste in stats.pastes:
+        owner = f"command {paste.command + 1}" if paste.command is not None else "no command"
+        lines.append(f"    at {_format_seconds(paste.time)} ({owner}): {paste.text[:60]}")
+    lines += [
+        "",
+        "Addresses in output",
+        f"  IPv4:       {', '.join(stats.ip_addresses) or 'none'}",
+        f"  MAC:        {', '.join(stats.mac_addresses) or 'none'}",
+        "",
+        "Integrity",
+        f"  Report problems: {len(stats.diagnostics)}",
+    ]
+    lines += [f"    {diagnostic.message}" for diagnostic in stats.diagnostics]
+    for check in stats.member_times:
+        state = "ok" if check.within_tolerance else "MISMATCH"
+        lines.append(
+            f"  {check.member:<9} time vs recording {check.expected}: "
+            f"{check.difference:+.1f} s ({state})"
+        )
+    if stats.warnings:
+        lines += ["", *[f"WARNING: {warning}" for warning in stats.warnings]]
+    return "\n".join(lines)
+
+
+def _count(items, attribute: str) -> int:
+    """Count items whose boolean attribute is set."""
+    return sum(1 for item in items if getattr(item, attribute))
+
+
+def _format_value(value) -> str:
+    """Format an optional value."""
+    return "unknown" if value is None else str(value)
+
+
+def _format_datetime(value) -> str:
+    """Format an optional timestamp with its UTC offset."""
+    return "unknown" if value is None else value.isoformat(sep=" ", timespec="seconds")
+
+
+def _format_seconds(value: float | None) -> str:
+    """Format an optional duration in seconds."""
+    return "unknown" if value is None else f"{value:.2f} s"
+
+
+def _format_rate(value: float | None) -> str:
+    """Format an optional typing speed."""
+    return "unknown" if value is None else f"{value:.2f} keys/s"
+
+
+def _format_share(value: float | None) -> str:
+    """Format an optional share as a percentage."""
+    return "unknown" if value is None else f"{value * 100:.1f}% of keys"
 
 
 def _run_text(namespace: argparse.Namespace, stdout: TextIO, stderr: TextIO) -> int:

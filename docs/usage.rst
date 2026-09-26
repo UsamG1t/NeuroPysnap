@@ -433,3 +433,29 @@ bidirectional overrides, are shown as ``?`` in ``text`` and ``show``.
    pysnap report show report.01.first
    pysnap report show report.01.first --speed 4 --max-delay 0.5
 
+The ``check`` subcommand prints a report information block. Without a check
+file it shows only this block:
+
+- **Identity**: task and host from the ``report.<NN>.<host>`` file name and
+  from the prompts recorded by ``report``; a warning is printed when they
+  differ or when the prompts show several hosts
+- **Timing**: start, end, duration and the exit code of the recorded shell
+- **Environment**: terminal device, type and size, CPU model and hypervisor
+  from ``CPU.txt``
+- **Commands**: the number of commands and unique commands, commands
+  interrupted with ``Ctrl-C``, recalled from history (``Up``, ``Down``,
+  ``Ctrl-R``) or typed at the prompt of another program, and the pause
+  before each command, measured from the last output to the first key
+- **Typing**: keys per second from the first key of a command to ``Enter``,
+  the share of ``Backspace`` keys and input chunks that look pasted (five or
+  more printable characters at once, or a bracketed-paste marker)
+- **Addresses in output**: IPv4 and MAC addresses shown by the commands,
+  without the broadcast and all-zero MAC addresses
+- **Integrity**: problems found while reading the report and a comparison of
+  the archive member times with the recording start (``CPU.txt``) and end
+  (the other members) within two seconds
+
+.. code-block:: text
+
+   pysnap report check report.01.first
+

@@ -29,7 +29,10 @@ class ReportTextCommandTests(unittest.TestCase):
         builder = ReportBuilder().show_prompt()
         builder.run("ip a show eth1", "3: eth1: <UP>\n    inet \x1b[32m10.9.0.1\x1b[0m/24\n")
         builder.run("ping -c1 10.9.0.2", "1 packets transmitted\n")
-        self.report = write_report(Path(self._temp_dir.name) / "report.01.first", builder.finish())
+        members = builder.finish()
+        self.report = write_report(
+            Path(self._temp_dir.name) / "report.01.first", members, builder.archive_mtimes()
+        )
 
     def tearDown(self) -> None:
         """Remove the scratch directory."""
@@ -195,6 +198,30 @@ class ReportTextCommandTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("interactive terminal", errors)
         run_player.assert_not_called()
+
+    def test_check_prints_report_information(self) -> None:
+        """Print the information block without a check file."""
+        code, output, errors = self._run("report", "check", str(self.report))
+
+        self.assertEqual(code, 0)
+        self.assertEqual(errors, "")
+        lines = output.splitlines()
+        self.assertEqual(lines[0], "Report information: report.01.first")
+        self.assertIn("  File name:  task 01, host first", lines)
+        self.assertIn("  Prompt:     task 01, host first", lines)
+        self.assertIn("  Entered:    2 (2 unique)", lines)
+        self.assertIn("  IPv4:       10.9.0.1", lines)
+        self.assertIn("  Pasted input: 0", lines)
+        self.assertNotIn("WARNING", output)
+
+    def test_check_shows_warnings(self) -> None:
+        """End the block with warnings when something looks wrong."""
+        renamed = Path(self._temp_dir.name) / "report.02.second"
+        renamed.write_bytes(self.report.read_bytes())
+
+        _, output, _ = self._run("report", "check", str(renamed))
+
+        self.assertIn("WARNING: File name says task 02, host second, but the prompts differ.", output)
 
     def test_requires_a_subcommand(self) -> None:
         """Refuse ``pysnap report`` without a subcommand."""
