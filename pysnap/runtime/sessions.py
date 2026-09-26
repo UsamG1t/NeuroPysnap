@@ -17,12 +17,19 @@ from typing import Iterator
 
 @dataclass(frozen=True)
 class SessionRecord:
-    """Represent one live terminal session."""
+    """Represent one live terminal session.
+
+    :param control_port: Local TCP port of the session control channel, used
+        by ``pysnap report extract`` while the session is attached.
+    :param control_token: Secret that a control request must present.
+    """
 
     vm_name: str
     serial_port: int
     pid: int
     attached_at: str
+    control_port: int | None = None
+    control_token: str | None = None
 
 
 class SessionRegistry:
@@ -65,11 +72,22 @@ class SessionRegistry:
         return self.list_live_sessions().get(vm_name)
 
     @contextmanager
-    def register(self, vm_name: str, serial_port: int) -> Iterator[SessionRecord]:
+    def register(
+        self,
+        vm_name: str,
+        serial_port: int,
+        control_port: int | None = None,
+        control_token: str | None = None,
+    ) -> Iterator[SessionRecord]:
         """Register a session for the duration of a context manager.
+
+        The record is readable only by the current user because it may hold
+        the control-channel secret.
 
         :param vm_name: VM name.
         :param serial_port: Attached serial TCP port.
+        :param control_port: Optional local control-channel port.
+        :param control_token: Optional control-channel secret.
         :yields: Persisted session record.
         """
         record = SessionRecord(
@@ -77,9 +95,14 @@ class SessionRegistry:
             serial_port=serial_port,
             pid=os.getpid(),
             attached_at=datetime.now(timezone.utc).isoformat(),
+            control_port=control_port,
+            control_token=control_token,
         )
         path = self._record_path(vm_name)
-        path.write_text(json.dumps(asdict(record), indent=2), encoding="utf-8")
+        path.unlink(missing_ok=True)
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps(asdict(record), indent=2))
         try:
             yield record
         finally:
@@ -107,11 +130,15 @@ class SessionRegistry:
         """
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
+            control_port = payload.get("control_port")
+            control_token = payload.get("control_token")
             return SessionRecord(
                 vm_name=str(payload["vm_name"]),
                 serial_port=int(payload["serial_port"]),
                 pid=int(payload["pid"]),
                 attached_at=str(payload["attached_at"]),
+                control_port=int(control_port) if control_port is not None else None,
+                control_token=str(control_token) if control_token is not None else None,
             )
         except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
             path.unlink(missing_ok=True)
