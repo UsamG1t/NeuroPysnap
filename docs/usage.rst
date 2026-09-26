@@ -458,4 +458,99 @@ file it shows only this block:
 .. code-block:: text
 
    pysnap report check report.01.first
+   pysnap report check report.01.first lab02-first.check.toml
+
+Check Files
+~~~~~~~~~~~
+
+With a check file, ``check`` also checks the expected commands and output
+blocks and grades the report. A check file is written in TOML, usually with
+the ``.check.toml`` extension, one file per host of a lab:
+
+.. code-block:: toml
+
+   [report]              # optional expectations, reported as warnings
+   task = 1
+   host = "first"
+
+   [[command]]
+   id = "addr"           # optional name used by "of" and "after"
+   cmd = "ip a show <ETH-A>"
+
+   [[command]]
+   id = "ping"
+   cmd = "ping -c5 <IP-B>"
+
+   [[output]]
+   of = "addr"           # search only in the output of that command
+   text = '''
+   <*>: <ETH-A>: <*>UP<*>
+   ...
+       inet <IP-A>/<MASK> scope global <ETH-A>
+   '''
+
+   [[output]]
+   of = "ping"
+   min_count = 5         # the block must occur at least five times
+   text = "64 bytes from <IP-B>: icmp_seq=<*> ttl=64 time=<*>"
+
+   [grading]
+   total = 10
+   scale = [[90, "5"], [75, "4"], [50, "3"], [0, "2"]]
+
+``[[command]]`` items are compared with the entered commands as a whole.
+Keys:
+
+- ``cmd`` (required): the command pattern
+- ``id``: a name for ``of`` and ``after`` references
+- ``after``: the id of an earlier command; the item passes only when its
+  command was entered after that command. If that command did not pass,
+  this item fails too.
+- ``points``: the weight of the item, 1 by default
+
+``[[output]]`` items are blocks of output lines. Keys:
+
+- ``text`` (required): the block; a line holding only ``...`` matches any
+  number of lines, otherwise the lines must follow each other
+- ``of``: the id of a command; the block is searched only in the output of
+  the runs of that command, otherwise in the whole report
+- ``order = "any"``: the lines may appear in any order, which suits tables
+  such as ``ip route``; ``...`` is not allowed then
+- ``min_count``: how many times the block must occur, 1 by default, for
+  example for ping replies
+- ``points``: the weight of the item, 1 by default
+
+Patterns may contain placeholders:
+
+- ``<IP>``, ``<ETH>`` and ``<MASK>`` match any IPv4 address, ``ethN``
+  interface or prefix length from 0 to 32
+- a label such as ``<IP-A>``, ``<ETH-A>`` or ``<MASK-A>`` remembers the first
+  matched value; every later use of the same label, in commands and in output
+  blocks, must show the same value
+- any other name, such as ``<X>``, matches one word and also remembers it
+- ``<*>`` matches any text inside a line and remembers nothing; use it for
+  values that change, such as ping times or sequence numbers
+- ``\<`` writes a literal ``<``; text like ``< /dev/ttyS1`` needs no escaping
+
+Spaces never matter: both the report lines and the patterns are trimmed and
+every run of spaces or tabs counts as one space, so aligned table columns
+match patterns written with single spaces.
+
+Commands are checked in file order, then output blocks. PySnap chooses among
+several possible matches, for example several ``ping`` runs, so that as many
+items as possible pass; with equal results it prefers the earliest match. An
+item that fails does not make later items fail through wrong label values.
+
+``[grading]`` is required. Every item contributes its weight; the percentage
+of the passed weight is scaled to ``total`` points, and the mark is the first
+``scale`` step whose threshold in percent is reached. Thresholds are listed
+from the highest to the lowest.
+
+The output lists every item as ``PASS`` or ``FAIL``. A passed command shows
+the entered command it matched; a passed block shows where it was found; a
+failed item shows the reason and, for commands, the closest entered command.
+The values of all labels, the number of passed items, the points, the
+percentage and the mark follow. When the ``[report]`` task or host differs
+from the report file name or prompts, a warning is printed and the grade is
+not changed.
 

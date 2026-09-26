@@ -248,6 +248,27 @@ output to its first key, so the run time of the previous program does not
 count. The thresholds, five printable characters for pasted input and two
 seconds for archive times, are parameters of ``compute_stats``.
 
+Check Matching Strategy
+-----------------------
+
+``pysnap.report.checkfile`` loads a TOML check file with the standard
+``tomllib`` module, validates every key and compiles each
+pattern line into literal text and placeholders. Both sides are normalized:
+edges are trimmed and whitespace runs collapse to one space. A pattern is
+turned into a regular expression per match attempt, with the values of
+already bound labels inserted as literal text, so a label either binds a new
+value or requires the old one; typed values are then validated (IPv4 octets,
+prefix lengths).
+
+``pysnap.report.matcher`` checks all command items, then all output blocks,
+with a backtracking search. For each item it tries the candidates in report
+order, then the possibility that the item fails, and keeps the assignment
+with the highest passed weight, preferring the earliest choices on ties. The
+upper bound of the remaining weight prunes the search, and a step budget
+stops it on pathological check files: the best complete assignment is used
+and a warning is printed. Explanations for failed items are computed after
+the search from the final label values.
+
 Invisible Character Strategy
 ----------------------------
 
