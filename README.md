@@ -41,7 +41,8 @@ terminal, and removing virtual machines with dependency checks.
   information and statistics: identity, timing, commands, pauses, typing,
   pasted input, addresses and integrity checks; grade a report against a
   TOML check file with expected commands, output blocks and labeled values;
-  copy reports out of running VMs through the serial console.
+  copy reports out of running VMs through the serial console; compare
+  reports pairwise for signs of a shared origin.
 - Run an end-to-end integration test that now verifies VM startup and monitor
   state transitions in addition to creation and cleanup.
 
@@ -66,6 +67,7 @@ pysnap report text REPORT [--commands] [--color WHEN] [--no-pager]
 pysnap report show REPORT [--speed X] [--max-delay SECONDS]
 pysnap report check REPORT [CHECK]
 pysnap report extract VM NAME [--output PATH] [--force]
+pysnap report compare PATH...
 ```
 
 ## Development
@@ -197,6 +199,13 @@ commands, ``q`` quits):
 
 ```bash
 pysnap report show report.01.first --speed 2
+```
+
+Compare all reports of a group pairwise; pairs with signals of a shared
+origin are listed with those signals, the others as ``OK``:
+
+```bash
+pysnap report compare reports/
 ```
 
 ## Proto Settings

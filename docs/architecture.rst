@@ -293,6 +293,20 @@ its serial reader, pauses keyboard input meanwhile, and answers with the file
 as ``base64`` and its checksum, which the client verifies again. One transfer
 runs at a time.
 
+Report Comparison Strategy
+--------------------------
+
+``pysnap.report.compare`` reads every report once into a
+``ReportFingerprint``: the SHA-256 of the file and of the output body, the
+unicast MAC addresses, the start second and the duration, hashes of every run
+of 20 keyboard delays in microseconds, ``ping`` times in output order and
+``tcpdump`` timestamps, erroneous commands and ``CPU.txt``. Pairs are then compared on
+these values only, so a hundred reports (4950 pairs) take a few seconds, most
+of it spent rendering the transcripts. Delay runs that consist of one repeated
+value are not hashed, because they carry no rhythm. The comparison reports
+signals and never classifies a pair; which reports belong to one student is
+known only to the teacher.
+
 Invisible Character Strategy
 ----------------------------
 
