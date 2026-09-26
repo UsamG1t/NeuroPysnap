@@ -116,8 +116,9 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
         description=(
             "Copy a file from a running VM to the host through the UART1 serial "
             "console. The VM must be at a shell prompt, without a running report "
-            "recording and without an attached pysnap connect session. A name "
-            "without / is looked up in the home directory of the console user."
+            "recording. An attached pysnap connect session runs the transfer on "
+            "its own connection. A name without / is looked up in the home "
+            "directory of the console user."
         ),
         stdout=stdout,
         stderr=stderr,

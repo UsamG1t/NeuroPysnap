@@ -283,6 +283,16 @@ echo of the command never looks like a marker. The host verifies the
 checksum and writes the file atomically. The ``report`` prompt is detected
 before any command is sent, so a running recording is never modified.
 
+While ``pysnap connect`` is attached, the port is taken, so the terminal
+session also serves a control channel (``pysnap.report.control``): it listens
+on ``127.0.0.1`` on a random port and stores the port and a random secret in
+its session record, which is readable only by the current user.
+``pysnap report extract`` sends one JSON line with the secret and the quoted
+path; the session runs the same protocol through a ``QueueConsole`` fed by
+its serial reader, pauses keyboard input meanwhile, and answers with the file
+as ``base64`` and its checksum, which the client verifies again. One transfer
+runs at a time.
+
 Invisible Character Strategy
 ----------------------------
 

@@ -569,12 +569,16 @@ second COM port and no VM restart are needed.
 
 Requirements and behavior:
 
-- the VM is running, has a ``UART1`` TCP port (see ``pysnap plug``) and no
-  attached ``pysnap connect`` session; VirtualBox serves one client, so
-  detach with ``Ctrl-Q`` first
+- the VM is running and has a ``UART1`` TCP port (see ``pysnap plug``)
+- the command also works while ``pysnap connect`` is attached to the VM:
+  VirtualBox serves one client, so ``extract`` asks the attached session to
+  run the transfer on its connection. The terminal shows a message in the
+  status line, keys are paused until the transfer ends, and afterwards the
+  screen is cleared and a fresh prompt appears. Sessions started by an older
+  PySnap cannot do this; detach them with ``Ctrl-Q`` first
 - the console is logged in and at a shell prompt; PySnap checks this with
   ``echo PYSNAP_$((20+22))`` and stops when the answer does not arrive
-- no ``report`` recording is running: PySnap presses Enter once, and when the
+- no ``report`` recording is running: PySnap presses ``Ctrl-U`` and Enter once, and when the
   recording prompt appears it stops before sending any command, so nothing
   else ends up in the student's report
 - a name without ``/`` is looked up in the home directory of the console

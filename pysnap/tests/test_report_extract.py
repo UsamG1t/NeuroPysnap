@@ -17,6 +17,7 @@ from types import SimpleNamespace
 
 from pysnap.core.models import VMInfo
 from pysnap.report.extract import ExtractError, extract_file, remote_shell_path
+from pysnap.runtime.sessions import SessionRecord
 
 REPORT_PS1 = "[\\u@01-first \\W]# "
 
@@ -24,9 +25,9 @@ REPORT_PS1 = "[\\u@01-first \\W]# "
 class _Service:
     """Provide the two service calls used by the transfer."""
 
-    def __init__(self, *, state="running", port=2326, live=False) -> None:
+    def __init__(self, *, state="running", port=2326, session=None) -> None:
         self.vm_info = VMInfo(name="first", uuid="u", groups=("/Lab",), serial_port=port, vm_state=state)
-        self.session_registry = SimpleNamespace(get_live_session=lambda name: object() if live else None)
+        self.session_registry = SimpleNamespace(get_live_session=lambda name: session)
 
     def show_vm(self, vm_name: str) -> VMInfo:
         """Return the fake VM."""
@@ -36,10 +37,13 @@ class _Service:
 class _ShellServer:
     """Serve an interactive bash on a PTY through TCP, like a VirtualBox UART."""
 
-    def __init__(self, home: Path, prompt: str = "[root@first ~]# ", silent: bool = False) -> None:
+    def __init__(
+        self, home: Path, prompt: str = "[root@first ~]# ", silent: bool = False, typed: bytes = b""
+    ) -> None:
         self.home = home
         self.prompt = prompt
         self.silent = silent
+        self.typed = typed
         self.listener = socket.create_server(("127.0.0.1", 0))
         self.port = self.listener.getsockname()[1]
         self.received = bytearray()
@@ -86,6 +90,9 @@ class _ShellServer:
             cwd=self.home, env=environment, start_new_session=True,
         )
         os.close(slave)
+        if self.typed:
+            # A line typed in the console but not finished with Enter.
+            os.write(master, self.typed)
         with client:
             while True:
                 ready, _, _ = select.select([client, master], [], [], 0.1)
@@ -140,7 +147,8 @@ class ExtractWithShellTests(unittest.TestCase):
         self.assertEqual(result.size, len(self.content))
         self.assertEqual(result.sha256, hashlib.sha256(self.content).hexdigest())
         self.assertEqual(result.remote_path, '"$HOME"/report.01.first')
-        commands = [part for part in bytes(server.received).split(b"\r") if part]
+        erase, *commands = [part for part in bytes(server.received).split(b"\r") if part]
+        self.assertEqual(erase, b"\x15")  # Ctrl-U before the first Enter
         self.assertEqual(len(commands), 3)  # shell check, transfer, clear
         self.assertTrue(commands[0].startswith(b" echo PYSNAP_"))
         self.assertTrue(commands[1].startswith(b" f="))
@@ -170,7 +178,15 @@ class ExtractWithShellTests(unittest.TestCase):
         with _ShellServer(self.guest, prompt=REPORT_PS1) as server:
             with self.assertRaisesRegex(ExtractError, "report recording is running"):
                 self._extract(server)
-        self.assertEqual(bytes(server.received), b"\r")
+        self.assertEqual(bytes(server.received), b"\x15\r")
+
+    def test_erases_an_unfinished_line_instead_of_running_it(self) -> None:
+        """Clear a typed line with Ctrl-U so the first Enter does not run it."""
+        with _ShellServer(self.guest, typed=b"touch PARTIAL") as server:
+            self._extract(server)
+
+        self.assertEqual((self.host / "report.01.first").read_bytes(), self.content)
+        self.assertFalse((self.guest / "PARTIAL").exists())
 
     def test_refuses_to_replace_files_without_force(self) -> None:
         """Keep existing host files unless ``force`` is given."""
@@ -196,12 +212,15 @@ class ExtractWithShellTests(unittest.TestCase):
 class ExtractPreconditionTests(unittest.TestCase):
     """Verify checks made before connecting."""
 
-    def test_requires_a_running_vm_with_a_free_serial_port(self) -> None:
-        """Refuse stopped VMs, VMs without a port and attached sessions."""
+    def test_requires_a_running_vm_with_a_serial_port(self) -> None:
+        """Refuse stopped VMs, VMs without a port and old attached sessions."""
         cases = [
             (_Service(state="poweroff"), "is not running"),
             (_Service(port=None), "has no TCP serial port"),
-            (_Service(live=True), "detach with Ctrl-Q"),
+            (
+                _Service(session=SessionRecord("first", 2326, 1, "now")),
+                "without a control channel",
+            ),
         ]
         for service, message in cases:
             with self.subTest(message=message), tempfile.TemporaryDirectory() as temp_dir:

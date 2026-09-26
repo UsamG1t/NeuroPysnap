@@ -2,8 +2,10 @@
 
 The transfer uses only the guest shell and coreutils (decision D38):
 
-1. The VM must be running, expose ``UART1`` as a TCP server and have no
-   attached ``pysnap connect`` session, because VirtualBox serves one client.
+1. The VM must be running and expose ``UART1`` as a TCP server. VirtualBox
+   serves one client, so when ``pysnap connect`` is attached the transfer is
+   delegated to that process through its control channel
+   (:mod:`pysnap.report.control`), which runs the same protocol.
 2. PySnap wakes the console with Enter and refuses to continue when the
    prompt installed by ``report`` is visible: a recording is running and every
    further command would end up in the student's report.
@@ -33,8 +35,9 @@ import secrets
 import shlex
 import socket
 import tempfile
+import threading
 from time import monotonic
-from typing import Callable
+from typing import Callable, Protocol
 
 from pysnap.errors import PySnapError
 from pysnap.terminal.transport import open_serial_socket
@@ -111,32 +114,81 @@ def extract_file(
         raise ExtractError(f'"{target}" already exists; use --force to replace it.')
     port = _connectable_port(service, vm_name)
 
-    open_socket = connector or (lambda host, number, timeout: open_serial_socket(host, number, timeout=timeout))
-    connection = open_socket("localhost", port, connect_timeout)
-    try:
-        console = _Console(connection)
-        greeting = console.exchange(b"\r", quiet=_QUIET_PERIOD, limit=2.0)
-        if _REPORT_PROMPT.search(_plain(greeting)):
+    session = service.session_registry.get_live_session(vm_name)
+    if session is not None:
+        if session.control_port is None or session.control_token is None:
             raise ExtractError(
-                f'A report recording is running on "{vm_name}". Finish it with exit or '
-                "Ctrl-D in pysnap connect, then extract the report."
+                f'Virtual machine "{vm_name}" has an attached pysnap connect session '
+                "without a control channel; detach with Ctrl-Q and try again."
             )
-        console.send(PROBE_COMMAND)
-        if not console.read_until(lambda data: PROBE_ANSWER in data, shell_timeout):
-            raise ExtractError(
-                f'The console of "{vm_name}" is not at a shell prompt. Open it with '
-                "pysnap connect, log in or leave the running program, detach with "
-                "Ctrl-Q and try again."
+        from pysnap.report.control import request_transfer
+
+        data, checksum = request_transfer(
+            session.control_port,
+            session.control_token,
+            remote_path,
+            max_bytes=max_bytes,
+        )
+    else:
+        open_socket = connector or (
+            lambda host, number, timeout: open_serial_socket(host, number, timeout=timeout)
+        )
+        connection = open_socket("localhost", port, connect_timeout)
+        try:
+            data, checksum = run_transfer(
+                SocketConsole(connection),
+                vm_name,
+                remote_path,
+                shell_timeout=shell_timeout,
+                idle_timeout=idle_timeout,
+                max_bytes=max_bytes,
             )
-        console.exchange(b"", quiet=_QUIET_PERIOD, limit=1.0)
-        data, checksum = _transfer(console, remote_path, idle_timeout, max_bytes)
-        console.send(b" clear\r")
-        console.exchange(b"", quiet=_QUIET_PERIOD, limit=1.0)
-    finally:
-        connection.close()
+        finally:
+            connection.close()
 
     _write_atomically(target, data)
     return ExtractResult(vm_name, remote_path, target, len(data), checksum)
+
+
+def run_transfer(
+    console: "ConsoleIO",
+    vm_name: str,
+    remote_path: str,
+    *,
+    shell_timeout: float = DEFAULT_SHELL_TIMEOUT,
+    idle_timeout: float = DEFAULT_IDLE_TIMEOUT,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+) -> tuple[bytes, str]:
+    """Run the transfer protocol on a serial console.
+
+    :param console: Console transport.
+    :param vm_name: VM name used in messages.
+    :param remote_path: Quoted shell path of the file.
+    :param shell_timeout: Seconds to wait for the shell check answer.
+    :param idle_timeout: Seconds without data after which the transfer fails.
+    :param max_bytes: Largest accepted file size.
+    :returns: File content and its SHA-256 checksum.
+    :raises ExtractError: When the console is not usable or the transfer fails.
+    """
+    # Ctrl-U first: a line the student typed but did not finish is erased
+    # instead of being run by the Enter (it can be restored with Ctrl-Y).
+    greeting = console.exchange(b"\x15\r", quiet=_QUIET_PERIOD, limit=2.0)
+    if _REPORT_PROMPT.search(_plain(greeting)):
+        raise ExtractError(
+            f'A report recording is running on "{vm_name}". Finish it with exit or '
+            "Ctrl-D in pysnap connect, then extract the report."
+        )
+    console.send(PROBE_COMMAND)
+    if not console.read_until(lambda data: PROBE_ANSWER in data, shell_timeout):
+        raise ExtractError(
+            f'The console of "{vm_name}" is not at a shell prompt. Open it with '
+            "pysnap connect, log in or leave the running program and try again."
+        )
+    console.exchange(b"", quiet=_QUIET_PERIOD, limit=1.0)
+    data, checksum = _transfer(console, remote_path, idle_timeout, max_bytes)
+    console.send(b" clear\r")
+    console.exchange(b"", quiet=_QUIET_PERIOD, limit=1.0)
+    return data, checksum
 
 
 def remote_shell_path(name: str) -> str:
@@ -164,15 +216,10 @@ def _connectable_port(service, vm_name: str) -> int:
         raise ExtractError(
             f'Virtual machine "{vm_name}" is not running; start it with pysnap connect.'
         )
-    if service.session_registry.get_live_session(vm_name) is not None:
-        raise ExtractError(
-            f'Virtual machine "{vm_name}" has an attached pysnap connect session; '
-            "detach with Ctrl-Q and try again."
-        )
     return vm_info.serial_port
 
 
-def _transfer(console: "_Console", remote_path: str, idle_timeout: float, max_bytes: int) -> tuple[bytes, str]:
+def _transfer(console: "ConsoleIO", remote_path: str, idle_timeout: float, max_bytes: int) -> tuple[bytes, str]:
     """Run the transfer command and return the verified file content."""
     token = secrets.token_hex(8)
     begin, end, missing = (f"PYSNAP-{kind}-{token}".encode() for kind in ("BEGIN", "END", "MISSING"))
@@ -230,19 +277,32 @@ def _write_atomically(target: Path, data: bytes) -> None:
         raise
 
 
-class _Console:
-    """Minimal blocking reader and writer for the serial TCP socket."""
+class ConsoleIO(Protocol):
+    """Console transport used by :func:`run_transfer`."""
 
-    def __init__(self, connection: socket.socket) -> None:
-        self.connection = connection
-        self.connection.settimeout(0.05)
+    buffer: bytes
+
+    def send(self, data: bytes) -> None:
+        """Send bytes and start a new response buffer."""
+
+    def exchange(self, data: bytes, *, quiet: float, limit: float) -> bytes:
+        """Send bytes and collect output until it stays quiet."""
+
+    def read_until(self, done: Callable[[bytes], bool], timeout: float, *, idle: bool = False) -> bool:
+        """Collect output until ``done`` holds."""
+
+
+class _BufferedConsole:
+    """Shared waiting logic; subclasses provide ``_write`` and ``_receive``."""
+
+    def __init__(self) -> None:
         self.buffer = b""
 
     def send(self, data: bytes) -> None:
         """Send bytes and start a new response buffer."""
         self.buffer = b""
         if data:
-            self.connection.sendall(data)
+            self._write(data)
 
     def exchange(self, data: bytes, *, quiet: float, limit: float) -> bytes:
         """Send bytes and collect output until it stays quiet."""
@@ -264,6 +324,28 @@ class _Console:
                 deadline = monotonic() + timeout
         return True
 
+    def _write(self, data: bytes) -> None:
+        raise NotImplementedError
+
+    def _receive(self) -> bool:
+        raise NotImplementedError
+
+
+class SocketConsole(_BufferedConsole):
+    """Console on a blocking serial TCP socket."""
+
+    def __init__(self, connection: socket.socket) -> None:
+        """Wrap a connected socket.
+
+        :param connection: Serial TCP socket.
+        """
+        super().__init__()
+        self.connection = connection
+        self.connection.settimeout(0.05)
+
+    def _write(self, data: bytes) -> None:
+        self.connection.sendall(data)
+
     def _receive(self) -> bool:
         """Read one chunk; return whether data arrived."""
         try:
@@ -276,3 +358,54 @@ class _Console:
             raise ExtractError("The VM closed the serial connection.")
         self.buffer += chunk
         return True
+
+
+class QueueConsole(_BufferedConsole):
+    """Console fed by another thread, such as the ``pysnap connect`` loop.
+
+    The owner calls :meth:`feed` with guest output and :meth:`close` when the
+    serial connection ends; ``write`` must be safe to call from the transfer
+    thread.
+    """
+
+    def __init__(self, write: Callable[[bytes], None]) -> None:
+        """Initialize the console.
+
+        :param write: Sends bytes to the guest.
+        """
+        super().__init__()
+        self._writer = write
+        self._pending = b""
+        self._closed = False
+        self._condition = threading.Condition()
+
+    def feed(self, data: bytes) -> None:
+        """Hand guest output to the transfer.
+
+        :param data: Received bytes.
+        """
+        with self._condition:
+            self._pending += data
+            self._condition.notify_all()
+
+    def close(self) -> None:
+        """Signal that the serial connection has ended."""
+        with self._condition:
+            self._closed = True
+            self._condition.notify_all()
+
+    def _write(self, data: bytes) -> None:
+        self._writer(data)
+
+    def _receive(self) -> bool:
+        """Wait briefly for fed data; return whether data arrived."""
+        with self._condition:
+            if not self._pending and not self._closed:
+                self._condition.wait(0.05)
+            if self._pending:
+                self.buffer += self._pending
+                self._pending = b""
+                return True
+            if self._closed:
+                raise ExtractError("The serial connection of pysnap connect was closed.")
+            return False

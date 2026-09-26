@@ -19,6 +19,8 @@ from prompt_toolkit.mouse_events import MouseButton, MouseEvent, MouseEventType
 
 from pysnap.core.service import PySnapService
 from pysnap.errors import PySnapError
+from pysnap.report.control import ControlServer
+from pysnap.report.extract import ExtractError, QueueConsole, run_transfer
 from pysnap.terminal.clipboard import copy_text_to_host_clipboard
 from pysnap.terminal.emulator import TerminalEmulator
 from pysnap.terminal.keymap import key_press_to_bytes
@@ -281,6 +283,10 @@ class TerminalSession:
         stop_event = asyncio.Event()
         received_output = asyncio.Event()
         selection_tracker = SelectionTracker(emulator)
+        # Set while ``pysnap report extract`` uses this connection: guest
+        # output goes to the transfer instead of the screen and keys pause.
+        transfer: dict[str, QueueConsole | None] = {"console": None}
+        transfer_output = bytearray()
 
         await _wake_serial_console(writer)
         status.message = "Connected. Ctrl-Q detaches."
@@ -399,6 +405,8 @@ class TerminalSession:
             """
             captured_text = selection_tracker.take_captured_text()
             if captured_text is None:
+                if transfer["console"] is not None:
+                    return
                 writer.write(b"\x03")
                 return
             copied = copy_text_to_host_clipboard(captured_text, output=event.app.output)
@@ -413,6 +421,10 @@ class TerminalSession:
         def _forward_key(event) -> None:
             """Forward arbitrary key input to the serial transport."""
             selection_tracker.clear()
+            if transfer["console"] is not None:
+                status.message = "Report transfer in progress; keys are paused."
+                event.app.invalidate()
+                return
             key_press = event.key_sequence[-1]
             payload = key_press_to_bytes(key_press)
             if payload is None:
@@ -434,6 +446,8 @@ class TerminalSession:
         app.ttimeoutlen = 0.05
 
         def report_connection_closed() -> None:
+            if transfer["console"] is not None:
+                transfer["console"].close()
             status.vm_state = "Changing"
             status.message = "Serial connection closed."
             stop_event.set()
@@ -446,6 +460,10 @@ class TerminalSession:
                     if not data:
                         report_connection_closed()
                         return
+                    if transfer["console"] is not None:
+                        transfer_output.extend(data)
+                        transfer["console"].feed(data)
+                        continue
                     received_output.set()
                     selection_tracker.clear_highlight()
                     responses: list[bytes] = []
@@ -526,8 +544,47 @@ class TerminalSession:
                 status.message = "Connected. Press Enter if the guest stays silent."
                 app.invalidate()
 
+        async def run_control_transfer(remote_path: str, max_bytes: int) -> tuple[bytes, str]:
+            """Run a ``pysnap report extract`` transfer on this connection."""
+            loop = asyncio.get_running_loop()
+            console = QueueConsole(lambda data: loop.call_soon_threadsafe(writer.write, data))
+            transfer_output.clear()
+            transfer["console"] = console
+            status.message = "Extracting a report for pysnap report extract; keys are paused."
+            app.invalidate()
+            try:
+                result = await asyncio.to_thread(
+                    run_transfer, console, vm_name, remote_path, max_bytes=max_bytes
+                )
+            except ExtractError as error:
+                transfer["console"] = None
+                status.message = f"Report transfer failed: {error}"
+                # Show what the guest printed and send nothing more: after a
+                # refusal a report recording may be running.
+                emulator.feed(bytes(transfer_output))
+                transfer_output.clear()
+                app.invalidate()
+                raise
+            transfer["console"] = None
+            transfer_output.clear()
+            status.message = "Report transferred. Ctrl-Q detaches."
+            if not stop_event.is_set():
+                # The transfer ended with ``clear`` on the guest; show a
+                # clean screen and ask the shell for a fresh prompt.
+                emulator.feed(b"\x1b[H\x1b[2J")
+                writer.write(b"\r")
+            app.invalidate()
+            return result
+
+        control = ControlServer(run_control_transfer)
+        control_port = await control.start()
         try:
-            with self.service.session_registry.register(vm_name, serial_port):
+            with self.service.session_registry.register(
+                vm_name,
+                serial_port,
+                control_port=control_port,
+                control_token=control.token,
+            ):
                 app.create_background_task(reader_loop())
                 app.create_background_task(resize_loop())
                 app.create_background_task(watcher_loop())
@@ -535,6 +592,7 @@ class TerminalSession:
                 await app.run_async(handle_sigint=False)
         finally:
             stop_event.set()
+            await control.close()
             writer.close()
             await writer.wait_closed()
 
