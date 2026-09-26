@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from pathlib import Path
 import re
 import shutil
 from typing import Sequence, TextIO
@@ -22,6 +23,7 @@ from pysnap.report.player import DEFAULT_MAX_DELAY, PlaybackController, ReplayPl
 from pysnap.report.recording import load_report
 from pysnap.report.render import render_transcript
 from pysnap.report.checkfile import load_check
+from pysnap.report.extract import extract_file
 from pysnap.report.matcher import CheckResult, run_check
 from pysnap.report.stats import ReportStats, compute_stats
 
@@ -108,6 +110,31 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
         help="Check file in TOML format, for example lab02-first.check.toml.",
     )
 
+    extract = subcommands.add_parser(
+        "extract",
+        help="Copy a report file from a running VM through its serial console.",
+        description=(
+            "Copy a file from a running VM to the host through the UART1 serial "
+            "console. The VM must be at a shell prompt, without a running report "
+            "recording and without an attached pysnap connect session. A name "
+            "without / is looked up in the home directory of the console user."
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    extract.add_argument("vm", help="Virtual machine name.")
+    extract.add_argument("name", help="Report file in the VM, for example report.01.first.")
+    extract.add_argument(
+        "--output",
+        metavar="PATH",
+        help="Host file to write; defaults to the same name in the current directory.",
+    )
+    extract.add_argument(
+        "--force",
+        action="store_true",
+        help="Replace an existing host file.",
+    )
+
     show = subcommands.add_parser(
         "show",
         help="Replay a report with its timing in a safe terminal view.",
@@ -160,7 +187,42 @@ def run_report_command(
         return _run_show(namespace, stdout, stderr)
     if namespace.subcommand == "check":
         return _run_check(namespace, stdout)
+    if namespace.subcommand == "extract":
+        return _run_extract(namespace, service, stdout, stderr)
     return 1
+
+
+def _run_extract(
+    namespace: argparse.Namespace,
+    service: PySnapService,
+    stdout: TextIO,
+    stderr: TextIO,
+) -> int:
+    """Run ``pysnap report extract``.
+
+    :param namespace: Parsed arguments.
+    :param service: Application service.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :returns: Process exit code.
+    """
+    result = extract_file(
+        service,
+        namespace.vm,
+        namespace.name,
+        destination=Path(namespace.output) if namespace.output else None,
+        force=namespace.force,
+    )
+    print(
+        f"Extracted {result.remote_path} from {result.vm_name} to {result.destination} "
+        f"({result.size} bytes, sha256 {result.sha256}).",
+        file=stdout,
+    )
+    try:
+        load_report(result.destination)
+    except PySnapError as error:
+        print(f"Warning: the file is not a readable report: {error}", file=stderr)
+    return 0
 
 
 def _run_check(namespace: argparse.Namespace, stdout: TextIO) -> int:

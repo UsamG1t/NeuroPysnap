@@ -554,3 +554,42 @@ percentage and the mark follow. When the ``[report]`` task or host differs
 from the report file name or prompts, a warning is printed and the grade is
 not changed.
 
+Extract a Report from a Running VM
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``extract`` subcommand copies a report from a running VM to the host
+through the same ``UART1`` serial console that ``pysnap connect`` uses, so no
+second COM port and no VM restart are needed.
+
+.. code-block:: text
+
+   pysnap report extract first report.01.first
+   Extracted "$HOME"/report.01.first from first to /home/user/report.01.first (2621 bytes, sha256 ...).
+   pysnap report extract first /tmp/report.03.pc1 --output reports/pc1 --force
+
+Requirements and behavior:
+
+- the VM is running, has a ``UART1`` TCP port (see ``pysnap plug``) and no
+  attached ``pysnap connect`` session; VirtualBox serves one client, so
+  detach with ``Ctrl-Q`` first
+- the console is logged in and at a shell prompt; PySnap checks this with
+  ``echo PYSNAP_$((20+22))`` and stops when the answer does not arrive
+- no ``report`` recording is running: PySnap presses Enter once, and when the
+  recording prompt appears it stops before sending any command, so nothing
+  else ends up in the student's report
+- a name without ``/`` is looked up in the home directory of the console
+  user; a path with ``/`` is used as given
+- the file is sent as ``base64`` together with its ``sha256sum``; PySnap
+  verifies the checksum, writes the file under the same name into the current
+  directory or to ``--output``, and never replaces an existing file without
+  ``--force``
+- the service commands start with a space, so shells with ``HISTCONTROL``
+  set to ``ignorespace`` keep them out of the history, and the guest screen is
+  cleared afterwards
+- after the copy PySnap reads the file as a report and warns when it is not
+  one
+
+A serial console typically runs at 115200 baud, about 11 KB/s: a report of a
+few kilobytes takes well under a second. The transfer fails only when no data
+arrives for ten seconds.
+
