@@ -25,6 +25,14 @@ pysnap.report.checkfile module
    :show-inheritance:
    :undoc-members:
 
+pysnap.report.compare module
+----------------------------
+
+.. automodule:: pysnap.report.compare
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 pysnap.report.control module
 ----------------------------
 

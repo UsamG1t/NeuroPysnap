@@ -30,8 +30,8 @@ _BACKSPACE_KEYS = {b"\x7f", b"\x08"}
 _HISTORY_KEYS = {b"\x1b[A", b"\x1bOA", b"\x1b[B", b"\x1bOB", b"\x12"}
 _INTERRUPT_KEY = b"\x03"
 _IPV4_PATTERN = re.compile(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])")
-_MAC_PATTERN = re.compile(r"(?<![0-9A-Fa-f:])(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}(?![0-9A-Fa-f:])")
-_SERVICE_MACS = {"ff:ff:ff:ff:ff:ff", "00:00:00:00:00:00"}
+MAC_PATTERN = re.compile(r"(?<![0-9A-Fa-f:])(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}(?![0-9A-Fa-f:])")
+SERVICE_MACS = {"ff:ff:ff:ff:ff:ff", "00:00:00:00:00:00"}
 # ``report`` writes CPU.txt right before starting ``script`` and packs the
 # other members right after it ends.
 _MEMBER_EXPECTED_TIME = {
@@ -202,8 +202,8 @@ def compute_stats(
         if recording.start_time is not None and recording.duration is not None
         else None
     )
-    output_text = _output_text(transcript)
-    cpu = _parse_cpu_info(recording.cpu_info)
+    output_text = transcript_output_text(transcript)
+    cpu = parse_cpu_info(recording.cpu_info)
     member_times = _member_time_checks(recording, end_time, mtime_tolerance)
     pastes = _find_pastes(recording, transcript, paste_min_characters)
     diagnostics = (*recording.diagnostics, *transcript.diagnostics)
@@ -237,7 +237,7 @@ def compute_stats(
         ip_addresses=tuple(sorted(set(_valid_ipv4(output_text)), key=_ipv4_key)),
         mac_addresses=tuple(
             sorted(
-                {mac.lower() for mac in _MAC_PATTERN.findall(output_text)} - _SERVICE_MACS
+                {mac.lower() for mac in MAC_PATTERN.findall(output_text)} - SERVICE_MACS
             )
         ),
         member_times=member_times,
@@ -286,8 +286,12 @@ def _find_pastes(
     return tuple(pastes)
 
 
-def _output_text(transcript: Transcript) -> str:
-    """Return the transcript text without the lines of entered commands."""
+def transcript_output_text(transcript: Transcript) -> str:
+    """Return the transcript text without the lines of entered commands.
+
+    :param transcript: Rendered report.
+    :returns: Output lines joined with newlines.
+    """
     input_lines: set[int] = set()
     for command in transcript.commands:
         input_lines.update(range(command.line, command.output_start))
@@ -310,8 +314,12 @@ def _ipv4_key(address: str) -> tuple[int, ...]:
     return tuple(int(octet) for octet in address.split("."))
 
 
-def _parse_cpu_info(cpu_info: str) -> dict[str, str]:
-    """Parse ``lscpu`` output into a field mapping."""
+def parse_cpu_info(cpu_info: str) -> dict[str, str]:
+    """Parse ``lscpu`` output into a field mapping.
+
+    :param cpu_info: Content of ``CPU.txt``.
+    :returns: Field names mapped to their first value.
+    """
     fields: dict[str, str] = {}
     for line in cpu_info.splitlines():
         key, separator, value = line.partition(":")

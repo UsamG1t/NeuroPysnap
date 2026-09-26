@@ -597,3 +597,73 @@ A serial console typically runs at 115200 baud, about 11 KB/s: a report of a
 few kilobytes takes well under a second. The transfer fails only when no data
 arrives for ten seconds.
 
+Compare Reports
+~~~~~~~~~~~~~~~
+
+The ``compare`` subcommand compares every pair of the given reports and lists
+signs that two reports share their origin. Paths may be report files or
+directories; directories are searched recursively for files named
+``report.NN.HOST``, and a file reached twice is compared once. PySnap does not
+know which reports belong to the same student: reports of one student
+legitimately share values such as the MAC address of the same VM, so the
+teacher decides which pairs matter.
+
+.. code-block:: text
+
+   pysnap report compare reports/
+   SIGNALS  reports/ivanov/report.01.first  <->  reports/petrov/report.01.first
+     strong  S3  same MAC address: 08:00:27:a9:84:3a
+     medium  M3  identical CPU.txt
+   OK       reports/ivanov/report.01.first  <->  reports/sidorov/report.01.first
+   OK       reports/petrov/report.01.first  <->  reports/sidorov/report.01.first
+
+   Compared 3 reports, 3 pairs: 1 with signals (strongest: 1 strong, 0 medium, 0 weak), 2 OK.
+
+Pairs with signals come first, strongest first, and show only the signals
+found; other pairs take one ``OK`` line.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Code
+     - Level
+     - Signal
+   * - ``S1``
+     - strong
+     - identical report files; the other signals are then not listed
+   * - ``S2``
+     - strong
+     - identical recorded output
+   * - ``S3``
+     - strong
+     - the same MAC address in both outputs (all-zero, broadcast and
+       multicast addresses are ignored)
+   * - ``S4``
+     - strong
+     - the same ``START_TIME`` (to the second) and ``DURATION`` (to the
+       microsecond)
+   * - ``M1``
+     - medium
+     - at least 20 identical consecutive keyboard delays, to the
+       microsecond, which points at a copied timing log
+   * - ``M2``
+     - medium
+     - at least three consecutive ``ping`` times (``time=... ms``) in the
+       same order, or at least three shared ``tcpdump`` timestamps with
+       microseconds; single ``ping`` times match by chance too often, since
+       ``ping`` prints only three significant digits
+   * - ``M3``
+     - medium
+     - byte-identical ``CPU.txt``, including the BogoMIPS value measured at
+       boot
+   * - ``M4``
+     - medium
+     - at least two shared commands whose output says ``command not found``
+       or ``No such file``
+   * - ``W1``
+     - weak
+     - the same CPU model (not shown when ``CPU.txt`` is identical)
+
+Unreadable paths are reported as warnings and skipped. The exit code is
+``0`` when at least one report was read and ``1`` otherwise.
+

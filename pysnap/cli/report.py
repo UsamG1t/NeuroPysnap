@@ -10,7 +10,7 @@ import shutil
 from typing import Sequence, TextIO
 
 from pysnap.core.service import PySnapService
-from pysnap.errors import PySnapError
+from pysnap.errors import PySnapError, ReportFormatError
 from pysnap.report.highlight import highlight_transcript
 from pysnap.report.models import (
     CellStyle,
@@ -23,6 +23,7 @@ from pysnap.report.player import DEFAULT_MAX_DELAY, PlaybackController, ReplayPl
 from pysnap.report.recording import load_report
 from pysnap.report.render import render_transcript
 from pysnap.report.checkfile import load_check
+from pysnap.report.compare import LEVELS, CompareResult, compare_reports
 from pysnap.report.extract import extract_file
 from pysnap.report.matcher import CheckResult, run_check
 from pysnap.report.stats import ReportStats, compute_stats
@@ -110,6 +111,24 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
         help="Check file in TOML format, for example lab02-first.check.toml.",
     )
 
+    compare = subcommands.add_parser(
+        "compare",
+        help="Compare reports pairwise and show signs of a shared origin.",
+        description=(
+            "Compare every pair of the given reports and list the signals "
+            "that they share their origin: identical files or output, the "
+            "same MAC addresses, start times, keyboard delays, random output "
+            "values, CPU.txt or erroneous commands. Directories are searched "
+            "recursively for report.NN.HOST files. Whether two reports come "
+            "from different students is up to the reader."
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    compare.add_argument(
+        "paths", nargs="+", metavar="PATH", help="Report files and directories with reports."
+    )
+
     extract = subcommands.add_parser(
         "extract",
         help="Copy a report file from a running VM through its serial console.",
@@ -190,7 +209,64 @@ def run_report_command(
         return _run_check(namespace, stdout)
     if namespace.subcommand == "extract":
         return _run_extract(namespace, service, stdout, stderr)
+    if namespace.subcommand == "compare":
+        return _run_compare(namespace, stdout, stderr)
     return 1
+
+
+def _run_compare(namespace: argparse.Namespace, stdout: TextIO, stderr: TextIO) -> int:
+    """Run ``pysnap report compare``.
+
+    :param namespace: Parsed arguments.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :returns: Process exit code.
+    """
+    result = compare_reports(namespace.paths)
+    for warning in result.warnings:
+        print(f"Warning: {warning}", file=stderr)
+    if not result.reports:
+        raise ReportFormatError("No readable reports to compare.")
+    print(format_compare_result(result), file=stdout)
+    return 0
+
+
+def format_compare_result(result: CompareResult) -> str:
+    """Render a pairwise comparison.
+
+    Pairs with signals come first with only the signals found; pairs
+    without signals take one line each.
+
+    :param result: Comparison result.
+    :returns: Multi-line human-readable text.
+    """
+    lines = []
+    for pair in result.pairs:
+        if not pair.signals:
+            lines.append(f"OK       {pair.first}  <->  {pair.second}")
+            continue
+        lines.append(f"SIGNALS  {pair.first}  <->  {pair.second}")
+        for signal in pair.signals:
+            lines.append(f"  {signal.level:<6}  {signal.code}  {signal.description}")
+    flagged = sum(1 for pair in result.pairs if pair.signals)
+    counts = [
+        f"{sum(1 for pair in result.pairs if pair.signals and pair.level == rank)} {level}"
+        for rank, level in enumerate(LEVELS)
+    ]
+    if lines:
+        lines.append("")
+    lines.append(
+        f"Compared {_plural(len(result.reports), 'report')}, "
+        f"{_plural(len(result.pairs), 'pair')}: "
+        f"{flagged} with signals (strongest: {', '.join(counts)}), "
+        f"{len(result.pairs) - flagged} OK."
+    )
+    return "\n".join(lines)
+
+
+def _plural(count: int, noun: str) -> str:
+    """Return a count with a regular English plural."""
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
 
 
 def _run_extract(
