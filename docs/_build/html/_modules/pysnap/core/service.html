@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pysnap.core.service &#8212; PySnap 1.1.0 documentation</title>
+    <title>pysnap.core.service &#8212; PySnap 2.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
-    <script src="../../../_static/documentation_options.js?v=fc837d61"></script>
+    <script src="../../../_static/documentation_options.js?v=51b770b3"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -32,7 +32,7 @@
           <div class="body" role="main">
             
   <h1>Source code for pysnap.core.service</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Application service layer for PySnap.&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""Application service layer for PySnap."""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -71,31 +71,31 @@
 <div class="viewcode-block" id="normalize_group_name">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.normalize_group_name">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">normalize_group_name</span><span class="p">(</span><span class="n">group</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalize a VirtualBox group name.</span>
+<span class="w">    </span><span class="sd">"""Normalize a VirtualBox group name.</span>
 
 <span class="sd">    :param group: Raw group name.</span>
 <span class="sd">    :returns: Group name that always starts with ``/``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">group</span> <span class="ow">or</span> <span class="n">group</span> <span class="o">==</span> <span class="s2">&quot;/&quot;</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">&quot;/Others&quot;</span>
-    <span class="k">return</span> <span class="n">group</span> <span class="k">if</span> <span class="n">group</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;/</span><span class="si">{</span><span class="n">group</span><span class="si">}</span><span class="s2">&quot;</span></div>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">group</span> <span class="ow">or</span> <span class="n">group</span> <span class="o">==</span> <span class="s2">"/"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">"/Others"</span>
+    <span class="k">return</span> <span class="n">group</span> <span class="k">if</span> <span class="n">group</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"/"</span><span class="p">)</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"/</span><span class="si">{</span><span class="n">group</span><span class="si">}</span><span class="s2">"</span></div>
 
 
 
 <div class="viewcode-block" id="PySnapService">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">PySnapService</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Provide the main PySnap business operations.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Provide the main PySnap business operations."""</span>
 
-    <span class="n">SNAPSHOT_NAME</span> <span class="o">=</span> <span class="s2">&quot;pysnap-base&quot;</span>
+    <span class="n">SNAPSHOT_NAME</span> <span class="o">=</span> <span class="s2">"pysnap-base"</span>
     <span class="n">DEFAULT_SERIAL_TCP_PORT</span> <span class="o">=</span> <span class="mi">1024</span>
     <span class="n">DEFAULT_START_TIMEOUT</span> <span class="o">=</span> <span class="mf">30.0</span>
     <span class="n">DEFAULT_STOP_TIMEOUT</span> <span class="o">=</span> <span class="mf">60.0</span>
     <span class="n">DEFAULT_INTEGRATION_STOP_TIMEOUT</span> <span class="o">=</span> <span class="mf">180.0</span>
-    <span class="n">STOPPED_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;poweroff&quot;</span><span class="p">,</span> <span class="s2">&quot;saved&quot;</span><span class="p">,</span> <span class="s2">&quot;aborted&quot;</span><span class="p">}</span>
-    <span class="n">STOPPING_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;stopping&quot;</span><span class="p">}</span>
-    <span class="n">PAUSED_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;paused&quot;</span><span class="p">}</span>
-    <span class="n">ERROR_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;gurumeditation&quot;</span><span class="p">,</span> <span class="s2">&quot;stuck&quot;</span><span class="p">}</span>
+    <span class="n">STOPPED_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"poweroff"</span><span class="p">,</span> <span class="s2">"saved"</span><span class="p">,</span> <span class="s2">"aborted"</span><span class="p">}</span>
+    <span class="n">STOPPING_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"stopping"</span><span class="p">}</span>
+    <span class="n">PAUSED_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"paused"</span><span class="p">}</span>
+    <span class="n">ERROR_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"gurumeditation"</span><span class="p">,</span> <span class="s2">"stuck"</span><span class="p">}</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -104,10 +104,10 @@
         <span class="n">serial_probe_factory</span><span class="p">:</span> <span class="n">SerialProbeFactory</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">proto_settings_store</span><span class="p">:</span> <span class="n">ProtoSettingsStore</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the service.</span>
+<span class="w">        </span><span class="sd">"""Initialize the service.</span>
 
 <span class="sd">        :param client: Optional VirtualBox client implementation.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">client</span> <span class="ow">or</span> <span class="n">VBoxManageClient</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">session_registry</span> <span class="o">=</span> <span class="n">session_registry</span> <span class="ow">or</span> <span class="n">SessionRegistry</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">serial_probe_factory</span> <span class="o">=</span> <span class="n">serial_probe_factory</span> <span class="ow">or</span> <span class="n">serial_connection_probe</span>
@@ -121,31 +121,31 @@
         <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">progress_callback</span><span class="p">:</span> <span class="n">ImportProgressCallback</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">VMInfo</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Import an OVA or OVF image into VirtualBox.</span>
+<span class="w">        </span><span class="sd">"""Import an OVA or OVF image into VirtualBox.</span>
 
 <span class="sd">        :param image_path: Path to the OVA or OVF appliance.</span>
 <span class="sd">        :param vm_name: Optional custom name for a single imported VM.</span>
 <span class="sd">        :param progress_callback: Optional import progress callback.</span>
 <span class="sd">        :returns: Imported VM information objects.</span>
 <span class="sd">        :raises PySnapError: If the file is invalid or import does not create VMs.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">image</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">image_path</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">image</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;.ova&quot;</span><span class="p">,</span> <span class="s2">&quot;.ovf&quot;</span><span class="p">}:</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">&quot;Only .ova and .ovf images can be imported.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">image</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">".ova"</span><span class="p">,</span> <span class="s2">".ovf"</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">"Only .ova and .ovf images can be imported."</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">image</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Image &quot;</span><span class="si">{</span><span class="n">image</span><span class="si">}</span><span class="s1">&quot; does not exist.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Image "</span><span class="si">{</span><span class="n">image</span><span class="si">}</span><span class="s1">" does not exist.'</span><span class="p">)</span>
 
         <span class="n">declared_vm_names</span> <span class="o">=</span> <span class="n">read_appliance_vm_names</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
         <span class="n">planned_imports</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">dry_run_import</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">image</span><span class="p">))</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">planned_imports</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">&quot;The appliance dry run did not expose any virtual systems.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">"The appliance dry run did not expose any virtual systems."</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">vm_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">planned_imports</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                <span class="s2">&quot;Custom VMName can only be used when the appliance contains exactly one VM.&quot;</span>
+                <span class="s2">"Custom VMName can only be used when the appliance contains exactly one VM."</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">declared_vm_names</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">planned_imports</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                <span class="s2">&quot;The appliance descriptor VM count does not match the VirtualBox dry run.&quot;</span>
+                <span class="s2">"The appliance descriptor VM count does not match the VirtualBox dry run."</span>
             <span class="p">)</span>
 
         <span class="n">normalized_imports</span> <span class="o">=</span> <span class="p">[</span>
@@ -166,20 +166,20 @@
         <span class="p">)</span>
         <span class="n">colliding_names</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">final_candidate_names</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">before_names</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">colliding_names</span><span class="p">:</span>
-            <span class="n">names_text</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">colliding_names</span><span class="p">)</span>
+            <span class="n">names_text</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">colliding_names</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">vm_name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">colliding_names</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">declared_vm_names</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">colliding_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">&quot; already exists. &#39;</span>
-                    <span class="s2">&quot;Use the optional VMName parameter to choose a different name.&quot;</span>
+                    <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">colliding_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">" already exists. '</span>
+                    <span class="s2">"Use the optional VMName parameter to choose a different name."</span>
                 <span class="p">)</span>
             <span class="k">if</span> <span class="n">vm_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">colliding_names</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">colliding_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">&quot; already exists. &#39;</span>
-                    <span class="s2">&quot;Choose a different VMName.&quot;</span>
+                    <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">colliding_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">" already exists. '</span>
+                    <span class="s2">"Choose a different VMName."</span>
                 <span class="p">)</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Virtual machine names already exist: </span><span class="si">{</span><span class="n">names_text</span><span class="si">}</span><span class="s2">. &quot;</span>
-                <span class="s2">&quot;Import aborted before creating duplicate VM names.&quot;</span>
+                <span class="sa">f</span><span class="s2">"Virtual machine names already exist: </span><span class="si">{</span><span class="n">names_text</span><span class="si">}</span><span class="s2">. "</span>
+                <span class="s2">"Import aborted before creating duplicate VM names."</span>
             <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">import_appliance</span><span class="p">(</span>
@@ -197,16 +197,16 @@
             <span class="p">]</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">imported_names</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">&quot;The appliance import finished, but no imported VMs were detected.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">"The appliance import finished, but no imported VMs were detected."</span><span class="p">)</span>
 
         <span class="n">imported_infos</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">VMInfo</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">vm_name</span> <span class="ow">in</span> <span class="n">imported_names</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">set_metadata</span><span class="p">(</span>
                 <span class="n">vm_name</span><span class="p">,</span>
                 <span class="p">{</span>
-                    <span class="s2">&quot;pysnap/managed&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;pysnap/kind&quot;</span><span class="p">:</span> <span class="s2">&quot;base&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;pysnap/source&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">image</span><span class="p">),</span>
+                    <span class="s2">"pysnap/managed"</span><span class="p">:</span> <span class="s2">"true"</span><span class="p">,</span>
+                    <span class="s2">"pysnap/kind"</span><span class="p">:</span> <span class="s2">"base"</span><span class="p">,</span>
+                    <span class="s2">"pysnap/source"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">image</span><span class="p">),</span>
                 <span class="p">},</span>
             <span class="p">)</span>
             <span class="n">imported_infos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">))</span>
@@ -220,7 +220,7 @@
         <span class="n">image_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">name_token</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IntegrationTestResult</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run an end-to-end integration scenario on an appliance.</span>
+<span class="w">        </span><span class="sd">"""Run an end-to-end integration scenario on an appliance.</span>
 
 <span class="sd">        The scenario imports one appliance VM, creates three linked clones</span>
 <span class="sd">        connected in a triangle of internal networks, captures machine details,</span>
@@ -231,25 +231,25 @@
 <span class="sd">        :param name_token: Optional deterministic suffix for generated VM names.</span>
 <span class="sd">        :returns: Integration test result with machine info and deletion order.</span>
 <span class="sd">        :raises PySnapError: If the appliance is invalid or the test fails.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">image</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">image_path</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">image</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;.ova&quot;</span><span class="p">,</span> <span class="s2">&quot;.ovf&quot;</span><span class="p">}:</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">&quot;Only .ova and .ovf images can be used for integration tests.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">image</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">".ova"</span><span class="p">,</span> <span class="s2">".ovf"</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">"Only .ova and .ovf images can be used for integration tests."</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">image</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Image &quot;</span><span class="si">{</span><span class="n">image</span><span class="si">}</span><span class="s1">&quot; does not exist.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Image "</span><span class="si">{</span><span class="n">image</span><span class="si">}</span><span class="s1">" does not exist.'</span><span class="p">)</span>
 
         <span class="n">planned_imports</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">dry_run_import</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">image</span><span class="p">))</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">planned_imports</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                <span class="s2">&quot;Integration test expects an appliance containing exactly one VM.&quot;</span>
+                <span class="s2">"Integration test expects an appliance containing exactly one VM."</span>
             <span class="p">)</span>
 
         <span class="n">token</span> <span class="o">=</span> <span class="n">name_token</span> <span class="ow">or</span> <span class="n">uuid4</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="p">[:</span><span class="mi">8</span><span class="p">]</span>
-        <span class="n">imported_vm_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;pysnap-it-</span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s2">-base&quot;</span>
+        <span class="n">imported_vm_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"pysnap-it-</span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s2">-base"</span>
         <span class="n">clone_names</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;pysnap-it-</span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s2">-clone-a&quot;</span><span class="p">,</span>
-            <span class="sa">f</span><span class="s2">&quot;pysnap-it-</span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s2">-clone-b&quot;</span><span class="p">,</span>
-            <span class="sa">f</span><span class="s2">&quot;pysnap-it-</span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s2">-clone-c&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"pysnap-it-</span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s2">-clone-a"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"pysnap-it-</span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s2">-clone-b"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"pysnap-it-</span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s2">-clone-c"</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="n">renamed_import</span> <span class="o">=</span> <span class="n">ImportCandidate</span><span class="p">(</span>
@@ -269,9 +269,9 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">set_metadata</span><span class="p">(</span>
                 <span class="n">imported_vm_name</span><span class="p">,</span>
                 <span class="p">{</span>
-                    <span class="s2">&quot;pysnap/managed&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;pysnap/kind&quot;</span><span class="p">:</span> <span class="s2">&quot;base&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;pysnap/source&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">image</span><span class="p">),</span>
+                    <span class="s2">"pysnap/managed"</span><span class="p">:</span> <span class="s2">"true"</span><span class="p">,</span>
+                    <span class="s2">"pysnap/kind"</span><span class="p">:</span> <span class="s2">"base"</span><span class="p">,</span>
+                    <span class="s2">"pysnap/source"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">image</span><span class="p">),</span>
                 <span class="p">},</span>
             <span class="p">)</span>
             <span class="n">created_vm_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">imported_vm_name</span><span class="p">)</span>
@@ -279,21 +279,21 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">clone_vm</span><span class="p">(</span>
                 <span class="n">base_vm</span><span class="o">=</span><span class="n">imported_vm_name</span><span class="p">,</span>
                 <span class="n">clone_vm</span><span class="o">=</span><span class="n">clone_names</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                <span class="n">networks</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;intnet&quot;</span><span class="p">,</span> <span class="s2">&quot;virtnet&quot;</span><span class="p">),</span>
+                <span class="n">networks</span><span class="o">=</span><span class="p">(</span><span class="s2">"intnet"</span><span class="p">,</span> <span class="s2">"virtnet"</span><span class="p">),</span>
             <span class="p">)</span>
             <span class="n">created_vm_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">clone_names</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">clone_vm</span><span class="p">(</span>
                 <span class="n">base_vm</span><span class="o">=</span><span class="n">imported_vm_name</span><span class="p">,</span>
                 <span class="n">clone_vm</span><span class="o">=</span><span class="n">clone_names</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-                <span class="n">networks</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;intnet&quot;</span><span class="p">,</span> <span class="s2">&quot;deepnet&quot;</span><span class="p">),</span>
+                <span class="n">networks</span><span class="o">=</span><span class="p">(</span><span class="s2">"intnet"</span><span class="p">,</span> <span class="s2">"deepnet"</span><span class="p">),</span>
             <span class="p">)</span>
             <span class="n">created_vm_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">clone_names</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">clone_vm</span><span class="p">(</span>
                 <span class="n">base_vm</span><span class="o">=</span><span class="n">imported_vm_name</span><span class="p">,</span>
                 <span class="n">clone_vm</span><span class="o">=</span><span class="n">clone_names</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
-                <span class="n">networks</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;deepnet&quot;</span><span class="p">,</span> <span class="s2">&quot;virtnet&quot;</span><span class="p">),</span>
+                <span class="n">networks</span><span class="o">=</span><span class="p">(</span><span class="s2">"deepnet"</span><span class="p">,</span> <span class="s2">"virtnet"</span><span class="p">),</span>
             <span class="p">)</span>
             <span class="n">created_vm_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">clone_names</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
 
@@ -321,9 +321,9 @@
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
             <span class="n">cleanup_errors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cleanup_integration_vms</span><span class="p">(</span><span class="n">created_vm_names</span><span class="p">,</span> <span class="n">deleted_vm_names</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">cleanup_errors</span><span class="p">:</span>
-                <span class="n">cleanup_message</span> <span class="o">=</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cleanup_errors</span><span class="p">)</span>
+                <span class="n">cleanup_message</span> <span class="o">=</span> <span class="s2">"; "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cleanup_errors</span><span class="p">)</span>
                 <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Integration test failed: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">. Cleanup issues: </span><span class="si">{</span><span class="n">cleanup_message</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Integration test failed: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">. Cleanup issues: </span><span class="si">{</span><span class="n">cleanup_message</span><span class="si">}</span><span class="s2">"</span>
                 <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
             <span class="k">raise</span></div>
 
@@ -331,13 +331,13 @@
 <div class="viewcode-block" id="PySnapService.list_groups">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.list_groups">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">list_groups</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">VMGroup</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;List all VM groups and their members.</span>
+<span class="w">        </span><span class="sd">"""List all VM groups and their members.</span>
 
 <span class="sd">        :returns: Group information sorted by group name.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">groups</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">vm_info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_vm_infos</span><span class="p">():</span>
-            <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">vm_info</span><span class="o">.</span><span class="n">groups</span> <span class="ow">or</span> <span class="p">(</span><span class="s2">&quot;/Others&quot;</span><span class="p">,):</span>
+            <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">vm_info</span><span class="o">.</span><span class="n">groups</span> <span class="ow">or</span> <span class="p">(</span><span class="s2">"/Others"</span><span class="p">,):</span>
                 <span class="n">groups</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">group</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="p">[</span>
@@ -349,18 +349,18 @@
 <div class="viewcode-block" id="PySnapService.list_monitored_vms">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.list_monitored_vms">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">list_monitored_vms</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">VMMonitorRecord</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;List VMs that are running or changing state in a compact form.</span>
+<span class="w">        </span><span class="sd">"""List VMs that are running or changing state in a compact form.</span>
 
 <span class="sd">        :returns: Monitor records sorted by VM name.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">live_sessions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session_registry</span><span class="o">.</span><span class="n">list_live_sessions</span><span class="p">()</span>
         <span class="n">records</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">VMMonitorRecord</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">vm_info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_vm_infos</span><span class="p">():</span>
             <span class="n">display_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_display_state</span><span class="p">(</span>
-                <span class="n">raw_state</span><span class="o">=</span><span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
+                <span class="n">raw_state</span><span class="o">=</span><span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
                 <span class="n">has_live_session</span><span class="o">=</span><span class="n">vm_info</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">live_sessions</span><span class="p">,</span>
             <span class="p">)</span>
-            <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">&quot;Stopped&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">"Stopped"</span><span class="p">:</span>
                 <span class="k">continue</span>
             <span class="n">records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                 <span class="n">VMMonitorRecord</span><span class="p">(</span>
@@ -368,7 +368,7 @@
                     <span class="n">display_state</span><span class="o">=</span><span class="n">display_state</span><span class="p">,</span>
                     <span class="n">serial_port</span><span class="o">=</span><span class="n">vm_info</span><span class="o">.</span><span class="n">serial_port</span><span class="p">,</span>
                     <span class="n">group</span><span class="o">=</span><span class="n">vm_info</span><span class="o">.</span><span class="n">primary_group</span><span class="p">,</span>
-                    <span class="n">raw_state</span><span class="o">=</span><span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
+                    <span class="n">raw_state</span><span class="o">=</span><span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
                 <span class="p">)</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">records</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">record</span><span class="p">:</span> <span class="n">record</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
@@ -377,15 +377,15 @@
 <div class="viewcode-block" id="PySnapService.get_monitor_state_label">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.get_monitor_state_label">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_monitor_state_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the user-facing runtime label for one VM.</span>
+<span class="w">        </span><span class="sd">"""Return the user-facing runtime label for one VM.</span>
 
 <span class="sd">        :param vm_name: VM name.</span>
 <span class="sd">        :returns: User-facing monitor label.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">vm_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_require_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
         <span class="n">has_live_session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session_registry</span><span class="o">.</span><span class="n">get_live_session</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_display_state</span><span class="p">(</span>
-            <span class="n">raw_state</span><span class="o">=</span><span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
+            <span class="n">raw_state</span><span class="o">=</span><span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
             <span class="n">has_live_session</span><span class="o">=</span><span class="n">has_live_session</span><span class="p">,</span>
         <span class="p">)</span></div>
 
@@ -397,31 +397,31 @@
         <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMInfo</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ensure that a VM is ready for an interactive serial connection.</span>
+<span class="w">        </span><span class="sd">"""Ensure that a VM is ready for an interactive serial connection.</span>
 
 <span class="sd">        :param vm_name: VM name.</span>
 <span class="sd">        :param timeout: Optional startup timeout in seconds.</span>
 <span class="sd">        :returns: Updated VM information.</span>
 <span class="sd">        :raises PySnapError: If the VM cannot be connected.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">vm_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_require_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">vm_info</span><span class="o">.</span><span class="n">serial_port</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; does not have a TCP-backed serial port.&#39;</span>
+                <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" does not have a TCP-backed serial port.'</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">session_registry</span><span class="o">.</span><span class="n">get_live_session</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; already has an active terminal session.&#39;</span>
+                <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" already has an active terminal session.'</span>
             <span class="p">)</span>
 
-        <span class="n">raw_state</span> <span class="o">=</span> <span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">raw_state</span> <span class="o">==</span> <span class="s2">&quot;running&quot;</span><span class="p">:</span>
+        <span class="n">raw_state</span> <span class="o">=</span> <span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">raw_state</span> <span class="o">==</span> <span class="s2">"running"</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">vm_info</span>
         <span class="k">if</span> <span class="n">raw_state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">PAUSED_STATES</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; is paused.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" is paused.'</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">raw_state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ERROR_STATES</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; is in an error state: </span><span class="si">{</span><span class="n">raw_state</span><span class="si">}</span><span class="s1">.&#39;</span>
+                <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" is in an error state: </span><span class="si">{</span><span class="n">raw_state</span><span class="si">}</span><span class="s1">.'</span>
             <span class="p">)</span>
 
         <span class="n">effective_timeout</span> <span class="o">=</span> <span class="n">timeout</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_START_TIMEOUT</span>
@@ -430,9 +430,9 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait_for_vm_state</span><span class="p">(</span>
             <span class="n">vm_name</span><span class="o">=</span><span class="n">vm_name</span><span class="p">,</span>
-            <span class="n">acceptable_states</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;running&quot;</span><span class="p">},</span>
+            <span class="n">acceptable_states</span><span class="o">=</span><span class="p">{</span><span class="s2">"running"</span><span class="p">},</span>
             <span class="n">timeout</span><span class="o">=</span><span class="n">effective_timeout</span><span class="p">,</span>
-            <span class="n">action_description</span><span class="o">=</span><span class="s2">&quot;become ready for connection&quot;</span><span class="p">,</span>
+            <span class="n">action_description</span><span class="o">=</span><span class="s2">"become ready for connection"</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
@@ -443,26 +443,26 @@
         <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Request a graceful stop for one running VM.</span>
+<span class="w">        </span><span class="sd">"""Request a graceful stop for one running VM.</span>
 
 <span class="sd">        :param vm_name: VM name.</span>
 <span class="sd">        :param timeout: Optional timeout in seconds.</span>
 <span class="sd">        :raises PySnapError: If the VM is not in a stoppable state.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">vm_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_require_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
         <span class="n">display_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_monitor_state_label</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">&quot;Stopped&quot;</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; is not running.&#39;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">&quot;Stopping&quot;</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; is already stopping.&#39;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">&quot;Changing&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">"Stopped"</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" is not running.'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">"Stopping"</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" is already stopping.'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">"Changing"</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; is changing state; try again later.&#39;</span>
+                <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" is changing state; try again later.'</span>
             <span class="p">)</span>
-        <span class="k">if</span> <span class="n">display_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Working&quot;</span><span class="p">,</span> <span class="s2">&quot;Active&quot;</span><span class="p">}:</span>
+        <span class="k">if</span> <span class="n">display_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"Working"</span><span class="p">,</span> <span class="s2">"Active"</span><span class="p">}:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; cannot be stopped from state </span><span class="si">{</span><span class="n">display_state</span><span class="si">}</span><span class="s1">.&#39;</span>
+                <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" cannot be stopped from state </span><span class="si">{</span><span class="n">display_state</span><span class="si">}</span><span class="s1">.'</span>
             <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">stop_vm_acpi</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
@@ -470,22 +470,22 @@
             <span class="n">vm_name</span><span class="o">=</span><span class="n">vm_name</span><span class="p">,</span>
             <span class="n">acceptable_states</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">STOPPED_STATES</span><span class="p">,</span>
             <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_STOP_TIMEOUT</span><span class="p">,</span>
-            <span class="n">action_description</span><span class="o">=</span><span class="s2">&quot;stop gracefully&quot;</span><span class="p">,</span>
+            <span class="n">action_description</span><span class="o">=</span><span class="s2">"stop gracefully"</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PySnapService.stop_all_runtime_vms">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.stop_all_runtime_vms">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">stop_all_runtime_vms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stop all currently running VMs that are in a normal running state.</span>
+<span class="w">        </span><span class="sd">"""Stop all currently running VMs that are in a normal running state.</span>
 
 <span class="sd">        :param timeout: Optional per-VM timeout in seconds.</span>
 <span class="sd">        :returns: Names of VMs that received a stop request and stopped.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">stoppable_names</span> <span class="o">=</span> <span class="p">[</span>
             <span class="n">record</span><span class="o">.</span><span class="n">name</span>
             <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_monitored_vms</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">display_state</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Working&quot;</span><span class="p">,</span> <span class="s2">&quot;Active&quot;</span><span class="p">}</span>
+            <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">display_state</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"Working"</span><span class="p">,</span> <span class="s2">"Active"</span><span class="p">}</span>
         <span class="p">]</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_runtime_vm_names</span><span class="p">(</span><span class="n">stoppable_names</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span></div>
 
@@ -493,12 +493,12 @@
 <div class="viewcode-block" id="PySnapService.show_vm">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.show_vm">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">show_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMInfo</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return details for a single VM.</span>
+<span class="w">        </span><span class="sd">"""Return details for a single VM.</span>
 
 <span class="sd">        :param vm_name: Name of the VM to inspect.</span>
 <span class="sd">        :returns: Detailed VM information.</span>
 <span class="sd">        :raises VMNotFoundError: If the VM is absent.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_require_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span></div>
 
@@ -506,7 +506,7 @@
 <div class="viewcode-block" id="PySnapService.plug_vm">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.plug_vm">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plug_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMInfo</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Configure one VM for PySnap serial-console connections.</span>
+<span class="w">        </span><span class="sd">"""Configure one VM for PySnap serial-console connections.</span>
 
 <span class="sd">        If ``UART1`` is already configured as a TCP server, the VM is returned</span>
 <span class="sd">        unchanged. Otherwise, PySnap assigns a free TCP port and enables the</span>
@@ -515,22 +515,22 @@
 <span class="sd">        :param vm_name: VM name to configure.</span>
 <span class="sd">        :returns: Updated VM information.</span>
 <span class="sd">        :raises PySnapError: If the VM cannot be configured safely.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">vm_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_require_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
         <span class="n">serial_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_serial_port_configuration</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">serial_config</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;tcpserver&quot;</span> <span class="ow">and</span> <span class="n">serial_config</span><span class="o">.</span><span class="n">port</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">serial_config</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">"tcpserver"</span> <span class="ow">and</span> <span class="n">serial_config</span><span class="o">.</span><span class="n">port</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">serial_config</span><span class="o">.</span><span class="n">enabled</span> <span class="ow">and</span> <span class="n">serial_config</span><span class="o">.</span><span class="n">mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;tcpserver&quot;</span><span class="p">}:</span>
+        <span class="k">if</span> <span class="n">serial_config</span><span class="o">.</span><span class="n">enabled</span> <span class="ow">and</span> <span class="n">serial_config</span><span class="o">.</span><span class="n">mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="kc">None</span><span class="p">,</span> <span class="s2">"tcpserver"</span><span class="p">}:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; already uses UART1 mode &#39;</span>
-                <span class="sa">f</span><span class="s1">&#39;&quot;</span><span class="si">{</span><span class="n">serial_config</span><span class="o">.</span><span class="n">mode</span><span class="si">}</span><span class="s1">&quot;.&#39;</span>
+                <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" already uses UART1 mode '</span>
+                <span class="sa">f</span><span class="s1">'"</span><span class="si">{</span><span class="n">serial_config</span><span class="o">.</span><span class="n">mode</span><span class="si">}</span><span class="s1">".'</span>
             <span class="p">)</span>
 
-        <span class="n">raw_state</span> <span class="o">=</span> <span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">raw_state</span> <span class="o">=</span> <span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">raw_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">STOPPED_STATES</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; must be stopped before UART1 can be &#39;</span>
-                <span class="s2">&quot;plugged as a TCP server.&quot;</span>
+                <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" must be stopped before UART1 can be '</span>
+                <span class="s2">"plugged as a TCP server."</span>
             <span class="p">)</span>
 
         <span class="n">serial_port</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_allocate_serial_port</span><span class="p">(</span><span class="n">require_host_availability</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -547,7 +547,7 @@
         <span class="n">serial_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">networks</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMInfo</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a linked clone and configure it.</span>
+<span class="w">        </span><span class="sd">"""Create a linked clone and configure it.</span>
 
 <span class="sd">        :param base_vm: Name of the source VM.</span>
 <span class="sd">        :param clone_vm: Name of the linked clone to create.</span>
@@ -555,14 +555,14 @@
 <span class="sd">        :param networks: Up to three internal network names.</span>
 <span class="sd">        :returns: Detailed information about the created clone.</span>
 <span class="sd">        :raises PySnapError: If invalid parameters are supplied.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">base_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_require_vm</span><span class="p">(</span><span class="n">base_vm</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vm_exists</span><span class="p">(</span><span class="n">clone_vm</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">clone_vm</span><span class="si">}</span><span class="s1">&quot; already exists.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">clone_vm</span><span class="si">}</span><span class="s1">" already exists.'</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">serial_port</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="mi">1</span> <span class="o">&lt;=</span> <span class="n">serial_port</span> <span class="o">&lt;=</span> <span class="mi">65535</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">&quot;Serial TCP port must be between 1 and 65535.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">"Serial TCP port must be between 1 and 65535."</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">networks</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">&quot;At most three internal network names can be provided.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">"At most three internal network names can be provided."</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">serial_port</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">serial_port</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_allocate_serial_port</span><span class="p">()</span>
 
@@ -590,9 +590,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">set_metadata</span><span class="p">(</span>
             <span class="n">clone_vm</span><span class="p">,</span>
             <span class="p">{</span>
-                <span class="s2">&quot;pysnap/managed&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;pysnap/kind&quot;</span><span class="p">:</span> <span class="s2">&quot;clone&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;pysnap/parent&quot;</span><span class="p">:</span> <span class="n">base_vm</span><span class="p">,</span>
+                <span class="s2">"pysnap/managed"</span><span class="p">:</span> <span class="s2">"true"</span><span class="p">,</span>
+                <span class="s2">"pysnap/kind"</span><span class="p">:</span> <span class="s2">"clone"</span><span class="p">,</span>
+                <span class="s2">"pysnap/parent"</span><span class="p">:</span> <span class="n">base_vm</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">proto_settings_enabled</span><span class="p">:</span>
@@ -610,18 +610,18 @@
 <div class="viewcode-block" id="PySnapService.register_proto_settings_vm">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.register_proto_settings_vm">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">register_proto_settings_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Persist one base VM name in the proto-settings store.</span>
+<span class="w">        </span><span class="sd">"""Persist one base VM name in the proto-settings store.</span>
 
 <span class="sd">        :param vm_name: Base VM name to register.</span>
 <span class="sd">        :returns: Updated configured VM names.</span>
 <span class="sd">        :raises VMNotFoundError: If the VM does not exist.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_require_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">proto_settings_store</span><span class="o">.</span><span class="n">add_vm_name</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_allocate_serial_port</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">require_host_availability</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Allocate the next TCP port for automatic ``UART1`` configuration.</span>
+<span class="w">        </span><span class="sd">"""Allocate the next TCP port for automatic ``UART1`` configuration.</span>
 
 <span class="sd">        The automatic sequence starts at ``1024`` when no existing VM currently</span>
 <span class="sd">        exposes a TCP-backed serial port.</span>
@@ -630,7 +630,7 @@
 <span class="sd">            be available on the host system.</span>
 <span class="sd">        :returns: The next TCP port to assign.</span>
 <span class="sd">        :raises PySnapError: If the TCP port range is exhausted.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">used_ports</span> <span class="o">=</span> <span class="p">{</span>
             <span class="n">info</span><span class="o">.</span><span class="n">serial_port</span>
             <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_vm_infos</span><span class="p">()</span>
@@ -645,19 +645,19 @@
                 <span class="n">next_port</span> <span class="o">+=</span> <span class="mi">1</span>
                 <span class="k">continue</span>
             <span class="k">return</span> <span class="n">next_port</span>
-        <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">&quot;No free serial TCP ports are available.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">"No free serial TCP ports are available."</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_cleanup_integration_vms</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">created_vm_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
         <span class="n">deleted_vm_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform best-effort cleanup for integration-test VMs.</span>
+<span class="w">        </span><span class="sd">"""Perform best-effort cleanup for integration-test VMs.</span>
 
 <span class="sd">        :param created_vm_names: VM names created during the integration run.</span>
 <span class="sd">        :param deleted_vm_names: VM names already deleted successfully.</span>
 <span class="sd">        :returns: Cleanup error messages, if any.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">pending</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">created_vm_names</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">deleted_vm_names</span><span class="p">]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">pending</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">[]</span>
@@ -681,11 +681,11 @@
 <div class="viewcode-block" id="PySnapService.erase_vm">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.erase_vm">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">erase_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Erase one VM when no dependent clones exist.</span>
+<span class="w">        </span><span class="sd">"""Erase one VM when no dependent clones exist.</span>
 
 <span class="sd">        :param vm_name: Name of the VM to remove.</span>
 <span class="sd">        :raises VMDependencyError: If dependent clones still exist.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_require_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
         <span class="n">dependents</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_managed_dependents</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">dependents</span><span class="p">:</span>
@@ -697,23 +697,23 @@
 <div class="viewcode-block" id="PySnapService.erase_group">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.erase_group">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">erase_group</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Erase all VMs from a single group.</span>
+<span class="w">        </span><span class="sd">"""Erase all VMs from a single group.</span>
 
 <span class="sd">        :param group_name: Group to erase.</span>
 <span class="sd">        :returns: Names of removed VMs.</span>
 <span class="sd">        :raises PySnapError: If the group is empty or contains blocked base VMs.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">normalized_group</span> <span class="o">=</span> <span class="n">normalize_group_name</span><span class="p">(</span><span class="n">group_name</span><span class="p">)</span>
         <span class="n">all_infos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_vm_infos</span><span class="p">()</span>
         <span class="n">selected</span> <span class="o">=</span> <span class="p">[</span><span class="n">info</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">all_infos</span> <span class="k">if</span> <span class="n">normalized_group</span> <span class="ow">in</span> <span class="n">info</span><span class="o">.</span><span class="n">groups</span><span class="p">]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">selected</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Group &quot;</span><span class="si">{</span><span class="n">normalized_group</span><span class="si">}</span><span class="s1">&quot; does not contain any VMs.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Group "</span><span class="si">{</span><span class="n">normalized_group</span><span class="si">}</span><span class="s1">" does not contain any VMs.'</span><span class="p">)</span>
 
         <span class="n">blocked</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_external_dependents</span><span class="p">(</span><span class="n">selected</span><span class="p">,</span> <span class="n">all_infos</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">blocked</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s1">&#39;Cannot erase group &quot;</span><span class="si">{</span><span class="n">normalized_group</span><span class="si">}</span><span class="s1">&quot; because clones outside the &#39;</span>
-                <span class="sa">f</span><span class="s2">&quot;group depend on it: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">blocked</span><span class="p">))</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="sa">f</span><span class="s1">'Cannot erase group "</span><span class="si">{</span><span class="n">normalized_group</span><span class="si">}</span><span class="s1">" because clones outside the '</span>
+                <span class="sa">f</span><span class="s2">"group depend on it: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">blocked</span><span class="p">))</span><span class="si">}</span><span class="s2">."</span>
             <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_delete_with_retries</span><span class="p">(</span><span class="n">selected</span><span class="p">)</span>
@@ -723,10 +723,10 @@
 <div class="viewcode-block" id="PySnapService.erase_all">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.erase_all">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">erase_all</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Erase all registered VirtualBox VMs.</span>
+<span class="w">        </span><span class="sd">"""Erase all registered VirtualBox VMs.</span>
 
 <span class="sd">        :returns: Names of removed VMs.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">vm_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">vm</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">list_vms</span><span class="p">()]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_delete_with_retries</span><span class="p">(</span><span class="n">vm_names</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">vm_names</span><span class="p">)</span></div>
@@ -735,7 +735,7 @@
 <div class="viewcode-block" id="PySnapService.erase_clones">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.erase_clones">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">erase_clones</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Erase all managed clone VMs, optionally limited to one group.</span>
+<span class="w">        </span><span class="sd">"""Erase all managed clone VMs, optionally limited to one group.</span>
 
 <span class="sd">        Clones are recognized through the ``pysnap/kind`` and ``pysnap/parent``</span>
 <span class="sd">        metadata written by :meth:`clone_vm`, so no separate clone registry has</span>
@@ -745,7 +745,7 @@
 <span class="sd">        :returns: Names of removed clone VMs.</span>
 <span class="sd">        :raises PySnapError: If the group is empty or clones outside the</span>
 <span class="sd">            selection still depend on the selected clones.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">all_infos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_vm_infos</span><span class="p">()</span>
         <span class="n">candidates</span> <span class="o">=</span> <span class="n">all_infos</span>
         <span class="k">if</span> <span class="n">group_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -753,7 +753,7 @@
             <span class="n">candidates</span> <span class="o">=</span> <span class="p">[</span><span class="n">info</span> <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">all_infos</span> <span class="k">if</span> <span class="n">normalized_group</span> <span class="ow">in</span> <span class="n">info</span><span class="o">.</span><span class="n">groups</span><span class="p">]</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">candidates</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s1">&#39;Group &quot;</span><span class="si">{</span><span class="n">normalized_group</span><span class="si">}</span><span class="s1">&quot; does not contain any VMs.&#39;</span>
+                    <span class="sa">f</span><span class="s1">'Group "</span><span class="si">{</span><span class="n">normalized_group</span><span class="si">}</span><span class="s1">" does not contain any VMs.'</span>
                 <span class="p">)</span>
 
         <span class="n">selected</span> <span class="o">=</span> <span class="p">[</span><span class="n">info</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">candidates</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_clone_info</span><span class="p">(</span><span class="n">info</span><span class="p">)]</span>
@@ -763,8 +763,8 @@
         <span class="n">blocked</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_external_dependents</span><span class="p">(</span><span class="n">selected</span><span class="p">,</span> <span class="n">all_infos</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">blocked</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                <span class="s2">&quot;Cannot erase the selected clones because clones outside the &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;selection depend on them: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">blocked</span><span class="p">))</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="s2">"Cannot erase the selected clones because clones outside the "</span>
+                <span class="sa">f</span><span class="s2">"selection depend on them: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">blocked</span><span class="p">))</span><span class="si">}</span><span class="s2">."</span>
             <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_delete_with_retries</span><span class="p">(</span><span class="n">selected</span><span class="p">)</span>
@@ -774,24 +774,24 @@
 <div class="viewcode-block" id="PySnapService.is_clone_vm">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.is_clone_vm">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_clone_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether one VM was created as a managed linked clone.</span>
+<span class="w">        </span><span class="sd">"""Return whether one VM was created as a managed linked clone.</span>
 
 <span class="sd">        :param vm_name: VM name to check.</span>
 <span class="sd">        :returns: ``True`` when the VM is a managed clone.</span>
 <span class="sd">        :raises VMNotFoundError: If the VM does not exist.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_clone_info</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_require_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">))</span></div>
 
 
 <div class="viewcode-block" id="PySnapService.full_clean">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.full_clean">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">full_clean</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">paths</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Delete VirtualBox data directories from the host file system.</span>
+<span class="w">        </span><span class="sd">"""Delete VirtualBox data directories from the host file system.</span>
 
 <span class="sd">        :param paths: Directories to remove recursively.</span>
 <span class="sd">        :returns: Paths of directories that were removed.</span>
 <span class="sd">        :raises PySnapError: If one or more directories cannot be removed.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">removed</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">failures</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">:</span>
@@ -801,22 +801,22 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-                <span class="n">failures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">failures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
                 <span class="k">continue</span>
             <span class="n">removed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">target</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="n">failures</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                <span class="s2">&quot;Unable to remove all requested directories. &quot;</span> <span class="o">+</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">failures</span><span class="p">)</span>
+                <span class="s2">"Unable to remove all requested directories. "</span> <span class="o">+</span> <span class="s2">"; "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">failures</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">removed</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_collect_vm_infos</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">VMInfo</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Collect detailed information for all VMs.</span>
+<span class="w">        </span><span class="sd">"""Collect detailed information for all VMs.</span>
 
 <span class="sd">        :returns: Detailed VM information objects.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_info</span><span class="p">(</span><span class="n">vm</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">list_vms</span><span class="p">()]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_wait_for_vm_state</span><span class="p">(</span>
@@ -826,7 +826,7 @@
         <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
         <span class="n">action_description</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMInfo</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Wait until a VM reaches one of the acceptable VirtualBox states.</span>
+<span class="w">        </span><span class="sd">"""Wait until a VM reaches one of the acceptable VirtualBox states.</span>
 
 <span class="sd">        :param vm_name: VM name.</span>
 <span class="sd">        :param acceptable_states: States considered successful.</span>
@@ -834,7 +834,7 @@
 <span class="sd">        :param action_description: Human-readable action description.</span>
 <span class="sd">        :returns: Updated VM information once the state is acceptable.</span>
 <span class="sd">        :raises PySnapError: If the timeout expires.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">deadline</span> <span class="o">=</span> <span class="n">monotonic</span><span class="p">()</span> <span class="o">+</span> <span class="n">timeout</span>
         <span class="n">last_query_error</span><span class="p">:</span> <span class="n">CommandExecutionError</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">while</span> <span class="n">monotonic</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">deadline</span><span class="p">:</span>
@@ -845,7 +845,7 @@
                 <span class="k">if</span> <span class="n">acceptable_states</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">STOPPED_STATES</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_vm_listed_as_running</span><span class="p">(</span>
                     <span class="n">vm_name</span>
                 <span class="p">):</span>
-                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_state_only_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="s2">&quot;poweroff&quot;</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_state_only_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="s2">"poweroff"</span><span class="p">)</span>
                 <span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
                 <span class="k">continue</span>
 
@@ -859,13 +859,13 @@
                     <span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
                     <span class="k">continue</span>
             <span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
-        <span class="n">states</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">acceptable_states</span><span class="p">))</span>
-        <span class="n">details</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">states</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">acceptable_states</span><span class="p">))</span>
+        <span class="n">details</span> <span class="o">=</span> <span class="s2">""</span>
         <span class="k">if</span> <span class="n">last_query_error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">details</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot; Last VBoxManage error: </span><span class="si">{</span><span class="n">last_query_error</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">details</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">" Last VBoxManage error: </span><span class="si">{</span><span class="n">last_query_error</span><span class="si">}</span><span class="s2">"</span>
         <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s1">&#39;Timed out while waiting for &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; to </span><span class="si">{</span><span class="n">action_description</span><span class="si">}</span><span class="s1"> &#39;</span>
-            <span class="sa">f</span><span class="s2">&quot;(expected states: </span><span class="si">{</span><span class="n">states</span><span class="si">}</span><span class="s2">).</span><span class="si">{</span><span class="n">details</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s1">'Timed out while waiting for "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" to </span><span class="si">{</span><span class="n">action_description</span><span class="si">}</span><span class="s1"> '</span>
+            <span class="sa">f</span><span class="s2">"(expected states: </span><span class="si">{</span><span class="n">states</span><span class="si">}</span><span class="s2">).</span><span class="si">{</span><span class="n">details</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_run_integration_runtime_checks</span><span class="p">(</span>
@@ -873,13 +873,13 @@
         <span class="n">connected_vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">active_vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">VMMonitorRecord</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run runtime checks for the integration scenario.</span>
+<span class="w">        </span><span class="sd">"""Run runtime checks for the integration scenario.</span>
 
 <span class="sd">        :param connected_vm_name: VM attached through a serial terminal probe.</span>
 <span class="sd">        :param active_vm_name: VM started without an attached session.</span>
 <span class="sd">        :returns: Monitor records captured during the runtime check.</span>
 <span class="sd">        :raises PySnapError: If the monitor output does not match expectations.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_terminal_attachment</span><span class="p">(</span><span class="n">connected_vm_name</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">prepare_vm_connection</span><span class="p">(</span><span class="n">active_vm_name</span><span class="p">)</span>
             <span class="n">monitor_records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_monitored_vms</span><span class="p">()</span>
@@ -888,32 +888,32 @@
             <span class="n">record</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">record</span><span class="o">.</span><span class="n">display_state</span> <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">monitor_records</span>
         <span class="p">}</span>
         <span class="n">expected_states</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">connected_vm_name</span><span class="p">:</span> <span class="s2">&quot;Working&quot;</span><span class="p">,</span>
-            <span class="n">active_vm_name</span><span class="p">:</span> <span class="s2">&quot;Active&quot;</span><span class="p">,</span>
+            <span class="n">connected_vm_name</span><span class="p">:</span> <span class="s2">"Working"</span><span class="p">,</span>
+            <span class="n">active_vm_name</span><span class="p">:</span> <span class="s2">"Active"</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="k">for</span> <span class="n">vm_name</span><span class="p">,</span> <span class="n">expected_state</span> <span class="ow">in</span> <span class="n">expected_states</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">observed_state</span> <span class="o">=</span> <span class="n">monitor_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">observed_state</span> <span class="o">!=</span> <span class="n">expected_state</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s1">&#39;Integration monitor expected &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; to be </span><span class="si">{</span><span class="n">expected_state</span><span class="si">}</span><span class="s1">, &#39;</span>
-                    <span class="sa">f</span><span class="s2">&quot;but observed </span><span class="si">{</span><span class="n">observed_state</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">&#39;no entry&#39;</span><span class="si">}</span><span class="s2">.&quot;</span>
+                    <span class="sa">f</span><span class="s1">'Integration monitor expected "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" to be </span><span class="si">{</span><span class="n">expected_state</span><span class="si">}</span><span class="s1">, '</span>
+                    <span class="sa">f</span><span class="s2">"but observed </span><span class="si">{</span><span class="n">observed_state</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'no entry'</span><span class="si">}</span><span class="s2">."</span>
                 <span class="p">)</span>
         <span class="k">return</span> <span class="n">monitor_records</span>
 
     <span class="nd">@contextmanager</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_integration_terminal_attachment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">VMInfo</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Attach a non-interactive serial probe for integration testing.</span>
+<span class="w">        </span><span class="sd">"""Attach a non-interactive serial probe for integration testing.</span>
 
 <span class="sd">        :param vm_name: VM attached through the terminal probe.</span>
 <span class="sd">        :yields: VM information for the attached VM.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">vm_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_vm_connection</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">vm_info</span><span class="o">.</span><span class="n">serial_port</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; does not have a TCP-backed serial port.&#39;</span>
+                <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" does not have a TCP-backed serial port.'</span>
             <span class="p">)</span>
 
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">serial_probe_factory</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="n">vm_info</span><span class="o">.</span><span class="n">serial_port</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">serial_probe_factory</span><span class="p">(</span><span class="s2">"localhost"</span><span class="p">,</span> <span class="n">vm_info</span><span class="o">.</span><span class="n">serial_port</span><span class="p">):</span>
             <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">session_registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">vm_info</span><span class="o">.</span><span class="n">serial_port</span><span class="p">):</span>
                 <span class="k">yield</span> <span class="n">vm_info</span>
 
@@ -922,11 +922,11 @@
         <span class="n">vm_names</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
         <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Best-effort stop for VMs started during the integration scenario.</span>
+<span class="w">        </span><span class="sd">"""Best-effort stop for VMs started during the integration scenario.</span>
 
 <span class="sd">        :param vm_names: VM names to stop if they are currently running.</span>
 <span class="sd">        :param timeout: Optional per-VM graceful stop timeout.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">stoppable_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">vm_name</span> <span class="ow">in</span> <span class="n">vm_names</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vm_exists</span><span class="p">(</span><span class="n">vm_name</span><span class="p">):</span>
@@ -935,92 +935,92 @@
                 <span class="n">display_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_monitor_state_label</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
             <span class="k">except</span> <span class="n">PySnapError</span><span class="p">:</span>
                 <span class="k">continue</span>
-            <span class="k">if</span> <span class="n">display_state</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Working&quot;</span><span class="p">,</span> <span class="s2">&quot;Active&quot;</span><span class="p">}:</span>
+            <span class="k">if</span> <span class="n">display_state</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"Working"</span><span class="p">,</span> <span class="s2">"Active"</span><span class="p">}:</span>
                 <span class="n">stoppable_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_stop_runtime_vm_names</span><span class="p">(</span><span class="n">stoppable_names</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_require_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMInfo</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a VM or raise an error if it does not exist.</span>
+<span class="w">        </span><span class="sd">"""Return a VM or raise an error if it does not exist.</span>
 
 <span class="sd">        :param vm_name: VM name to resolve.</span>
 <span class="sd">        :returns: Detailed VM information.</span>
 <span class="sd">        :raises VMNotFoundError: If the VM does not exist.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vm_exists</span><span class="p">(</span><span class="n">vm_name</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">VMNotFoundError</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_vm_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check whether a VM exists.</span>
+<span class="w">        </span><span class="sd">"""Check whether a VM exists.</span>
 
 <span class="sd">        :param vm_name: VM name to look up.</span>
 <span class="sd">        :returns: ``True`` when the VM exists.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">vm</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">vm_name</span> <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">list_vms</span><span class="p">())</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_is_clone_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">:</span> <span class="n">VMInfo</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether VM information describes a managed linked clone.</span>
+<span class="w">        </span><span class="sd">"""Return whether VM information describes a managed linked clone.</span>
 
 <span class="sd">        :param info: VM information to inspect.</span>
 <span class="sd">        :returns: ``True`` when the VM carries clone metadata.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pysnap/kind&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;clone&quot;</span><span class="p">:</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"pysnap/kind"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"clone"</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="n">info</span><span class="o">.</span><span class="n">parent_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_display_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">raw_state</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">has_live_session</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Map a raw VirtualBox state to a user-facing monitor label.</span>
+<span class="w">        </span><span class="sd">"""Map a raw VirtualBox state to a user-facing monitor label.</span>
 
 <span class="sd">        :param raw_state: Raw VirtualBox state.</span>
 <span class="sd">        :param has_live_session: Whether PySnap currently has a live session.</span>
 <span class="sd">        :returns: User-facing state label.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">normalized</span> <span class="o">=</span> <span class="n">raw_state</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">normalized</span> <span class="o">==</span> <span class="s2">&quot;running&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="s2">&quot;Working&quot;</span> <span class="k">if</span> <span class="n">has_live_session</span> <span class="k">else</span> <span class="s2">&quot;Active&quot;</span>
+        <span class="k">if</span> <span class="n">normalized</span> <span class="o">==</span> <span class="s2">"running"</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">"Working"</span> <span class="k">if</span> <span class="n">has_live_session</span> <span class="k">else</span> <span class="s2">"Active"</span>
         <span class="k">if</span> <span class="n">normalized</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">STOPPING_STATES</span><span class="p">:</span>
-            <span class="k">return</span> <span class="s2">&quot;Stopping&quot;</span>
+            <span class="k">return</span> <span class="s2">"Stopping"</span>
         <span class="k">if</span> <span class="n">normalized</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">STOPPED_STATES</span><span class="p">:</span>
-            <span class="k">return</span> <span class="s2">&quot;Stopped&quot;</span>
+            <span class="k">return</span> <span class="s2">"Stopped"</span>
         <span class="k">if</span> <span class="n">normalized</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">PAUSED_STATES</span><span class="p">:</span>
-            <span class="k">return</span> <span class="s2">&quot;Paused&quot;</span>
+            <span class="k">return</span> <span class="s2">"Paused"</span>
         <span class="k">if</span> <span class="n">normalized</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ERROR_STATES</span><span class="p">:</span>
-            <span class="k">return</span> <span class="s2">&quot;Error&quot;</span>
-        <span class="k">return</span> <span class="s2">&quot;Changing&quot;</span>
+            <span class="k">return</span> <span class="s2">"Error"</span>
+        <span class="k">return</span> <span class="s2">"Changing"</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_is_vm_listed_as_running</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether VirtualBox still reports a VM as running.</span>
+<span class="w">        </span><span class="sd">"""Return whether VirtualBox still reports a VM as running.</span>
 
 <span class="sd">        :param vm_name: VM name to check.</span>
 <span class="sd">        :returns: ``True`` when the VM still appears in ``runningvms``.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">vm</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">vm_name</span> <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">list_running_vms</span><span class="p">())</span>
         <span class="k">except</span> <span class="n">CommandExecutionError</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">True</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_build_state_only_vm_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">vm_state</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VMInfo</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a minimal VM info object when state polling is all that is available.</span>
+<span class="w">        </span><span class="sd">"""Build a minimal VM info object when state polling is all that is available.</span>
 
 <span class="sd">        :param vm_name: VM name.</span>
 <span class="sd">        :param vm_state: Raw VirtualBox state string.</span>
 <span class="sd">        :returns: Minimal VM information for the requested state.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">reference</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">vm</span> <span class="k">for</span> <span class="n">vm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">list_vms</span><span class="p">()</span> <span class="k">if</span> <span class="n">vm</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">vm_name</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">VMInfo</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="n">vm_name</span><span class="p">,</span>
-            <span class="n">uuid</span><span class="o">=</span><span class="n">reference</span><span class="o">.</span><span class="n">uuid</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="n">uuid</span><span class="o">=</span><span class="n">reference</span><span class="o">.</span><span class="n">uuid</span> <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">""</span><span class="p">,</span>
             <span class="n">groups</span><span class="o">=</span><span class="p">(),</span>
             <span class="n">vm_state</span><span class="o">=</span><span class="n">vm_state</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_find_managed_dependents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find all managed clone descendants of a VM.</span>
+<span class="w">        </span><span class="sd">"""Find all managed clone descendants of a VM.</span>
 
 <span class="sd">        :param vm_name: Ancestor VM name.</span>
 <span class="sd">        :returns: Descendant VM names.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">all_infos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_vm_infos</span><span class="p">()</span>
         <span class="n">descendants</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="n">queue</span> <span class="o">=</span> <span class="p">[</span><span class="n">vm_name</span><span class="p">]</span>
@@ -1037,12 +1037,12 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_find_external_dependents</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">selected_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">all_infos</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">VMInfo</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find selected VMs that still have descendants outside the selection.</span>
+<span class="w">        </span><span class="sd">"""Find selected VMs that still have descendants outside the selection.</span>
 
 <span class="sd">        :param selected_names: Names selected for deletion.</span>
 <span class="sd">        :param all_infos: All VM information objects.</span>
 <span class="sd">        :returns: Names of selected VMs that are still referenced outside the selection.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">selected_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">selected_names</span><span class="p">)</span>
         <span class="n">blocked</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">all_infos</span><span class="p">:</span>
@@ -1051,11 +1051,11 @@
         <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">blocked</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_delete_with_retries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Delete several VMs in parallel waves that respect dependencies.</span>
+<span class="w">        </span><span class="sd">"""Delete several VMs in parallel waves that respect dependencies.</span>
 
 <span class="sd">        :param vm_names: Names of the VMs to delete.</span>
 <span class="sd">        :raises PySnapError: If the requested set cannot be fully removed.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">remaining</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">vm_names</span><span class="p">))</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">remaining</span><span class="p">:</span>
             <span class="k">return</span>
@@ -1064,19 +1064,19 @@
         <span class="k">while</span> <span class="n">remaining</span><span class="p">:</span>
             <span class="n">ready</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_deletion_wave</span><span class="p">(</span><span class="n">remaining</span><span class="p">,</span> <span class="n">infos</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">ready</span><span class="p">:</span>
-                <span class="n">unresolved</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">remaining</span><span class="p">))</span>
+                <span class="n">unresolved</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">remaining</span><span class="p">))</span>
                 <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
-                    <span class="s2">&quot;Unable to erase all requested VMs. &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;No deletable dependency wave found for: </span><span class="si">{</span><span class="n">unresolved</span><span class="si">}</span><span class="s2">.&quot;</span>
+                    <span class="s2">"Unable to erase all requested VMs. "</span>
+                    <span class="sa">f</span><span class="s2">"No deletable dependency wave found for: </span><span class="si">{</span><span class="n">unresolved</span><span class="si">}</span><span class="s2">."</span>
                 <span class="p">)</span>
 
             <span class="n">failures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_parallel_vm_actions</span><span class="p">(</span><span class="n">ready</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">delete_vm</span><span class="p">)</span>
             <span class="n">deleted_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">vm_name</span> <span class="k">for</span> <span class="n">vm_name</span> <span class="ow">in</span> <span class="n">ready</span> <span class="k">if</span> <span class="n">vm_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">failures</span><span class="p">]</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">deleted_names</span><span class="p">:</span>
-                <span class="n">details</span> <span class="o">=</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">message</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">failures</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+                <span class="n">details</span> <span class="o">=</span> <span class="s2">"; "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s1">'</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">message</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">failures</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
                 <span class="p">)</span>
-                <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unable to erase all requested VMs. </span><span class="si">{</span><span class="n">details</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unable to erase all requested VMs. </span><span class="si">{</span><span class="n">details</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">proto_settings_store</span><span class="o">.</span><span class="n">remove_vm_names</span><span class="p">(</span><span class="n">deleted_names</span><span class="p">)</span>
             <span class="n">remaining</span> <span class="o">=</span> <span class="p">[</span><span class="n">vm_name</span> <span class="k">for</span> <span class="n">vm_name</span> <span class="ow">in</span> <span class="n">remaining</span> <span class="k">if</span> <span class="n">vm_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">deleted_names</span><span class="p">]</span>
@@ -1086,13 +1086,13 @@
         <span class="n">vm_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
         <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stop several running VMs in parallel.</span>
+<span class="w">        </span><span class="sd">"""Stop several running VMs in parallel.</span>
 
 <span class="sd">        :param vm_names: Names of VMs to stop.</span>
 <span class="sd">        :param timeout: Optional per-VM timeout in seconds.</span>
 <span class="sd">        :returns: VM names that were successfully stopped.</span>
 <span class="sd">        :raises PySnapError: If one or more VMs cannot be stopped.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">vm_names</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">[]</span>
 
@@ -1105,7 +1105,7 @@
                 <span class="n">vm_name</span><span class="o">=</span><span class="n">vm_name</span><span class="p">,</span>
                 <span class="n">acceptable_states</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">STOPPED_STATES</span><span class="p">,</span>
                 <span class="n">timeout</span><span class="o">=</span><span class="n">effective_timeout</span><span class="p">,</span>
-                <span class="n">action_description</span><span class="o">=</span><span class="s2">&quot;stop gracefully&quot;</span><span class="p">,</span>
+                <span class="n">action_description</span><span class="o">=</span><span class="s2">"stop gracefully"</span><span class="p">,</span>
             <span class="p">),</span>
         <span class="p">)</span>
 
@@ -1113,21 +1113,21 @@
             <span class="n">details</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">if</span> <span class="n">request_failures</span><span class="p">:</span>
                 <span class="n">details</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="s2">&quot;ACPI request failures: &quot;</span>
-                    <span class="o">+</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s1">&#39;</span>
+                    <span class="s2">"ACPI request failures: "</span>
+                    <span class="o">+</span> <span class="s2">"; "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s1">'</span>
                         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">message</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">request_failures</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
             <span class="k">if</span> <span class="n">wait_failures</span><span class="p">:</span>
                 <span class="n">details</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="s2">&quot;shutdown wait failures: &quot;</span>
-                    <span class="o">+</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s1">&#39;</span>
+                    <span class="s2">"shutdown wait failures: "</span>
+                    <span class="o">+</span> <span class="s2">"; "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s1">'</span>
                         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">message</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">wait_failures</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">&quot;Unable to stop all requested VMs. &quot;</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">details</span><span class="p">))</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">"Unable to stop all requested VMs. "</span> <span class="o">+</span> <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">details</span><span class="p">))</span>
 
         <span class="k">return</span> <span class="n">requested_names</span>
 
@@ -1136,14 +1136,14 @@
         <span class="n">remaining</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
         <span class="n">infos</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">VMInfo</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the next set of VMs that can be deleted together.</span>
+<span class="w">        </span><span class="sd">"""Return the next set of VMs that can be deleted together.</span>
 
 <span class="sd">        A VM is ready when none of the remaining VMs still depends on it.</span>
 
 <span class="sd">        :param remaining: Remaining VM names to delete.</span>
 <span class="sd">        :param infos: Mapping of VM names to detailed information.</span>
 <span class="sd">        :returns: VM names that can be deleted in parallel.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">remaining_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">remaining</span><span class="p">)</span>
         <span class="n">blocked_parents</span> <span class="o">=</span> <span class="p">{</span>
             <span class="n">info</span><span class="o">.</span><span class="n">parent_name</span>
@@ -1158,12 +1158,12 @@
         <span class="n">vm_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
         <span class="n">action</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Execute one action for multiple VMs in parallel.</span>
+<span class="w">        </span><span class="sd">"""Execute one action for multiple VMs in parallel.</span>
 
 <span class="sd">        :param vm_names: VM names passed to the action.</span>
 <span class="sd">        :param action: Action executed once per VM name.</span>
 <span class="sd">        :returns: Mapping of failed VM names to error messages.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">vm_names</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">{}</span>
 
@@ -1181,14 +1181,14 @@
         <span class="k">return</span> <span class="n">failures</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_is_host_tcp_port_available</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">port</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether a host TCP port is currently available.</span>
+<span class="w">        </span><span class="sd">"""Return whether a host TCP port is currently available.</span>
 
 <span class="sd">        :param port: TCP port number to probe.</span>
 <span class="sd">        :returns: ``True`` when the port can be bound locally.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">with</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_STREAM</span><span class="p">)</span> <span class="k">as</span> <span class="n">probe</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">probe</span><span class="o">.</span><span class="n">bind</span><span class="p">((</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">port</span><span class="p">))</span>
+                <span class="n">probe</span><span class="o">.</span><span class="n">bind</span><span class="p">((</span><span class="s2">""</span><span class="p">,</span> <span class="n">port</span><span class="p">))</span>
             <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">False</span>
         <span class="k">return</span> <span class="kc">True</span>
@@ -1198,14 +1198,14 @@
         <span class="n">serial_port</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">networks</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the DMI system SKU used for proto-settings clones.</span>
+<span class="w">        </span><span class="sd">"""Build the DMI system SKU used for proto-settings clones.</span>
 
 <span class="sd">        :param serial_port: TCP port assigned to the clone.</span>
 <span class="sd">        :param networks: Internal network names assigned to the clone.</span>
 <span class="sd">        :returns: DMI system SKU value.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">suffix</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">networks</span><span class="p">)</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;port</span><span class="si">{</span><span class="n">serial_port</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">suffix</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;port</span><span class="si">{</span><span class="n">serial_port</span><span class="si">}</span><span class="s2">&quot;</span></div>
+<span class="sd">        """</span>
+        <span class="n">suffix</span> <span class="o">=</span> <span class="s2">"."</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">networks</span><span class="p">)</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"port</span><span class="si">{</span><span class="n">serial_port</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="n">suffix</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"port</span><span class="si">{</span><span class="n">serial_port</span><span class="si">}</span><span class="s2">"</span></div>
 
 </pre></div>
 
@@ -1266,7 +1266,7 @@
       &#169;2026, PySnap Authors.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
       &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
       
     </div>

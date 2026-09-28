@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pysnap.cli.report &#8212; PySnap 2.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../_static/documentation_options.js?v=51b770b3"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for pysnap.cli.report</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""``pysnap report`` subcommands."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">TextIO</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.service</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapService</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapError</span><span class="p">,</span> <span class="n">ReportFormatError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.highlight</span><span class="w"> </span><span class="kn">import</span> <span class="n">highlight_transcript</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CellStyle</span><span class="p">,</span>
+    <span class="n">CommandRecord</span><span class="p">,</span>
+    <span class="n">Recording</span><span class="p">,</span>
+    <span class="n">StyledRun</span><span class="p">,</span>
+    <span class="n">Transcript</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.player</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_MAX_DELAY</span><span class="p">,</span> <span class="n">PlaybackController</span><span class="p">,</span> <span class="n">ReplayPlayer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.recording</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_report</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.render</span><span class="w"> </span><span class="kn">import</span> <span class="n">render_transcript</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.checkfile</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_check</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.compare</span><span class="w"> </span><span class="kn">import</span> <span class="n">LEVELS</span><span class="p">,</span> <span class="n">CompareResult</span><span class="p">,</span> <span class="n">compare_reports</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.extract</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_file</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.matcher</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckResult</span><span class="p">,</span> <span class="n">run_check</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReportStats</span><span class="p">,</span> <span class="n">compute_stats</span>
+
+<span class="n">_ANSI_COLORS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"black"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">"red"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="s2">"green"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="s2">"brown"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="s2">"yellow"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="s2">"blue"</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="s2">"magenta"</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="s2">"cyan"</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
+    <span class="s2">"white"</span><span class="p">:</span> <span class="mi">7</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">_HEX_COLOR</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"^[0-9a-fA-F]</span><span class="si">{6}</span><span class="s2">$"</span><span class="p">)</span>
+<span class="n">_RESET</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\x1b</span><span class="s2">[0m"</span>
+
+
+<div class="viewcode-block" id="build_report_parser">
+<a class="viewcode-back" href="../../../api/pysnap.cli.html#pysnap.cli.report.build_report_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_report_parser</span><span class="p">(</span><span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span> <span class="n">stderr</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Build the ``pysnap report`` parser with its subcommands.</span>
+
+<span class="sd">    :param stdout: Stream used for help output.</span>
+<span class="sd">    :param stderr: Stream used for parser errors.</span>
+<span class="sd">    :returns: Configured parser.</span>
+<span class="sd">    """</span>
+    <span class="c1"># ``pysnap.cli.app`` imports this module to dispatch ``report``, so the</span>
+    <span class="c1"># shared parser class is imported lazily to avoid an import cycle.</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.cli.app</span><span class="w"> </span><span class="kn">import</span> <span class="n">CliArgumentParser</span>
+
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap report"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">"Read session reports recorded by the report utility."</span><span class="p">,</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">subcommands</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_subparsers</span><span class="p">(</span><span class="n">dest</span><span class="o">=</span><span class="s2">"subcommand"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"SUBCOMMAND"</span><span class="p">)</span>
+    <span class="n">subcommands</span><span class="o">.</span><span class="n">required</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">text</span> <span class="o">=</span> <span class="n">subcommands</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">"text"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Print the session text with highlighted commands."</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Print the text of a recorded session without timing. Commands "</span>
+            <span class="s2">"entered after a prompt are highlighted."</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">text</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"report"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Report file, for example report.01.first."</span><span class="p">)</span>
+    <span class="n">text</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--commands"</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Print only the list of entered commands."</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">text</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--color"</span><span class="p">,</span>
+        <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="s2">"auto"</span><span class="p">,</span> <span class="s2">"always"</span><span class="p">,</span> <span class="s2">"never"</span><span class="p">),</span>
+        <span class="n">default</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Highlight output: auto (default) colors only a terminal."</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">text</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--no-pager"</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Print directly even when the text is longer than the terminal."</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">check</span> <span class="o">=</span> <span class="n">subcommands</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">"check"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Show report information and check it against a check file."</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Show where and when a report was recorded, its commands, pauses, "</span>
+            <span class="s2">"typing, pasted input, addresses and integrity checks. With a "</span>
+            <span class="s2">"check file, also check the expected commands and output blocks "</span>
+            <span class="s2">"and grade the report."</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">check</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"report"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Report file, for example report.01.first."</span><span class="p">)</span>
+    <span class="n">check</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"check_file"</span><span class="p">,</span>
+        <span class="n">nargs</span><span class="o">=</span><span class="s2">"?"</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">"CHECK"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Check file in TOML format, for example lab02-first.check.toml."</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">compare</span> <span class="o">=</span> <span class="n">subcommands</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">"compare"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Compare reports pairwise and show signs of a shared origin."</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Compare every pair of the given reports and list the signals "</span>
+            <span class="s2">"that they share their origin: identical files or output, the "</span>
+            <span class="s2">"same MAC addresses, start times, keyboard delays, random output "</span>
+            <span class="s2">"values, CPU.txt or erroneous commands. Directories are searched "</span>
+            <span class="s2">"recursively for report.NN.HOST files. Whether two reports come "</span>
+            <span class="s2">"from different students is up to the reader."</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">compare</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"paths"</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">"+"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"PATH"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Report files and directories with reports."</span>
+    <span class="p">)</span>
+
+    <span class="n">extract</span> <span class="o">=</span> <span class="n">subcommands</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">"extract"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Copy a report file from a running VM through its serial console."</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Copy a file from a running VM to the host through the UART1 serial "</span>
+            <span class="s2">"console. The VM must be at a shell prompt, without a running report "</span>
+            <span class="s2">"recording. An attached pysnap connect session runs the transfer on "</span>
+            <span class="s2">"its own connection. A name without / is looked up in the home "</span>
+            <span class="s2">"directory of the console user."</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">extract</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Virtual machine name."</span><span class="p">)</span>
+    <span class="n">extract</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"name"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Report file in the VM, for example report.01.first."</span><span class="p">)</span>
+    <span class="n">extract</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--output"</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">"PATH"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Host file to write; defaults to the same name in the current directory."</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">extract</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--force"</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Replace an existing host file."</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">show</span> <span class="o">=</span> <span class="n">subcommands</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">"show"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Replay a report with its timing in a safe terminal view."</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Replay a recorded session with its timing. Keys: Space pause, "</span>
+            <span class="s2">"+/- speed, n/p next or previous command, Home/End start or end, "</span>
+            <span class="s2">"q quit; while paused Alt+Up/Down scroll the history."</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">show</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"report"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Report file, for example report.01.first."</span><span class="p">)</span>
+    <span class="n">show</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--speed"</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Initial speed: 0.25, 0.5, 1, 2, 4, 8 or 16 (default 1)."</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">show</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--max-delay"</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="n">DEFAULT_MAX_DELAY</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">"SECONDS"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Shorten pauses longer than this, like scriptreplay -m "</span>
+            <span class="sa">f</span><span class="s2">"(default </span><span class="si">{</span><span class="n">DEFAULT_MAX_DELAY</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2">; 0 keeps real pauses)."</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="run_report_command">
+<a class="viewcode-back" href="../../../api/pysnap.cli.html#pysnap.cli.report.run_report_command">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_report_command</span><span class="p">(</span>
+    <span class="n">arguments</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">service</span><span class="p">:</span> <span class="n">PySnapService</span><span class="p">,</span>
+    <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+    <span class="n">stderr</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Run ``pysnap report``.</span>
+
+<span class="sd">    :param arguments: Arguments after ``report``.</span>
+<span class="sd">    :param service: Application service.</span>
+<span class="sd">    :param stdout: Output stream.</span>
+<span class="sd">    :param stderr: Error stream.</span>
+<span class="sd">    :returns: Process exit code.</span>
+<span class="sd">    """</span>
+    <span class="n">namespace</span> <span class="o">=</span> <span class="n">build_report_parser</span><span class="p">(</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="p">)</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">namespace</span><span class="o">.</span><span class="n">subcommand</span> <span class="o">==</span> <span class="s2">"text"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_run_text</span><span class="p">(</span><span class="n">namespace</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">namespace</span><span class="o">.</span><span class="n">subcommand</span> <span class="o">==</span> <span class="s2">"show"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_run_show</span><span class="p">(</span><span class="n">namespace</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">namespace</span><span class="o">.</span><span class="n">subcommand</span> <span class="o">==</span> <span class="s2">"check"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_run_check</span><span class="p">(</span><span class="n">namespace</span><span class="p">,</span> <span class="n">stdout</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">namespace</span><span class="o">.</span><span class="n">subcommand</span> <span class="o">==</span> <span class="s2">"extract"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_run_extract</span><span class="p">(</span><span class="n">namespace</span><span class="p">,</span> <span class="n">service</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">namespace</span><span class="o">.</span><span class="n">subcommand</span> <span class="o">==</span> <span class="s2">"compare"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_run_compare</span><span class="p">(</span><span class="n">namespace</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">1</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_compare</span><span class="p">(</span><span class="n">namespace</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">,</span> <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span> <span class="n">stderr</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Run ``pysnap report compare``.</span>
+
+<span class="sd">    :param namespace: Parsed arguments.</span>
+<span class="sd">    :param stdout: Output stream.</span>
+<span class="sd">    :param stderr: Error stream.</span>
+<span class="sd">    :returns: Process exit code.</span>
+<span class="sd">    """</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">compare_reports</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">paths</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">warning</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">warnings</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: </span><span class="si">{</span><span class="n">warning</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">reports</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ReportFormatError</span><span class="p">(</span><span class="s2">"No readable reports to compare."</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">format_compare_result</span><span class="p">(</span><span class="n">result</span><span class="p">),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+
+<div class="viewcode-block" id="format_compare_result">
+<a class="viewcode-back" href="../../../api/pysnap.cli.html#pysnap.cli.report.format_compare_result">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">format_compare_result</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">CompareResult</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Render a pairwise comparison.</span>
+
+<span class="sd">    Pairs with signals come first with only the signals found; pairs</span>
+<span class="sd">    without signals take one line each.</span>
+
+<span class="sd">    :param result: Comparison result.</span>
+<span class="sd">    :returns: Multi-line human-readable text.</span>
+<span class="sd">    """</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">pairs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">pair</span><span class="o">.</span><span class="n">signals</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"OK       </span><span class="si">{</span><span class="n">pair</span><span class="o">.</span><span class="n">first</span><span class="si">}</span><span class="s2">  &lt;-&gt;  </span><span class="si">{</span><span class="n">pair</span><span class="o">.</span><span class="n">second</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"SIGNALS  </span><span class="si">{</span><span class="n">pair</span><span class="o">.</span><span class="n">first</span><span class="si">}</span><span class="s2">  &lt;-&gt;  </span><span class="si">{</span><span class="n">pair</span><span class="o">.</span><span class="n">second</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">signal</span> <span class="ow">in</span> <span class="n">pair</span><span class="o">.</span><span class="n">signals</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">signal</span><span class="o">.</span><span class="n">level</span><span class="si">:</span><span class="s2">&lt;6</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">signal</span><span class="o">.</span><span class="n">code</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">signal</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">flagged</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">pairs</span> <span class="k">if</span> <span class="n">pair</span><span class="o">.</span><span class="n">signals</span><span class="p">)</span>
+    <span class="n">counts</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">pair</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">result</span><span class="o">.</span><span class="n">pairs</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">pair</span><span class="o">.</span><span class="n">signals</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">pair</span><span class="o">.</span><span class="n">level</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">rank</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2">"</span>
+        <span class="k">for</span> <span class="n">rank</span><span class="p">,</span> <span class="n">level</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">LEVELS</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="k">if</span> <span class="n">lines</span><span class="p">:</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"Compared </span><span class="si">{</span><span class="n">_plural</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">reports</span><span class="p">),</span><span class="w"> </span><span class="s1">'report'</span><span class="p">)</span><span class="si">}</span><span class="s2">, "</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_plural</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">pairs</span><span class="p">),</span><span class="w"> </span><span class="s1">'pair'</span><span class="p">)</span><span class="si">}</span><span class="s2">: "</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">flagged</span><span class="si">}</span><span class="s2"> with signals (strongest: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">counts</span><span class="p">)</span><span class="si">}</span><span class="s2">), "</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">pairs</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">flagged</span><span class="si">}</span><span class="s2"> OK."</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_plural</span><span class="p">(</span><span class="n">count</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">noun</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return a count with a regular English plural."""</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">noun</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="n">count</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">noun</span><span class="si">}</span><span class="s2">s"</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_extract</span><span class="p">(</span>
+    <span class="n">namespace</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">,</span>
+    <span class="n">service</span><span class="p">:</span> <span class="n">PySnapService</span><span class="p">,</span>
+    <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+    <span class="n">stderr</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Run ``pysnap report extract``.</span>
+
+<span class="sd">    :param namespace: Parsed arguments.</span>
+<span class="sd">    :param service: Application service.</span>
+<span class="sd">    :param stdout: Output stream.</span>
+<span class="sd">    :param stderr: Error stream.</span>
+<span class="sd">    :returns: Process exit code.</span>
+<span class="sd">    """</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">extract_file</span><span class="p">(</span>
+        <span class="n">service</span><span class="p">,</span>
+        <span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">,</span>
+        <span class="n">namespace</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">destination</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">output</span><span class="p">)</span> <span class="k">if</span> <span class="n">namespace</span><span class="o">.</span><span class="n">output</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">force</span><span class="o">=</span><span class="n">namespace</span><span class="o">.</span><span class="n">force</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"Extracted </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">remote_path</span><span class="si">}</span><span class="s2"> from </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">vm_name</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">destination</span><span class="si">}</span><span class="s2"> "</span>
+        <span class="sa">f</span><span class="s2">"(</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> bytes, sha256 </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">sha256</span><span class="si">}</span><span class="s2">)."</span><span class="p">,</span>
+        <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">load_report</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">destination</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">PySnapError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: the file is not a readable report: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_check</span><span class="p">(</span><span class="n">namespace</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">,</span> <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Run ``pysnap report check``.</span>
+
+<span class="sd">    :param namespace: Parsed arguments.</span>
+<span class="sd">    :param stdout: Output stream.</span>
+<span class="sd">    :returns: Process exit code.</span>
+<span class="sd">    """</span>
+    <span class="n">spec</span> <span class="o">=</span> <span class="n">load_check</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">check_file</span><span class="p">)</span> <span class="k">if</span> <span class="n">namespace</span><span class="o">.</span><span class="n">check_file</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">recording</span> <span class="o">=</span> <span class="n">load_report</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">report</span><span class="p">)</span>
+    <span class="n">transcript</span> <span class="o">=</span> <span class="n">render_transcript</span><span class="p">(</span><span class="n">recording</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">format_report_stats</span><span class="p">(</span><span class="n">compute_stats</span><span class="p">(</span><span class="n">recording</span><span class="p">,</span> <span class="n">transcript</span><span class="p">)),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">spec</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">run_check</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="n">transcript</span><span class="p">,</span> <span class="n">report_name</span><span class="o">=</span><span class="n">recording</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">format_check_result</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">transcript</span><span class="p">),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+
+<div class="viewcode-block" id="format_check_result">
+<a class="viewcode-back" href="../../../api/pysnap.cli.html#pysnap.cli.report.format_check_result">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">format_check_result</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">CheckResult</span><span class="p">,</span> <span class="n">transcript</span><span class="p">:</span> <span class="n">Transcript</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Render the per-item results and the grade.</span>
+
+<span class="sd">    :param result: Graded check result.</span>
+<span class="sd">    :param transcript: Rendered report, used to show what matched.</span>
+<span class="sd">    :returns: Multi-line human-readable text.</span>
+<span class="sd">    """</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"Checks: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">check_name</span><span class="si">}</span><span class="s2">"</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">items</span><span class="p">:</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="s2">"PASS"</span> <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">passed</span> <span class="k">else</span> <span class="s2">"FAIL"</span>
+        <span class="n">pattern_lines</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">pattern</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">head</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">kind</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">number</span><span class="si">}</span><span class="s2">"</span>
+        <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">"command"</span><span class="p">:</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">" [</span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">]"</span> <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">label</span> <span class="o">!=</span> <span class="n">item</span><span class="o">.</span><span class="n">pattern</span> <span class="k">else</span> <span class="s2">""</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">head</span><span class="si">}{</span><span class="n">label</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">pattern</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">command</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">matched</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">commands</span><span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">command</span><span class="p">]</span>
+                <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        matched command </span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">command</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">matched</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">count</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">" (found </span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">count</span><span class="si">}</span><span class="s2"> times)"</span> <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">passed</span> <span class="ow">and</span> <span class="n">item</span><span class="o">.</span><span class="n">count</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="s2">""</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">head</span><span class="si">}{</span><span class="n">count</span><span class="si">}</span><span class="s2">:"</span><span class="p">)</span>
+            <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"          </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">pattern_lines</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">lines</span><span class="p">:</span>
+                <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        first match at transcript line </span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">item</span><span class="o">.</span><span class="n">passed</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        reason: </span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">reason</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">closest</span> <span class="ow">and</span> <span class="n">item</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">"command"</span><span class="p">:</span>
+                <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"        closest entered command: </span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">closest</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">bindings</span><span class="p">:</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">=</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">bindings</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Values: </span><span class="si">{</span><span class="n">values</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">passed</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">items</span> <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">passed</span><span class="p">)</span>
+    <span class="n">mark</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">", mark </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">mark</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">mark</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">""</span>
+    <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span>
+        <span class="s2">""</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"Result: </span><span class="si">{</span><span class="n">passed</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">items</span><span class="p">)</span><span class="si">}</span><span class="s2"> checks passed, "</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">points</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">total_points</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> points "</span>
+        <span class="sa">f</span><span class="s2">"(</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">percent</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%)</span><span class="si">{</span><span class="n">mark</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">search_exhausted</span><span class="p">:</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="s2">"WARNING: The check file allows too many combinations; "</span>
+            <span class="s2">"the best result found within the search limit is shown."</span>
+        <span class="p">)</span>
+    <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"WARNING: </span><span class="si">{</span><span class="n">warning</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">warning</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">warnings</span><span class="p">]</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="format_report_stats">
+<a class="viewcode-back" href="../../../api/pysnap.cli.html#pysnap.cli.report.format_report_stats">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">format_report_stats</span><span class="p">(</span><span class="n">stats</span><span class="p">:</span> <span class="n">ReportStats</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Render the report information block.</span>
+
+<span class="sd">    :param stats: Report statistics.</span>
+<span class="sd">    :returns: Multi-line human-readable text.</span>
+<span class="sd">    """</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"Report information: </span><span class="si">{</span><span class="n">stats</span><span class="o">.</span><span class="n">source_name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="s2">""</span><span class="p">,</span> <span class="s2">"Identity"</span><span class="p">]</span>
+    <span class="n">file_identity</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"task </span><span class="si">{</span><span class="n">stats</span><span class="o">.</span><span class="n">file_task</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">, host </span><span class="si">{</span><span class="n">stats</span><span class="o">.</span><span class="n">file_host</span><span class="si">}</span><span class="s2">"</span>
+        <span class="k">if</span> <span class="n">stats</span><span class="o">.</span><span class="n">file_host</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="s2">"not a report.NN.HOST name"</span>
+    <span class="p">)</span>
+    <span class="n">prompt_identity</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"task </span><span class="si">{</span><span class="n">task</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">, host </span><span class="si">{</span><span class="n">host</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">task</span><span class="p">,</span> <span class="n">host</span> <span class="ow">in</span> <span class="n">stats</span><span class="o">.</span><span class="n">prompt_identities</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="s2">"no report prompt found"</span>
+    <span class="p">)</span>
+    <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span>
+        <span class="sa">f</span><span class="s2">"  File name:  </span><span class="si">{</span><span class="n">file_identity</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  Prompt:     </span><span class="si">{</span><span class="n">prompt_identity</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="s2">""</span><span class="p">,</span>
+        <span class="s2">"Timing"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  Started:    </span><span class="si">{</span><span class="n">_format_datetime</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  Finished:   </span><span class="si">{</span><span class="n">_format_datetime</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">end_time</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  Duration:   </span><span class="si">{</span><span class="n">_format_seconds</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">duration</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  Exit code:  </span><span class="si">{</span><span class="n">_format_value</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">exit_code</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="s2">""</span><span class="p">,</span>
+        <span class="s2">"Environment"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  Terminal:   </span><span class="si">{</span><span class="n">_format_value</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">tty</span><span class="p">)</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">_format_value</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">term</span><span class="p">)</span><span class="si">}</span><span class="s2">, "</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_format_value</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">_format_value</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">lines</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  CPU:        </span><span class="si">{</span><span class="n">_format_value</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">cpu_model</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  Hypervisor: </span><span class="si">{</span><span class="n">_format_value</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">hypervisor</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="s2">""</span><span class="p">,</span>
+        <span class="s2">"Commands"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  Entered:    </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">commands</span><span class="p">)</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">stats</span><span class="o">.</span><span class="n">unique_commands</span><span class="si">}</span><span class="s2"> unique)"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  Interrupted with Ctrl-C: </span><span class="si">{</span><span class="n">_count</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">commands</span><span class="p">,</span><span class="w"> </span><span class="s1">'interrupted'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  Recalled from history:   </span><span class="si">{</span><span class="n">_count</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">commands</span><span class="p">,</span><span class="w"> </span><span class="s1">'from_history'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  At other prompts:        </span><span class="si">{</span><span class="n">_count</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">commands</span><span class="p">,</span><span class="w"> </span><span class="s1">'foreign_prompt'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="k">if</span> <span class="n">stats</span><span class="o">.</span><span class="n">commands</span><span class="p">:</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"  Pauses before commands: min </span><span class="si">{</span><span class="n">_format_seconds</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">pause_min</span><span class="p">)</span><span class="si">}</span><span class="s2">, "</span>
+            <span class="sa">f</span><span class="s2">"median </span><span class="si">{</span><span class="n">_format_seconds</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">pause_median</span><span class="p">)</span><span class="si">}</span><span class="s2">, "</span>
+            <span class="sa">f</span><span class="s2">"max </span><span class="si">{</span><span class="n">_format_seconds</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">pause_max</span><span class="p">)</span><span class="si">}</span><span class="s2"> (before: </span><span class="si">{</span><span class="n">stats</span><span class="o">.</span><span class="n">longest_pause_command</span><span class="si">}</span><span class="s2">)"</span>
+        <span class="p">)</span>
+        <span class="n">width</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">commands</span><span class="p">)))</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">stats</span><span class="o">.</span><span class="n">commands</span><span class="p">:</span>
+            <span class="n">marks</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">mark</span>
+                <span class="k">for</span> <span class="n">enabled</span><span class="p">,</span> <span class="n">mark</span> <span class="ow">in</span> <span class="p">(</span>
+                    <span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">interrupted</span><span class="p">,</span> <span class="s2">"interrupted"</span><span class="p">),</span>
+                    <span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">from_history</span><span class="p">,</span> <span class="s2">"history"</span><span class="p">),</span>
+                    <span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">foreign_prompt</span><span class="p">,</span> <span class="s2">"other prompt"</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">enabled</span>
+            <span class="p">]</span>
+            <span class="n">suffix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"  [</span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">marks</span><span class="p">)</span><span class="si">}</span><span class="s2">]"</span> <span class="k">if</span> <span class="n">marks</span> <span class="k">else</span> <span class="s2">""</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">index</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">:</span><span class="s2">&gt;</span><span class="si">{</span><span class="n">width</span><span class="si">}}</span><span class="s2">. pause </span><span class="si">{</span><span class="n">_format_seconds</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">pause</span><span class="p">)</span><span class="si">:</span><span class="s2">&gt;7</span><span class="si">}</span><span class="s2">  "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">text</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+    <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span>
+        <span class="s2">""</span><span class="p">,</span>
+        <span class="s2">"Typing"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  Speed:      </span><span class="si">{</span><span class="n">_format_rate</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">typing_speed</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  Backspace:  </span><span class="si">{</span><span class="n">_format_share</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">backspace_share</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  Pasted input: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">pastes</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="k">for</span> <span class="n">paste</span> <span class="ow">in</span> <span class="n">stats</span><span class="o">.</span><span class="n">pastes</span><span class="p">:</span>
+        <span class="n">owner</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"command </span><span class="si">{</span><span class="n">paste</span><span class="o">.</span><span class="n">command</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="n">paste</span><span class="o">.</span><span class="n">command</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">"no command"</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    at </span><span class="si">{</span><span class="n">_format_seconds</span><span class="p">(</span><span class="n">paste</span><span class="o">.</span><span class="n">time</span><span class="p">)</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">owner</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">paste</span><span class="o">.</span><span class="n">text</span><span class="p">[:</span><span class="mi">60</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span>
+        <span class="s2">""</span><span class="p">,</span>
+        <span class="s2">"Addresses in output"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  IPv4:       </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">ip_addresses</span><span class="p">)</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'none'</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  MAC:        </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">mac_addresses</span><span class="p">)</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'none'</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="s2">""</span><span class="p">,</span>
+        <span class="s2">"Integrity"</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">"  Report problems: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"    </span><span class="si">{</span><span class="n">diagnostic</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">diagnostic</span> <span class="ow">in</span> <span class="n">stats</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">check</span> <span class="ow">in</span> <span class="n">stats</span><span class="o">.</span><span class="n">member_times</span><span class="p">:</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="s2">"ok"</span> <span class="k">if</span> <span class="n">check</span><span class="o">.</span><span class="n">within_tolerance</span> <span class="k">else</span> <span class="s2">"MISMATCH"</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">check</span><span class="o">.</span><span class="n">member</span><span class="si">:</span><span class="s2">&lt;9</span><span class="si">}</span><span class="s2"> time vs recording </span><span class="si">{</span><span class="n">check</span><span class="o">.</span><span class="n">expected</span><span class="si">}</span><span class="s2">: "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">check</span><span class="o">.</span><span class="n">difference</span><span class="si">:</span><span class="s2">+.1f</span><span class="si">}</span><span class="s2"> s (</span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">)"</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">stats</span><span class="o">.</span><span class="n">warnings</span><span class="p">:</span>
+        <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">""</span><span class="p">,</span> <span class="o">*</span><span class="p">[</span><span class="sa">f</span><span class="s2">"WARNING: </span><span class="si">{</span><span class="n">warning</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">warning</span> <span class="ow">in</span> <span class="n">stats</span><span class="o">.</span><span class="n">warnings</span><span class="p">]]</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_count</span><span class="p">(</span><span class="n">items</span><span class="p">,</span> <span class="n">attribute</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Count items whose boolean attribute is set."""</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span> <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">attribute</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_format_value</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Format an optional value."""</span>
+    <span class="k">return</span> <span class="s2">"unknown"</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_format_datetime</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Format an optional timestamp with its UTC offset."""</span>
+    <span class="k">return</span> <span class="s2">"unknown"</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">value</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(</span><span class="n">sep</span><span class="o">=</span><span class="s2">" "</span><span class="p">,</span> <span class="n">timespec</span><span class="o">=</span><span class="s2">"seconds"</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_format_seconds</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Format an optional duration in seconds."""</span>
+    <span class="k">return</span> <span class="s2">"unknown"</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> s"</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_format_rate</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Format an optional typing speed."""</span>
+    <span class="k">return</span> <span class="s2">"unknown"</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> keys/s"</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_format_share</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Format an optional share as a percentage."""</span>
+    <span class="k">return</span> <span class="s2">"unknown"</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">value</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">% of keys"</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_text</span><span class="p">(</span><span class="n">namespace</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">,</span> <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span> <span class="n">stderr</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Run ``pysnap report text``.</span>
+
+<span class="sd">    :param namespace: Parsed arguments.</span>
+<span class="sd">    :param stdout: Output stream.</span>
+<span class="sd">    :param stderr: Error stream.</span>
+<span class="sd">    :returns: Process exit code.</span>
+<span class="sd">    """</span>
+    <span class="n">recording</span> <span class="o">=</span> <span class="n">load_report</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">report</span><span class="p">)</span>
+    <span class="n">transcript</span> <span class="o">=</span> <span class="n">render_transcript</span><span class="p">(</span><span class="n">recording</span><span class="p">)</span>
+    <span class="n">_print_diagnostics</span><span class="p">(</span><span class="n">recording</span><span class="p">,</span> <span class="n">transcript</span><span class="p">,</span> <span class="n">stderr</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">namespace</span><span class="o">.</span><span class="n">commands</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">format_command_list</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">commands</span><span class="p">),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="n">color</span> <span class="o">=</span> <span class="n">_use_color</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">color</span><span class="p">,</span> <span class="n">stdout</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">namespace</span><span class="o">.</span><span class="n">no_pager</span> <span class="ow">and</span> <span class="n">_needs_pager</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">lines</span><span class="p">),</span> <span class="n">stdout</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.viewer</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_pager</span>
+
+        <span class="n">highlighted</span> <span class="o">=</span> <span class="n">highlight_transcript</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">color</span><span class="p">:</span>
+            <span class="n">highlighted</span> <span class="o">=</span> <span class="p">[(</span><span class="n">StyledRun</span><span class="p">(</span><span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">run</span><span class="o">.</span><span class="n">text</span> <span class="k">for</span> <span class="n">run</span> <span class="ow">in</span> <span class="n">runs</span><span class="p">)),)</span> <span class="k">for</span> <span class="n">runs</span> <span class="ow">in</span> <span class="n">highlighted</span><span class="p">]</span>
+        <span class="n">run_pager</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">source_name</span><span class="p">,</span> <span class="n">highlighted</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">format_transcript</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_show</span><span class="p">(</span><span class="n">namespace</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">,</span> <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span> <span class="n">stderr</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Run ``pysnap report show``.</span>
+
+<span class="sd">    :param namespace: Parsed arguments.</span>
+<span class="sd">    :param stdout: Output stream.</span>
+<span class="sd">    :param stderr: Error stream.</span>
+<span class="sd">    :returns: Process exit code.</span>
+<span class="sd">    :raises PySnapError: When the output is not an interactive terminal.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_terminal</span><span class="p">(</span><span class="n">stdout</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+            <span class="s2">"pysnap report show needs an interactive terminal; "</span>
+            <span class="s2">"use pysnap report text for redirected output."</span>
+        <span class="p">)</span>
+    <span class="n">recording</span> <span class="o">=</span> <span class="n">load_report</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">report</span><span class="p">)</span>
+    <span class="n">transcript</span> <span class="o">=</span> <span class="n">render_transcript</span><span class="p">(</span><span class="n">recording</span><span class="p">)</span>
+    <span class="n">_print_diagnostics</span><span class="p">(</span><span class="n">recording</span><span class="p">,</span> <span class="n">transcript</span><span class="p">,</span> <span class="n">stderr</span><span class="p">)</span>
+    <span class="n">player</span> <span class="o">=</span> <span class="n">ReplayPlayer</span><span class="p">(</span><span class="n">recording</span><span class="p">,</span> <span class="n">transcript</span><span class="p">,</span> <span class="n">max_delay</span><span class="o">=</span><span class="n">namespace</span><span class="o">.</span><span class="n">max_delay</span><span class="p">)</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.viewer</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_player</span>
+
+    <span class="n">run_player</span><span class="p">(</span><span class="n">PlaybackController</span><span class="p">(</span><span class="n">player</span><span class="p">,</span> <span class="n">speed</span><span class="o">=</span><span class="n">namespace</span><span class="o">.</span><span class="n">speed</span><span class="p">),</span> <span class="n">recording</span><span class="o">.</span><span class="n">source_name</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+
+<div class="viewcode-block" id="format_transcript">
+<a class="viewcode-back" href="../../../api/pysnap.cli.html#pysnap.cli.report.format_transcript">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">format_transcript</span><span class="p">(</span><span class="n">transcript</span><span class="p">:</span> <span class="n">Transcript</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">color</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Render transcript lines, highlighting prompts and commands.</span>
+
+<span class="sd">    :param transcript: Rendered session.</span>
+<span class="sd">    :param color: Whether to emit ANSI styles.</span>
+<span class="sd">    :returns: Output lines.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">color</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">text</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">lines</span><span class="p">]</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">_render_runs</span><span class="p">(</span><span class="n">runs</span><span class="p">)</span> <span class="k">for</span> <span class="n">runs</span> <span class="ow">in</span> <span class="n">highlight_transcript</span><span class="p">(</span><span class="n">transcript</span><span class="p">)]</span></div>
+
+
+
+<div class="viewcode-block" id="format_command_list">
+<a class="viewcode-back" href="../../../api/pysnap.cli.html#pysnap.cli.report.format_command_list">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">format_command_list</span><span class="p">(</span><span class="n">commands</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">CommandRecord</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Render the numbered list of entered commands.</span>
+
+<span class="sd">    :param commands: Commands in recording order.</span>
+<span class="sd">    :returns: One line per command with its recording time.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">commands</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">"No commands found."</span>
+    <span class="n">width</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">commands</span><span class="p">)))</span>
+    <span class="n">rendered</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">commands</span><span class="p">:</span>
+        <span class="n">minutes</span><span class="p">,</span> <span class="n">seconds</span> <span class="o">=</span> <span class="nb">divmod</span><span class="p">(</span><span class="n">command</span><span class="o">.</span><span class="n">time</span><span class="p">,</span> <span class="mi">60</span><span class="p">)</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">command</span><span class="o">.</span><span class="n">index</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">:</span><span class="s2">&gt;</span><span class="si">{</span><span class="n">width</span><span class="si">}}</span><span class="s2">  </span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">minutes</span><span class="p">)</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">seconds</span><span class="si">:</span><span class="s2">05.2f</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">command</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">"</span>
+        <span class="k">if</span> <span class="n">command</span><span class="o">.</span><span class="n">prompt_info</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">command</span><span class="o">.</span><span class="n">prompt</span><span class="p">:</span>
+            <span class="n">line</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">"  [prompt: </span><span class="si">{</span><span class="n">command</span><span class="o">.</span><span class="n">prompt</span><span class="si">}</span><span class="s2">]"</span>
+        <span class="n">rendered</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">rendered</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_render_runs</span><span class="p">(</span><span class="n">runs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">StyledRun</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Render styled runs with ANSI SGR sequences built from known values."""</span>
+    <span class="n">pieces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">run</span> <span class="ow">in</span> <span class="n">runs</span><span class="p">:</span>
+        <span class="n">codes</span> <span class="o">=</span> <span class="n">_sgr_codes</span><span class="p">(</span><span class="n">run</span><span class="o">.</span><span class="n">style</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">codes</span><span class="p">:</span>
+            <span class="n">pieces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\x1b</span><span class="s2">[</span><span class="si">{</span><span class="s1">';'</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">codes</span><span class="p">)</span><span class="si">}</span><span class="s2">m</span><span class="si">{</span><span class="n">run</span><span class="o">.</span><span class="n">text</span><span class="si">}{</span><span class="n">_RESET</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">pieces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">run</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pieces</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sgr_codes</span><span class="p">(</span><span class="n">style</span><span class="p">:</span> <span class="n">CellStyle</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Translate a cell style into SGR parameters."""</span>
+    <span class="n">codes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">style</span><span class="o">.</span><span class="n">bold</span><span class="p">:</span>
+        <span class="n">codes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"1"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">style</span><span class="o">.</span><span class="n">italics</span><span class="p">:</span>
+        <span class="n">codes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"3"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">style</span><span class="o">.</span><span class="n">underscore</span><span class="p">:</span>
+        <span class="n">codes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"4"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">style</span><span class="o">.</span><span class="n">reverse</span><span class="p">:</span>
+        <span class="n">codes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"7"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">style</span><span class="o">.</span><span class="n">strikethrough</span><span class="p">:</span>
+        <span class="n">codes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"9"</span><span class="p">)</span>
+    <span class="n">codes</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_color_codes</span><span class="p">(</span><span class="n">style</span><span class="o">.</span><span class="n">fg</span><span class="p">,</span> <span class="n">foreground</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+    <span class="n">codes</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_color_codes</span><span class="p">(</span><span class="n">style</span><span class="o">.</span><span class="n">bg</span><span class="p">,</span> <span class="n">foreground</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">codes</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_color_codes</span><span class="p">(</span><span class="n">color</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">foreground</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Translate one ``pyte`` color into SGR parameters."""</span>
+    <span class="n">base</span><span class="p">,</span> <span class="n">bright_base</span><span class="p">,</span> <span class="n">extended</span> <span class="o">=</span> <span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="s2">"38"</span><span class="p">)</span> <span class="k">if</span> <span class="n">foreground</span> <span class="k">else</span> <span class="p">(</span><span class="mi">40</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="s2">"48"</span><span class="p">)</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">color</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_ANSI_COLORS</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">base</span> <span class="o">+</span> <span class="n">_ANSI_COLORS</span><span class="p">[</span><span class="n">name</span><span class="p">])]</span>
+    <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"bright"</span><span class="p">)</span> <span class="ow">and</span> <span class="n">name</span><span class="p">[</span><span class="mi">6</span><span class="p">:]</span> <span class="ow">in</span> <span class="n">_ANSI_COLORS</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">bright_base</span> <span class="o">+</span> <span class="n">_ANSI_COLORS</span><span class="p">[</span><span class="n">name</span><span class="p">[</span><span class="mi">6</span><span class="p">:]])]</span>
+    <span class="k">if</span> <span class="n">_HEX_COLOR</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+        <span class="n">red</span><span class="p">,</span> <span class="n">green</span><span class="p">,</span> <span class="n">blue</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">name</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">],</span> <span class="mi">16</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">extended</span><span class="p">,</span> <span class="s2">"2"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">red</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">green</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">blue</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="p">[]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_use_color</span><span class="p">(</span><span class="n">mode</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Decide whether to emit ANSI styles."""</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">"always"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">"never"</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"NO_COLOR"</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="n">_is_terminal</span><span class="p">(</span><span class="n">stdout</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_is_terminal</span><span class="p">(</span><span class="n">stream</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return whether a stream is an interactive terminal."""</span>
+    <span class="n">isatty</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="s2">"isatty"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">isatty</span> <span class="ow">and</span> <span class="n">isatty</span><span class="p">())</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_needs_pager</span><span class="p">(</span><span class="n">line_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return whether ``text`` output should open the pager.</span>
+
+<span class="sd">    The pager opens only for a terminal and only when the text does not fit</span>
+<span class="sd">    on the screen.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_terminal</span><span class="p">(</span><span class="n">stdout</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="n">line_count</span> <span class="o">&gt;</span> <span class="n">shutil</span><span class="o">.</span><span class="n">get_terminal_size</span><span class="p">(</span><span class="n">fallback</span><span class="o">=</span><span class="p">(</span><span class="mi">80</span><span class="p">,</span> <span class="mi">24</span><span class="p">))</span><span class="o">.</span><span class="n">lines</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_print_diagnostics</span><span class="p">(</span><span class="n">recording</span><span class="p">:</span> <span class="n">Recording</span><span class="p">,</span> <span class="n">transcript</span><span class="p">:</span> <span class="n">Transcript</span><span class="p">,</span> <span class="n">stderr</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Print report diagnostics as warnings."""</span>
+    <span class="k">for</span> <span class="n">diagnostic</span> <span class="ow">in</span> <span class="p">(</span><span class="o">*</span><span class="n">recording</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">,</span> <span class="o">*</span><span class="n">transcript</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: </span><span class="si">{</span><span class="n">diagnostic</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">PySnap</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/modules.html">pysnap</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, PySnap Authors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

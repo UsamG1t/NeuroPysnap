@@ -24,3 +24,11 @@ pysnap.cli.formatters module
    :members:
    :show-inheritance:
    :undoc-members:
+
+pysnap.cli.report module
+------------------------
+
+.. automodule:: pysnap.cli.report
+   :members:
+   :show-inheritance:
+   :undoc-members:

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pysnap.report.recording &#8212; PySnap 2.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../_static/documentation_options.js?v=51b770b3"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for pysnap.report.recording</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Parsing of the ``script`` recording stored in a report archive.</span>
+
+<span class="sd">``report`` runs ``script -I IN.txt -O OUT.txt -B BOTH.txt -T TIME.txt``.</span>
+<span class="sd">``TIME.txt`` uses the multi-stream timing format of util-linux ``script``:</span>
+<span class="sd">one entry per line, ``&lt;type&gt; &lt;delay&gt; &lt;value&gt;``, where ``H`` lines carry</span>
+<span class="sd">headers, ``I``/``O`` lines carry the byte size of an input or output chunk</span>
+<span class="sd">and ``S`` lines carry signals such as terminal resizes. The byte counts</span>
+<span class="sd">address the stream files after their ``Script started on ...`` line and</span>
+<span class="sd">before their ``Script done on ...`` trailer.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">TypeVar</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReportFormatError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.archive</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_report_archive</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Recording</span><span class="p">,</span>
+    <span class="n">ReportArchive</span><span class="p">,</span>
+    <span class="n">ReportDiagnostic</span><span class="p">,</span>
+    <span class="n">ReportLimits</span><span class="p">,</span>
+    <span class="n">ReportName</span><span class="p">,</span>
+    <span class="n">TimingEvent</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">STREAM_START</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">"Script started on "</span>
+<span class="n">STREAM_END</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Script done on "</span>
+
+<span class="n">DIAG_MISSING_MEMBER</span> <span class="o">=</span> <span class="s2">"missing-member"</span>
+<span class="n">DIAG_STREAM_HEADER</span> <span class="o">=</span> <span class="s2">"stream-header"</span>
+<span class="n">DIAG_STREAM_TRAILER</span> <span class="o">=</span> <span class="s2">"stream-trailer"</span>
+<span class="n">DIAG_TIMING_LINE</span> <span class="o">=</span> <span class="s2">"timing-line"</span>
+<span class="n">DIAG_TIMING_OVERRUN</span> <span class="o">=</span> <span class="s2">"timing-overrun"</span>
+<span class="n">DIAG_TIMING_UNDERRUN</span> <span class="o">=</span> <span class="s2">"timing-underrun"</span>
+<span class="n">DIAG_BOTH_MISMATCH</span> <span class="o">=</span> <span class="s2">"both-mismatch"</span>
+<span class="n">DIAG_HEADER_VALUE</span> <span class="o">=</span> <span class="s2">"header-value"</span>
+
+<span class="n">_STREAM_KINDS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"I"</span><span class="p">,</span> <span class="s2">"O"</span><span class="p">}</span>
+
+<span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">"T"</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="load_report">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.recording.load_report">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_report</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">limits</span><span class="p">:</span> <span class="n">ReportLimits</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Recording</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Load and parse a report file.</span>
+
+<span class="sd">    :param path: Path to the report file.</span>
+<span class="sd">    :param limits: Resource limits, defaults to :class:`ReportLimits`.</span>
+<span class="sd">    :returns: Parsed recording.</span>
+<span class="sd">    :raises ReportFormatError: When the file is not a usable report.</span>
+<span class="sd">    """</span>
+    <span class="n">report_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">archive</span> <span class="o">=</span> <span class="n">read_report_archive</span><span class="p">(</span><span class="n">report_path</span><span class="p">,</span> <span class="n">limits</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">parse_recording</span><span class="p">(</span><span class="n">archive</span><span class="p">,</span> <span class="n">report_path</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="parse_recording">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.recording.parse_recording">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">parse_recording</span><span class="p">(</span><span class="n">archive</span><span class="p">:</span> <span class="n">ReportArchive</span><span class="p">,</span> <span class="n">source_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Recording</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Parse the members of a report archive.</span>
+
+<span class="sd">    Inconsistencies are reported as diagnostics; only a report without a</span>
+<span class="sd">    timing log or an output log is rejected.</span>
+
+<span class="sd">    :param archive: Raw archive members.</span>
+<span class="sd">    :param source_name: Base name of the report file.</span>
+<span class="sd">    :returns: Parsed recording.</span>
+<span class="sd">    :raises ReportFormatError: When ``TIME.txt`` or ``OUT.txt`` is missing or</span>
+<span class="sd">        the timing log uses the unsupported single-stream format.</span>
+<span class="sd">    """</span>
+    <span class="n">diagnostics</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">archive</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">required</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"TIME.txt"</span><span class="p">,</span> <span class="s2">"OUT.txt"</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">required</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">members</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ReportFormatError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">'Report "</span><span class="si">{</span><span class="n">source_name</span><span class="si">}</span><span class="s1">" does not contain </span><span class="si">{</span><span class="n">required</span><span class="si">}</span><span class="s1">.'</span>
+            <span class="p">)</span>
+    <span class="k">if</span> <span class="s2">"IN.txt"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">members</span><span class="p">:</span>
+        <span class="n">diagnostics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">ReportDiagnostic</span><span class="p">(</span>
+                <span class="n">DIAG_MISSING_MEMBER</span><span class="p">,</span>
+                <span class="s2">"Report does not contain IN.txt; keyboard input is unavailable."</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="n">output_body</span> <span class="o">=</span> <span class="n">_stream_body</span><span class="p">(</span><span class="n">archive</span><span class="o">.</span><span class="n">members</span><span class="p">[</span><span class="s2">"OUT.txt"</span><span class="p">],</span> <span class="s2">"OUT.txt"</span><span class="p">,</span> <span class="n">diagnostics</span><span class="p">)</span>
+    <span class="n">input_body</span> <span class="o">=</span> <span class="n">_stream_body</span><span class="p">(</span><span class="n">archive</span><span class="o">.</span><span class="n">members</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"IN.txt"</span><span class="p">,</span> <span class="sa">b</span><span class="s2">""</span><span class="p">),</span> <span class="s2">"IN.txt"</span><span class="p">,</span> <span class="n">diagnostics</span><span class="p">)</span>
+    <span class="n">headers</span><span class="p">,</span> <span class="n">events</span> <span class="o">=</span> <span class="n">_parse_timing</span><span class="p">(</span>
+        <span class="n">archive</span><span class="o">.</span><span class="n">members</span><span class="p">[</span><span class="s2">"TIME.txt"</span><span class="p">]</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"replace"</span><span class="p">),</span>
+        <span class="n">input_body</span><span class="p">,</span>
+        <span class="n">output_body</span><span class="p">,</span>
+        <span class="n">diagnostics</span><span class="p">,</span>
+        <span class="n">has_input</span><span class="o">=</span><span class="s2">"IN.txt"</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">members</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="s2">"BOTH.txt"</span> <span class="ow">in</span> <span class="n">archive</span><span class="o">.</span><span class="n">members</span><span class="p">:</span>
+        <span class="n">both_body</span> <span class="o">=</span> <span class="n">_stream_body</span><span class="p">(</span><span class="n">archive</span><span class="o">.</span><span class="n">members</span><span class="p">[</span><span class="s2">"BOTH.txt"</span><span class="p">],</span> <span class="s2">"BOTH.txt"</span><span class="p">,</span> <span class="n">diagnostics</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">both_body</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">input_body</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">output_body</span><span class="p">):</span>
+            <span class="n">diagnostics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">ReportDiagnostic</span><span class="p">(</span>
+                    <span class="n">DIAG_BOTH_MISMATCH</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">"BOTH.txt holds </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">both_body</span><span class="p">)</span><span class="si">}</span><span class="s2"> bytes while IN.txt and "</span>
+                    <span class="sa">f</span><span class="s2">"OUT.txt hold </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">input_body</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="n">output_body</span><span class="p">)</span><span class="si">}</span><span class="s2"> bytes."</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">Recording</span><span class="p">(</span>
+        <span class="n">source_name</span><span class="o">=</span><span class="n">source_name</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">ReportName</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">source_name</span><span class="p">),</span>
+        <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span>
+        <span class="n">start_time</span><span class="o">=</span><span class="n">_header_value</span><span class="p">(</span><span class="n">headers</span><span class="p">,</span> <span class="s2">"START_TIME"</span><span class="p">,</span> <span class="n">_parse_datetime</span><span class="p">,</span> <span class="n">diagnostics</span><span class="p">),</span>
+        <span class="n">duration</span><span class="o">=</span><span class="n">_header_value</span><span class="p">(</span><span class="n">headers</span><span class="p">,</span> <span class="s2">"DURATION"</span><span class="p">,</span> <span class="n">_parse_duration</span><span class="p">,</span> <span class="n">diagnostics</span><span class="p">),</span>
+        <span class="n">exit_code</span><span class="o">=</span><span class="n">_header_value</span><span class="p">(</span><span class="n">headers</span><span class="p">,</span> <span class="s2">"EXIT_CODE"</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">diagnostics</span><span class="p">),</span>
+        <span class="n">columns</span><span class="o">=</span><span class="n">_header_value</span><span class="p">(</span><span class="n">headers</span><span class="p">,</span> <span class="s2">"COLUMNS"</span><span class="p">,</span> <span class="n">_parse_terminal_size</span><span class="p">,</span> <span class="n">diagnostics</span><span class="p">),</span>
+        <span class="n">lines</span><span class="o">=</span><span class="n">_header_value</span><span class="p">(</span><span class="n">headers</span><span class="p">,</span> <span class="s2">"LINES"</span><span class="p">,</span> <span class="n">_parse_terminal_size</span><span class="p">,</span> <span class="n">diagnostics</span><span class="p">),</span>
+        <span class="n">events</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">events</span><span class="p">),</span>
+        <span class="n">input_bytes</span><span class="o">=</span><span class="n">input_body</span><span class="p">,</span>
+        <span class="n">output_bytes</span><span class="o">=</span><span class="n">output_body</span><span class="p">,</span>
+        <span class="n">cpu_info</span><span class="o">=</span><span class="n">archive</span><span class="o">.</span><span class="n">members</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"CPU.txt"</span><span class="p">,</span> <span class="sa">b</span><span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"replace"</span><span class="p">),</span>
+        <span class="n">mtimes</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">archive</span><span class="o">.</span><span class="n">mtimes</span><span class="p">),</span>
+        <span class="n">diagnostics</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">diagnostics</span><span class="p">),</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_stream_body</span><span class="p">(</span>
+    <span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span>
+    <span class="n">member</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">diagnostics</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ReportDiagnostic</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Strip the ``script`` start line and done trailer from a stream log.</span>
+
+<span class="sd">    :param data: Raw member content.</span>
+<span class="sd">    :param member: Member name used in diagnostics.</span>
+<span class="sd">    :param diagnostics: Collected diagnostics, updated in place.</span>
+<span class="sd">    :returns: Recorded stream bytes.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">b</span><span class="s2">""</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">STREAM_START</span><span class="p">):</span>
+        <span class="n">newline</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="k">if</span> <span class="n">newline</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">newline</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">diagnostics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">ReportDiagnostic</span><span class="p">(</span>
+                <span class="n">DIAG_STREAM_HEADER</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">member</span><span class="si">}</span><span class="s1"> does not start with "Script started on".'</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="c1"># The trailer starts with its own newline; right after an empty body that</span>
+    <span class="c1"># newline is the one closing the start line, hence ``start - 1``.</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">rfind</span><span class="p">(</span><span class="n">STREAM_END</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">end</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">end</span> <span class="o">&lt;</span> <span class="n">start</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">diagnostics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">ReportDiagnostic</span><span class="p">(</span>
+                <span class="n">DIAG_STREAM_TRAILER</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">member</span><span class="si">}</span><span class="s1"> has no "Script done on" trailer; the recording '</span>
+                <span class="s2">"may be truncated."</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="n">start</span><span class="p">:]</span>
+    <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="nb">max</span><span class="p">(</span><span class="n">end</span><span class="p">,</span> <span class="n">start</span><span class="p">)]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_parse_timing</span><span class="p">(</span>
+    <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">input_body</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span>
+    <span class="n">output_body</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span>
+    <span class="n">diagnostics</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ReportDiagnostic</span><span class="p">],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">has_input</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">TimingEvent</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""Parse the multi-stream timing log and slice the stream bodies.</span>
+
+<span class="sd">    :param text: Decoded ``TIME.txt`` content.</span>
+<span class="sd">    :param input_body: Recorded keyboard input.</span>
+<span class="sd">    :param output_body: Recorded terminal output.</span>
+<span class="sd">    :param diagnostics: Collected diagnostics, updated in place.</span>
+<span class="sd">    :param has_input: Whether ``IN.txt`` was present in the archive.</span>
+<span class="sd">    :returns: Header values and timed events.</span>
+<span class="sd">    :raises ReportFormatError: When the log uses the single-stream format.</span>
+<span class="sd">    """</span>
+    <span class="n">headers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">events</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">TimingEvent</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">bodies</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"I"</span><span class="p">:</span> <span class="n">input_body</span><span class="p">,</span> <span class="s2">"O"</span><span class="p">:</span> <span class="n">output_body</span><span class="p">}</span>
+    <span class="n">offsets</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"I"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"O"</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+    <span class="n">overrun_reported</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"I"</span><span class="p">:</span> <span class="ow">not</span> <span class="n">has_input</span><span class="p">,</span> <span class="s2">"O"</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span>
+    <span class="n">elapsed</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+    <span class="k">for</span> <span class="n">line_number</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(),</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+            <span class="k">continue</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">" "</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">kind</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">_is_float</span><span class="p">(</span><span class="n">kind</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">ReportFormatError</span><span class="p">(</span>
+                <span class="s2">"The timing log uses the single-stream script format, which "</span>
+                <span class="s2">"is not supported."</span>
+            <span class="p">)</span>
+        <span class="n">delay</span> <span class="o">=</span> <span class="n">_parse_float</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"H"</span><span class="p">,</span> <span class="s2">"S"</span><span class="p">,</span> <span class="o">*</span><span class="n">_STREAM_KINDS</span><span class="p">}</span> <span class="ow">or</span> <span class="n">delay</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">delay</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">diagnostics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">ReportDiagnostic</span><span class="p">(</span>
+                    <span class="n">DIAG_TIMING_LINE</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">"Ignored malformed TIME.txt line </span><span class="si">{</span><span class="n">line_number</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">line</span><span class="p">[:</span><span class="mi">80</span><span class="p">]</span><span class="si">!r}</span><span class="s2">."</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"H"</span><span class="p">:</span>
+            <span class="n">key</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">" "</span><span class="p">)</span>
+            <span class="n">headers</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="n">elapsed</span> <span class="o">+=</span> <span class="n">delay</span>
+        <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"S"</span><span class="p">:</span>
+            <span class="n">events</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">TimingEvent</span><span class="p">(</span><span class="s2">"S"</span><span class="p">,</span> <span class="n">delay</span><span class="p">,</span> <span class="n">elapsed</span><span class="p">,</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">)))</span>
+            <span class="k">continue</span>
+
+        <span class="n">size</span> <span class="o">=</span> <span class="n">_parse_size</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">diagnostics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">ReportDiagnostic</span><span class="p">(</span>
+                    <span class="n">DIAG_TIMING_LINE</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">"Ignored malformed TIME.txt line </span><span class="si">{</span><span class="n">line_number</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">line</span><span class="p">[:</span><span class="mi">80</span><span class="p">]</span><span class="si">!r}</span><span class="s2">."</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="n">body</span> <span class="o">=</span> <span class="n">bodies</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">offsets</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span>
+        <span class="n">chunk</span> <span class="o">=</span> <span class="n">body</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">start</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
+        <span class="n">offsets</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">size</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">overrun_reported</span><span class="p">[</span><span class="n">kind</span><span class="p">]:</span>
+            <span class="n">overrun_reported</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">diagnostics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">ReportDiagnostic</span><span class="p">(</span>
+                    <span class="n">DIAG_TIMING_OVERRUN</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">"TIME.txt refers to more </span><span class="si">{</span><span class="n">_stream_name</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span><span class="si">}</span><span class="s2"> bytes than "</span>
+                    <span class="s2">"were recorded; the recording may be truncated."</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="n">events</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">TimingEvent</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">delay</span><span class="p">,</span> <span class="n">elapsed</span><span class="p">,</span> <span class="n">chunk</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">kind</span><span class="p">,</span> <span class="n">body</span> <span class="ow">in</span> <span class="n">bodies</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">offsets</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">body</span><span class="p">):</span>
+            <span class="n">diagnostics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">ReportDiagnostic</span><span class="p">(</span>
+                    <span class="n">DIAG_TIMING_UNDERRUN</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">body</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">offsets</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span><span class="si">}</span><span class="s2"> recorded </span><span class="si">{</span><span class="n">_stream_name</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span><span class="si">}</span><span class="s2"> "</span>
+                    <span class="s2">"bytes are not covered by TIME.txt."</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+    <span class="k">return</span> <span class="n">headers</span><span class="p">,</span> <span class="n">events</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_header_value</span><span class="p">(</span>
+    <span class="n">headers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+    <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">parser</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="n">T</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">diagnostics</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ReportDiagnostic</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Parse one optional header value.</span>
+
+<span class="sd">    :param headers: Raw header values.</span>
+<span class="sd">    :param key: Header name.</span>
+<span class="sd">    :param parser: Conversion function raising ``ValueError`` on bad input;</span>
+<span class="sd">        it may return ``None`` for a well-formed "unknown" value.</span>
+<span class="sd">    :param diagnostics: Collected diagnostics, updated in place.</span>
+<span class="sd">    :returns: Parsed value or ``None`` when absent, unknown or invalid.</span>
+<span class="sd">    """</span>
+    <span class="n">raw_value</span> <span class="o">=</span> <span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">raw_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">parser</span><span class="p">(</span><span class="n">raw_value</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="n">diagnostics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">ReportDiagnostic</span><span class="p">(</span>
+                <span class="n">DIAG_HEADER_VALUE</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"Ignored invalid </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> header value </span><span class="si">{</span><span class="n">raw_value</span><span class="p">[:</span><span class="mi">40</span><span class="p">]</span><span class="si">!r}</span><span class="s2">."</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_stream_name</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return the human-readable stream name for an event kind."""</span>
+    <span class="k">return</span> <span class="s2">"input"</span> <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"I"</span> <span class="k">else</span> <span class="s2">"output"</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_is_float</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return whether a timing-log token is a plain number."""</span>
+    <span class="k">return</span> <span class="n">_parse_float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_parse_float</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Parse a finite floating-point number, returning ``None`` on failure."""</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">number</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">number</span> <span class="k">if</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">number</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_parse_size</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Parse a non-negative byte count, returning ``None`` on failure."""</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">if</span> <span class="n">value</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_parse_duration</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Parse the ``DURATION`` header, raising ``ValueError`` on bad input."""</span>
+    <span class="n">number</span> <span class="o">=</span> <span class="n">_parse_float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">number</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">number</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">number</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_parse_terminal_size</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Parse ``COLUMNS``/``LINES``; ``script`` writes ``-1`` when unknown."""</span>
+    <span class="n">number</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">number</span> <span class="k">if</span> <span class="n">number</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_parse_datetime</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">datetime</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Parse the ``START_TIME`` header written by ``script``."""</span>
+    <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">PySnap</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/modules.html">pysnap</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, PySnap Authors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

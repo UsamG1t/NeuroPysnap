@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pysnap.errors &#8212; PySnap 1.1.0 documentation</title>
+    <title>pysnap.errors &#8212; PySnap 2.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
-    <script src="../../_static/documentation_options.js?v=fc837d61"></script>
+    <script src="../../_static/documentation_options.js?v=51b770b3"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -32,32 +32,32 @@
           <div class="body" role="main">
             
   <h1>Source code for pysnap.errors</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Custom exceptions used by PySnap.&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""Custom exceptions used by PySnap."""</span>
 
 
 <div class="viewcode-block" id="PySnapError">
 <a class="viewcode-back" href="../../api/pysnap.html#pysnap.errors.PySnapError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">PySnapError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base exception for application-level failures.&quot;&quot;&quot;</span></div>
+<span class="w">    </span><span class="sd">"""Base exception for application-level failures."""</span></div>
 
 
 
 <div class="viewcode-block" id="CommandExecutionError">
 <a class="viewcode-back" href="../../api/pysnap.html#pysnap.errors.CommandExecutionError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">CommandExecutionError</span><span class="p">(</span><span class="n">PySnapError</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represent a failed ``VBoxManage`` command execution.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Represent a failed ``VBoxManage`` command execution."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">stdout</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">stderr</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the command execution error.</span>
+<span class="w">        </span><span class="sd">"""Initialize the command execution error.</span>
 
 <span class="sd">        :param command: Executed command line.</span>
 <span class="sd">        :param stdout: Captured standard output.</span>
 <span class="sd">        :param stderr: Captured standard error.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">command</span> <span class="o">=</span> <span class="n">command</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="n">stdout</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stderr</span> <span class="o">=</span> <span class="n">stderr</span>
-        <span class="n">message</span> <span class="o">=</span> <span class="n">stderr</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="ow">or</span> <span class="n">stdout</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="ow">or</span> <span class="s2">&quot;VBoxManage command failed.&quot;</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="n">stderr</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="ow">or</span> <span class="n">stdout</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="ow">or</span> <span class="s2">"VBoxManage command failed."</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
 
 
@@ -65,34 +65,41 @@
 <div class="viewcode-block" id="VMNotFoundError">
 <a class="viewcode-back" href="../../api/pysnap.html#pysnap.errors.VMNotFoundError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">VMNotFoundError</span><span class="p">(</span><span class="n">PySnapError</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Report that a requested virtual machine does not exist.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Report that a requested virtual machine does not exist."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the missing VM error.</span>
+<span class="w">        </span><span class="sd">"""Initialize the missing VM error.</span>
 
 <span class="sd">        :param vm_name: Name of the missing virtual machine.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; was not found.&#39;</span><span class="p">)</span></div>
+<span class="sd">        """</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" was not found.'</span><span class="p">)</span></div>
 
 
 
 <div class="viewcode-block" id="VMDependencyError">
 <a class="viewcode-back" href="../../api/pysnap.html#pysnap.errors.VMDependencyError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">VMDependencyError</span><span class="p">(</span><span class="n">PySnapError</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Report that a VM cannot be deleted because dependent clones exist.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Report that a VM cannot be deleted because dependent clones exist."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subject</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dependents</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the dependency error.</span>
+<span class="w">        </span><span class="sd">"""Initialize the dependency error.</span>
 
 <span class="sd">        :param subject: Name of the VM that cannot be deleted.</span>
 <span class="sd">        :param dependents: Names of dependent clone VMs.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">dependent_list</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">dependents</span><span class="p">))</span>
+<span class="sd">        """</span>
+        <span class="n">dependent_list</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">dependents</span><span class="p">))</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s1">&#39;Cannot erase &quot;</span><span class="si">{</span><span class="n">subject</span><span class="si">}</span><span class="s1">&quot; because dependent clones exist: &#39;</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dependent_list</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="sa">f</span><span class="s1">'Cannot erase "</span><span class="si">{</span><span class="n">subject</span><span class="si">}</span><span class="s1">" because dependent clones exist: '</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">dependent_list</span><span class="si">}</span><span class="s2">."</span>
         <span class="p">)</span></div>
 
+
+
+
+<div class="viewcode-block" id="ReportFormatError">
+<a class="viewcode-back" href="../../api/pysnap.html#pysnap.errors.ReportFormatError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ReportFormatError</span><span class="p">(</span><span class="n">PySnapError</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Report that a file cannot be read as a ``report`` session archive."""</span></div>
 
 </pre></div>
 
@@ -153,7 +160,7 @@
       &#169;2026, PySnap Authors.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
       &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
       
     </div>
