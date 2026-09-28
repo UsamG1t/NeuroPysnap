@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 import pyte
-from pyte.screens import HistoryScreen
+# ``pyte`` decides what to draw with this cached ``wcwidth``; reusing it keeps
+# the rule below identical to the one inside ``Screen.draw``.
+from pyte.screens import HistoryScreen, wcwidth
 
 _HEX_COLOR_RE = re.compile(r"^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$")
 _ANSI_BRIGHT_COLOR_ALIASES = {
@@ -22,6 +25,45 @@ _ANSI_BRIGHT_COLOR_ALIASES = {
 }
 
 
+class _InvisibleSafeHistoryScreen(HistoryScreen):
+    """History screen that does not lose text after invisible characters.
+
+    ``pyte`` stops drawing the rest of a chunk at the first character without
+    width that is not a combining mark, for example U+200B or U+202E. Such
+    characters are replaced before drawing: dropped by default, or shown as a
+    visible placeholder.
+    """
+
+    def __init__(self, *args: object, invisible_replacement: str = "", **kwargs: object) -> None:
+        """Initialize the screen.
+
+        :param invisible_replacement: Text drawn instead of an invisible
+            character; empty to skip it.
+        """
+        super().__init__(*args, **kwargs)
+        self._invisible_replacement = invisible_replacement
+
+    def draw(self, data: str) -> None:
+        """Draw text after replacing characters ``pyte`` would stop at."""
+        super().draw(
+            "".join(
+                self._invisible_replacement if is_invisible_character(char) else char
+                for char in data
+            )
+        )
+
+
+def is_invisible_character(char: str) -> bool:
+    """Return whether ``pyte`` would stop drawing at this character.
+
+    :param char: One character.
+    :returns: ``True`` for characters without width that do not combine
+        with the previous character.
+    """
+    width = wcwidth(char)
+    return width < 0 or (width == 0 and not unicodedata.combining(char))
+
+
 class TerminalEmulator:
     """Wrap a :class:`pyte.Screen` and render it for the TUI."""
 
@@ -30,14 +72,22 @@ class TerminalEmulator:
         columns: int = 80,
         lines: int = 24,
         history: int = 5000,
+        invisible_replacement: str = "",
     ) -> None:
         """Initialize the terminal emulator.
 
         :param columns: Initial terminal width.
         :param lines: Initial terminal height.
         :param history: Number of scrollback lines to keep locally.
+        :param invisible_replacement: Text drawn instead of invisible
+            characters such as U+200B; empty to skip them like a terminal.
         """
-        self.screen = HistoryScreen(columns, lines, history=history)
+        self.screen = _InvisibleSafeHistoryScreen(
+            columns,
+            lines,
+            history=history,
+            invisible_replacement=invisible_replacement,
+        )
         self.stream = pyte.ByteStream(self.screen)
         self._style_cache: dict[tuple, str] = {}
 

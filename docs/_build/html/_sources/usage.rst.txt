@@ -361,3 +361,309 @@ same behavior applies on every supported operating system.
 
    pysnap full-clean
    pysnap full-clean --path /data/vms --path /data/vbox-config
+
+Read Session Reports
+--------------------
+
+Students record their work inside the educational VMs with the ``report``
+utility, which produces a ``report.<NN>.<host>`` archive. The
+``pysnap report`` command reads such archives safely: nothing is extracted to
+disk and nothing from the report is sent to the terminal as a raw control
+sequence.
+
+The ``text`` subcommand prints the text of the session without timing, as the
+student saw it. The prompt installed by ``report`` is highlighted and the
+entered commands are shown in bold; colors produced inside the VM are kept.
+Colors are used only when the output is a terminal; ``--color always`` or
+``--color never`` overrides the detection, and the ``NO_COLOR`` environment
+variable disables colors.
+
+The ``--commands`` option prints only the numbered list of entered commands
+with the time since the start of the recording. Commands typed at the prompt
+of another program, for example inside ``vtysh``, are marked with that
+prompt. Line editing, history recall and interrupted commands are resolved,
+so the list shows what was actually executed.
+
+Problems found in the report, such as a truncated recording, are printed as
+warnings to the error stream; the available text is still shown.
+
+When the output is a terminal and the text is longer than the screen, ``text``
+opens a pager. Like ``less -S``, the pager keeps the recorded line layout:
+lines longer than the window are cut at its edge, and ``>`` or ``<`` in the
+edge column marks text hidden to the right or left.
+
+- ``Up``/``Down`` or ``k``/``j`` scroll by a line
+- ``PageUp``/``PageDown``, ``b`` and ``Space`` scroll by a page
+- ``g``/``Home`` and ``G``/``End`` jump to the start or end
+- ``Left``/``Right`` shift the view by half the window width
+- the mouse wheel scrolls on Linux
+- ``q`` or ``Ctrl-Q`` quits
+
+``--no-pager`` prints the text directly.
+
+.. code-block:: text
+
+   pysnap report text report.01.first
+   pysnap report text report.01.first --commands
+   1  00:17.05  ip a show eth1
+   2  00:29.86  ping -c5 10.9.0.2
+   pysnap report text report.01.first --color never > report.01.first.txt
+   pysnap report text report.01.first --no-pager
+
+The ``show`` subcommand replays the session with its timing in a safe
+terminal view of the recorded size. Pauses longer than ``--max-delay``
+seconds (1 by default, ``0`` keeps the real pauses) are shortened, like
+``scriptreplay -m``, and ``--speed`` selects the initial speed. When the
+window is smaller than the recorded screen, the view is clipped around the
+cursor and the status line reports the recorded size.
+
+- ``Space`` pauses and resumes playback; resuming at the end starts over
+- ``+`` and ``-`` change the speed between x0.25 and x16
+- ``n`` and ``p`` jump to the start of the next or previous command
+- ``Home`` and ``End`` jump to the start or the end of the recording
+- while paused, ``Alt-Up``/``Alt-Down`` and the mouse wheel on Linux scroll
+  the screen history
+- ``q`` or ``Ctrl-Q`` quits
+
+Characters that would be invisible, such as zero-width spaces or
+bidirectional overrides, are shown as ``?`` in ``text`` and ``show``.
+
+.. code-block:: text
+
+   pysnap report show report.01.first
+   pysnap report show report.01.first --speed 4 --max-delay 0.5
+
+The ``check`` subcommand prints a report information block. Without a check
+file it shows only this block:
+
+- **Identity**: task and host from the ``report.<NN>.<host>`` file name and
+  from the prompts recorded by ``report``; a warning is printed when they
+  differ or when the prompts show several hosts
+- **Timing**: start, end, duration and the exit code of the recorded shell
+- **Environment**: terminal device, type and size, CPU model and hypervisor
+  from ``CPU.txt``
+- **Commands**: the number of commands and unique commands, commands
+  interrupted with ``Ctrl-C``, recalled from history (``Up``, ``Down``,
+  ``Ctrl-R``) or typed at the prompt of another program, and the pause
+  before each command, measured from the last output to the first key
+- **Typing**: keys per second from the first key of a command to ``Enter``,
+  the share of ``Backspace`` keys and input chunks that look pasted (five or
+  more printable characters at once, or a bracketed-paste marker)
+- **Addresses in output**: IPv4 and MAC addresses shown by the commands,
+  without the broadcast and all-zero MAC addresses
+- **Integrity**: problems found while reading the report and a comparison of
+  the archive member times with the recording start (``CPU.txt``) and end
+  (the other members) within two seconds
+
+.. code-block:: text
+
+   pysnap report check report.01.first
+   pysnap report check report.01.first lab02-first.check.toml
+
+Check Files
+~~~~~~~~~~~
+
+With a check file, ``check`` also checks the expected commands and output
+blocks and grades the report. A check file is written in TOML, usually with
+the ``.check.toml`` extension, one file per host of a lab:
+
+.. code-block:: toml
+
+   [report]              # optional expectations, reported as warnings
+   task = 1
+   host = "first"
+
+   [[command]]
+   id = "addr"           # optional name used by "of" and "after"
+   cmd = "ip a show <ETH-A>"
+
+   [[command]]
+   id = "ping"
+   cmd = "ping -c5 <IP-B>"
+
+   [[output]]
+   of = "addr"           # search only in the output of that command
+   text = '''
+   <*>: <ETH-A>: <*>UP<*>
+   ...
+       inet <IP-A>/<MASK> scope global <ETH-A>
+   '''
+
+   [[output]]
+   of = "ping"
+   min_count = 5         # the block must occur at least five times
+   text = "64 bytes from <IP-B>: icmp_seq=<*> ttl=64 time=<*>"
+
+   [grading]
+   total = 10
+   scale = [[90, "5"], [75, "4"], [50, "3"], [0, "2"]]
+
+``[[command]]`` items are compared with the entered commands as a whole.
+Keys:
+
+- ``cmd`` (required): the command pattern
+- ``id``: a name for ``of`` and ``after`` references
+- ``after``: the id of an earlier command; the item passes only when its
+  command was entered after that command. If that command did not pass,
+  this item fails too.
+- ``points``: the weight of the item, 1 by default
+
+``[[output]]`` items are blocks of output lines. Keys:
+
+- ``text`` (required): the block; a line holding only ``...`` matches any
+  number of lines, otherwise the lines must follow each other
+- ``of``: the id of a command; the block is searched only in the output of
+  the runs of that command, otherwise in the whole report
+- ``order = "any"``: the lines may appear in any order, which suits tables
+  such as ``ip route``; ``...`` is not allowed then
+- ``min_count``: how many times the block must occur, 1 by default, for
+  example for ping replies
+- ``points``: the weight of the item, 1 by default
+
+Patterns may contain placeholders:
+
+- ``<IP>``, ``<ETH>`` and ``<MASK>`` match any IPv4 address, ``ethN``
+  interface or prefix length from 0 to 32
+- a label such as ``<IP-A>``, ``<ETH-A>`` or ``<MASK-A>`` remembers the first
+  matched value; every later use of the same label, in commands and in output
+  blocks, must show the same value
+- any other name, such as ``<X>``, matches one word and also remembers it
+- ``<*>`` matches any text inside a line and remembers nothing; use it for
+  values that change, such as ping times or sequence numbers
+- ``\<`` writes a literal ``<``; text like ``< /dev/ttyS1`` needs no escaping
+
+Spaces never matter: both the report lines and the patterns are trimmed and
+every run of spaces or tabs counts as one space, so aligned table columns
+match patterns written with single spaces.
+
+Commands are checked in file order, then output blocks. PySnap chooses among
+several possible matches, for example several ``ping`` runs, so that as many
+items as possible pass; with equal results it prefers the earliest match. An
+item that fails does not make later items fail through wrong label values.
+
+``[grading]`` is required. Every item contributes its weight; the percentage
+of the passed weight is scaled to ``total`` points, and the mark is the first
+``scale`` step whose threshold in percent is reached. Thresholds are listed
+from the highest to the lowest.
+
+The output lists every item as ``PASS`` or ``FAIL``. A passed command shows
+the entered command it matched; a passed block shows where it was found; a
+failed item shows the reason and, for commands, the closest entered command.
+The values of all labels, the number of passed items, the points, the
+percentage and the mark follow. When the ``[report]`` task or host differs
+from the report file name or prompts, a warning is printed and the grade is
+not changed.
+
+Extract a Report from a Running VM
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``extract`` subcommand copies a report from a running VM to the host
+through the same ``UART1`` serial console that ``pysnap connect`` uses, so no
+second COM port and no VM restart are needed.
+
+.. code-block:: text
+
+   pysnap report extract first report.01.first
+   Extracted "$HOME"/report.01.first from first to /home/user/report.01.first (2621 bytes, sha256 ...).
+   pysnap report extract first /tmp/report.03.pc1 --output reports/pc1 --force
+
+Requirements and behavior:
+
+- the VM is running and has a ``UART1`` TCP port (see ``pysnap plug``)
+- the command also works while ``pysnap connect`` is attached to the VM:
+  VirtualBox serves one client, so ``extract`` asks the attached session to
+  run the transfer on its connection. The terminal shows a message in the
+  status line, keys are paused until the transfer ends, and afterwards the
+  screen is cleared and a fresh prompt appears. Sessions started by an older
+  PySnap cannot do this; detach them with ``Ctrl-Q`` first
+- the console is logged in and at a shell prompt; PySnap checks this with
+  ``echo PYSNAP_$((20+22))`` and stops when the answer does not arrive
+- no ``report`` recording is running: PySnap presses ``Ctrl-U`` and Enter once, and when the
+  recording prompt appears it stops before sending any command, so nothing
+  else ends up in the student's report
+- a name without ``/`` is looked up in the home directory of the console
+  user; a path with ``/`` is used as given
+- the file is sent as ``base64`` together with its ``sha256sum``; PySnap
+  verifies the checksum, writes the file under the same name into the current
+  directory or to ``--output``, and never replaces an existing file without
+  ``--force``
+- the service commands start with a space, so shells with ``HISTCONTROL``
+  set to ``ignorespace`` keep them out of the history, and the guest screen is
+  cleared afterwards
+- after the copy PySnap reads the file as a report and warns when it is not
+  one
+
+A serial console typically runs at 115200 baud, about 11 KB/s: a report of a
+few kilobytes takes well under a second. The transfer fails only when no data
+arrives for ten seconds.
+
+Compare Reports
+~~~~~~~~~~~~~~~
+
+The ``compare`` subcommand compares every pair of the given reports and lists
+signs that two reports share their origin. Paths may be report files or
+directories; directories are searched recursively for files named
+``report.NN.HOST``, and a file reached twice is compared once. PySnap does not
+know which reports belong to the same student: reports of one student
+legitimately share values such as the MAC address of the same VM, so the
+teacher decides which pairs matter.
+
+.. code-block:: text
+
+   pysnap report compare reports/
+   SIGNALS  reports/ivanov/report.01.first  <->  reports/petrov/report.01.first
+     strong  S3  same MAC address: 08:00:27:a9:84:3a
+     medium  M3  identical CPU.txt
+   OK       reports/ivanov/report.01.first  <->  reports/sidorov/report.01.first
+   OK       reports/petrov/report.01.first  <->  reports/sidorov/report.01.first
+
+   Compared 3 reports, 3 pairs: 1 with signals (strongest: 1 strong, 0 medium, 0 weak), 2 OK.
+
+Pairs with signals come first, strongest first, and show only the signals
+found; other pairs take one ``OK`` line.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Code
+     - Level
+     - Signal
+   * - ``S1``
+     - strong
+     - identical report files; the other signals are then not listed
+   * - ``S2``
+     - strong
+     - identical recorded output
+   * - ``S3``
+     - strong
+     - the same MAC address in both outputs (all-zero, broadcast and
+       multicast addresses are ignored)
+   * - ``S4``
+     - strong
+     - the same ``START_TIME`` (to the second) and ``DURATION`` (to the
+       microsecond)
+   * - ``M1``
+     - medium
+     - at least 20 identical consecutive keyboard delays, to the
+       microsecond, which points at a copied timing log
+   * - ``M2``
+     - medium
+     - at least three consecutive ``ping`` times (``time=... ms``) in the
+       same order, or at least three shared ``tcpdump`` timestamps with
+       microseconds; single ``ping`` times match by chance too often, since
+       ``ping`` prints only three significant digits
+   * - ``M3``
+     - medium
+     - byte-identical ``CPU.txt``, including the BogoMIPS value measured at
+       boot
+   * - ``M4``
+     - medium
+     - at least two shared commands whose output says ``command not found``
+       or ``No such file``
+   * - ``W1``
+     - weak
+     - the same CPU model (not shown when ``CPU.txt`` is identical)
+
+Unreadable paths are reported as warnings and skipped. The exit code is
+``0`` when at least one report was read and ``1`` otherwise.
+

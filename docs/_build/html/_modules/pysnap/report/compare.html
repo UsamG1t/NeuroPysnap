@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pysnap.report.compare &#8212; PySnap 2.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../_static/documentation_options.js?v=51b770b3"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for pysnap.report.compare</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Pairwise comparison of session reports.</span>
+
+<span class="sd">``pysnap report compare`` looks for signs that reports of different students</span>
+<span class="sd">share their origin. Every pair of the given reports is compared; deciding</span>
+<span class="sd">which reports belong to the same student is left to the teacher. The</span>
+<span class="sd">signals only point at pairs worth a look and never decide anything.</span>
+
+<span class="sd">Strong signals:</span>
+
+<span class="sd">- ``S1`` the report files are identical (SHA-256 of the archives);</span>
+<span class="sd">- ``S2`` the recorded output is identical (SHA-256 of the output body);</span>
+<span class="sd">- ``S3`` both outputs show the same MAC address, except the all-zero and</span>
+<span class="sd">  broadcast addresses and group (multicast) addresses;</span>
+<span class="sd">- ``S4`` the same ``START_TIME`` (to the second) and ``DURATION`` (to the</span>
+<span class="sd">  microsecond).</span>
+
+<span class="sd">Medium signals:</span>
+
+<span class="sd">- ``M1`` at least 20 identical consecutive keyboard input delays, compared to</span>
+<span class="sd">  the microsecond: a copied or edited timing log;</span>
+<span class="sd">- ``M2`` values that are random in practice: at least three consecutive</span>
+<span class="sd">  ``ping`` round-trip times (``time=... ms``) in the same order, or at least</span>
+<span class="sd">  three shared ``tcpdump`` timestamps with microseconds. ``ping`` prints only</span>
+<span class="sd">  three significant digits, so single values often match by chance, while a</span>
+<span class="sd">  run in the same order does not;</span>
+<span class="sd">- ``M3`` byte-identical ``CPU.txt`` (it includes the BogoMIPS value measured</span>
+<span class="sd">  at boot);</span>
+<span class="sd">- ``M4`` at least two shared erroneous commands, whose output reports</span>
+<span class="sd">  ``command not found`` or ``No such file``.</span>
+
+<span class="sd">Weak signal:</span>
+
+<span class="sd">- ``W1`` the same CPU model.</span>
+
+<span class="sd">Signals implied by a stronger one of the same pair are not repeated: an</span>
+<span class="sd">identical file (``S1``) implies all others, and an identical ``CPU.txt``</span>
+<span class="sd">(``M3``) implies the same CPU model (``W1``).</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">combinations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Sequence</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Recording</span><span class="p">,</span> <span class="n">ReportLimits</span><span class="p">,</span> <span class="n">ReportName</span><span class="p">,</span> <span class="n">Transcript</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.recording</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_report</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.render</span><span class="w"> </span><span class="kn">import</span> <span class="n">render_transcript</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">MAC_PATTERN</span><span class="p">,</span> <span class="n">SERVICE_MACS</span><span class="p">,</span> <span class="n">parse_cpu_info</span><span class="p">,</span> <span class="n">transcript_output_text</span>
+
+<span class="n">DELAY_RUN</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">PING_RUN</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">MIN_TCPDUMP_TIMES</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">MIN_ERROR_COMMANDS</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">LEVELS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"strong"</span><span class="p">,</span> <span class="s2">"medium"</span><span class="p">,</span> <span class="s2">"weak"</span><span class="p">)</span>
+
+<span class="n">_PING_TIME</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\btime=(\d+(?:\.\d+)?) ?ms\b"</span><span class="p">)</span>
+<span class="n">_TCPDUMP_TIME</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"(?&lt;![\d:.])\d</span><span class="si">{2}</span><span class="s2">:\d</span><span class="si">{2}</span><span class="s2">:\d</span><span class="si">{2}</span><span class="s2">\.\d</span><span class="si">{6}</span><span class="s2">(?![\d.])"</span><span class="p">)</span>
+<span class="n">_ERROR_MARKERS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"command not found"</span><span class="p">,</span> <span class="s2">"No such file"</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="CompareSignal">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.compare.CompareSignal">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CompareSignal</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Represent one signal found for a pair of reports.</span>
+
+<span class="sd">    :param code: Signal code such as ``"S3"``.</span>
+<span class="sd">    :param level: ``"strong"``, ``"medium"`` or ``"weak"``.</span>
+<span class="sd">    :param description: Human-readable description with the shared values.</span>
+<span class="sd">    """</span>
+
+    <span class="n">code</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">level</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span></div>
+
+
+
+<div class="viewcode-block" id="PairResult">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.compare.PairResult">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PairResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Represent the comparison of two reports.</span>
+
+<span class="sd">    :param first: Path of the first report as found.</span>
+<span class="sd">    :param second: Path of the second report as found.</span>
+<span class="sd">    :param signals: Signals found, strongest first.</span>
+<span class="sd">    """</span>
+
+    <span class="n">first</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">second</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">signals</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">CompareSignal</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+
+<div class="viewcode-block" id="PairResult.level">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.compare.PairResult.level">[docs]</a>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">level</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return the rank of the strongest signal, ``len(LEVELS)`` for none."""</span>
+        <span class="k">return</span> <span class="nb">min</span><span class="p">((</span><span class="n">LEVELS</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">level</span><span class="p">)</span> <span class="k">for</span> <span class="n">signal</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">LEVELS</span><span class="p">))</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="CompareResult">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.compare.CompareResult">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CompareResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Represent the comparison of a set of reports.</span>
+
+<span class="sd">    :param reports: Paths of the compared reports.</span>
+<span class="sd">    :param pairs: Pairs with signals, strongest first, then pairs without.</span>
+<span class="sd">    :param warnings: Paths that were skipped and why.</span>
+<span class="sd">    """</span>
+
+    <span class="n">reports</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">pairs</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">PairResult</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">warnings</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="ReportFingerprint">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.compare.ReportFingerprint">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ReportFingerprint</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Hold the values of one report that the signals compare.</span>
+
+<span class="sd">    :param path: Path of the report as found.</span>
+<span class="sd">    :param file_sha256: SHA-256 of the report file.</span>
+<span class="sd">    :param output_sha256: SHA-256 of the output body, ``None`` when empty.</span>
+<span class="sd">    :param macs: Unicast MAC addresses seen in the output.</span>
+<span class="sd">    :param start: ``START_TIME`` to the second and ``DURATION`` in</span>
+<span class="sd">        microseconds, when both are known.</span>
+<span class="sd">    :param delay_windows: Hash of every run of ``DELAY_RUN`` consecutive input</span>
+<span class="sd">        delays in microseconds, mapped to its first position. Runs of one</span>
+<span class="sd">        repeated delay are left out.</span>
+<span class="sd">    :param ping_times: ``ping`` round-trip times in output order.</span>
+<span class="sd">    :param tcpdump_times: ``tcpdump`` timestamps.</span>
+<span class="sd">    :param error_commands: Commands whose output reports an error.</span>
+<span class="sd">    :param cpu_info: Content of ``CPU.txt``.</span>
+<span class="sd">    :param cpu_model: CPU model from ``CPU.txt``.</span>
+<span class="sd">    """</span>
+
+    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">file_sha256</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">output_sha256</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">macs</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">start</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">delay_windows</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+    <span class="n">ping_times</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">tcpdump_times</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">error_commands</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">cpu_info</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">cpu_model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span></div>
+
+
+
+<div class="viewcode-block" id="collect_report_paths">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.compare.collect_report_paths">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">collect_report_paths</span><span class="p">(</span><span class="n">paths</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Path</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""Expand files and directories into the list of report files.</span>
+
+<span class="sd">    Directories are searched recursively for files named ``report.NN.HOST``;</span>
+<span class="sd">    files given explicitly are used whatever their name. A file reached</span>
+<span class="sd">    twice is compared once.</span>
+
+<span class="sd">    :param paths: Files and directories.</span>
+<span class="sd">    :returns: Report paths and warnings for paths that gave no reports.</span>
+<span class="sd">    """</span>
+    <span class="n">found</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">warnings</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+            <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="n">found</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">raw</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">:</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+            <span class="n">reports</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+                <span class="n">item</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">path</span><span class="o">.</span><span class="n">rglob</span><span class="p">(</span><span class="s2">"*"</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="ow">and</span> <span class="n">ReportName</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">reports</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: no report files (report.NN.HOST) in the directory"</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">report</span> <span class="ow">in</span> <span class="n">reports</span><span class="p">:</span>
+                <span class="n">add</span><span class="p">(</span><span class="n">report</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+            <span class="n">add</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: no such file or directory"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">found</span><span class="p">,</span> <span class="n">warnings</span></div>
+
+
+
+<div class="viewcode-block" id="fingerprint_report">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.compare.fingerprint_report">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fingerprint_report</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">recording</span><span class="p">:</span> <span class="n">Recording</span><span class="p">,</span> <span class="n">transcript</span><span class="p">:</span> <span class="n">Transcript</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReportFingerprint</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Collect the compared values of one report.</span>
+
+<span class="sd">    :param path: Path of the report file.</span>
+<span class="sd">    :param recording: Parsed report.</span>
+<span class="sd">    :param transcript: Rendered report.</span>
+<span class="sd">    :returns: Report fingerprint.</span>
+<span class="sd">    """</span>
+    <span class="n">digest</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">()</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">"rb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">stream</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">20</span><span class="p">),</span> <span class="sa">b</span><span class="s2">""</span><span class="p">):</span>
+            <span class="n">digest</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">transcript_output_text</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span>
+    <span class="n">macs</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+        <span class="n">mac</span> <span class="k">for</span> <span class="n">mac</span> <span class="ow">in</span> <span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">MAC_PATTERN</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">output</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">mac</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SERVICE_MACS</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">int</span><span class="p">(</span><span class="n">mac</span><span class="p">[:</span><span class="mi">2</span><span class="p">],</span> <span class="mi">16</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">1</span>
+    <span class="p">)</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">recording</span><span class="o">.</span><span class="n">start_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">recording</span><span class="o">.</span><span class="n">duration</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">recording</span><span class="o">.</span><span class="n">start_time</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">microsecond</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+            <span class="nb">round</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">duration</span> <span class="o">*</span> <span class="mi">1_000_000</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="n">delays</span> <span class="o">=</span> <span class="p">[</span><span class="nb">round</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">delay</span> <span class="o">*</span> <span class="mi">1_000_000</span><span class="p">)</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">recording</span><span class="o">.</span><span class="n">events</span> <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">"I"</span><span class="p">]</span>
+    <span class="n">windows</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">delays</span><span class="p">)</span> <span class="o">-</span> <span class="n">DELAY_RUN</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">window</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">delays</span><span class="p">[</span><span class="n">index</span><span class="p">:</span><span class="n">index</span> <span class="o">+</span> <span class="n">DELAY_RUN</span><span class="p">])</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">window</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">windows</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="nb">hash</span><span class="p">(</span><span class="n">window</span><span class="p">),</span> <span class="n">index</span><span class="p">)</span>
+    <span class="n">errors</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">commands</span><span class="p">:</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">text</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">lines</span><span class="p">[</span><span class="n">command</span><span class="o">.</span><span class="n">output_start</span><span class="p">:</span><span class="n">command</span><span class="o">.</span><span class="n">output_end</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">command</span><span class="o">.</span><span class="n">text</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">marker</span> <span class="ow">in</span> <span class="n">text</span> <span class="k">for</span> <span class="n">marker</span> <span class="ow">in</span> <span class="n">_ERROR_MARKERS</span><span class="p">):</span>
+            <span class="n">errors</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">command</span><span class="o">.</span><span class="n">text</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">ReportFingerprint</span><span class="p">(</span>
+        <span class="n">path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span>
+        <span class="n">file_sha256</span><span class="o">=</span><span class="n">digest</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">(),</span>
+        <span class="n">output_sha256</span><span class="o">=</span><span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">output_bytes</span><span class="p">)</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span> <span class="k">if</span> <span class="n">recording</span><span class="o">.</span><span class="n">output_bytes</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">macs</span><span class="o">=</span><span class="n">macs</span><span class="p">,</span>
+        <span class="n">start</span><span class="o">=</span><span class="n">start</span><span class="p">,</span>
+        <span class="n">delay_windows</span><span class="o">=</span><span class="n">windows</span><span class="p">,</span>
+        <span class="n">ping_times</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">_PING_TIME</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">output</span><span class="p">)),</span>
+        <span class="n">tcpdump_times</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(</span><span class="n">_TCPDUMP_TIME</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">output</span><span class="p">)),</span>
+        <span class="n">error_commands</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">(</span><span class="n">errors</span><span class="p">),</span>
+        <span class="n">cpu_info</span><span class="o">=</span><span class="n">recording</span><span class="o">.</span><span class="n">cpu_info</span><span class="p">,</span>
+        <span class="n">cpu_model</span><span class="o">=</span><span class="n">parse_cpu_info</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">cpu_info</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Model name"</span><span class="p">)</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="compare_pair">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.compare.compare_pair">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compare_pair</span><span class="p">(</span><span class="n">first</span><span class="p">:</span> <span class="n">ReportFingerprint</span><span class="p">,</span> <span class="n">second</span><span class="p">:</span> <span class="n">ReportFingerprint</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PairResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Compare two reports.</span>
+
+<span class="sd">    :param first: First report.</span>
+<span class="sd">    :param second: Second report.</span>
+<span class="sd">    :returns: The pair with its signals, strongest first.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">first</span><span class="o">.</span><span class="n">file_sha256</span> <span class="o">==</span> <span class="n">second</span><span class="o">.</span><span class="n">file_sha256</span><span class="p">:</span>
+        <span class="n">signal</span> <span class="o">=</span> <span class="n">CompareSignal</span><span class="p">(</span><span class="s2">"S1"</span><span class="p">,</span> <span class="s2">"strong"</span><span class="p">,</span> <span class="s2">"identical report files; other signals are not listed"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">PairResult</span><span class="p">(</span><span class="n">first</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">second</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="p">(</span><span class="n">signal</span><span class="p">,))</span>
+    <span class="n">signals</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">CompareSignal</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">first</span><span class="o">.</span><span class="n">output_sha256</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">first</span><span class="o">.</span><span class="n">output_sha256</span> <span class="o">==</span> <span class="n">second</span><span class="o">.</span><span class="n">output_sha256</span><span class="p">:</span>
+        <span class="n">signals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CompareSignal</span><span class="p">(</span><span class="s2">"S2"</span><span class="p">,</span> <span class="s2">"strong"</span><span class="p">,</span> <span class="s2">"identical recorded output"</span><span class="p">))</span>
+    <span class="n">macs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">first</span><span class="o">.</span><span class="n">macs</span> <span class="o">&amp;</span> <span class="n">second</span><span class="o">.</span><span class="n">macs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">macs</span><span class="p">:</span>
+        <span class="n">signals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CompareSignal</span><span class="p">(</span><span class="s2">"S3"</span><span class="p">,</span> <span class="s2">"strong"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"same MAC address: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">macs</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">first</span><span class="o">.</span><span class="n">start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">first</span><span class="o">.</span><span class="n">start</span> <span class="o">==</span> <span class="n">second</span><span class="o">.</span><span class="n">start</span><span class="p">:</span>
+        <span class="n">signals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CompareSignal</span><span class="p">(</span>
+            <span class="s2">"S4"</span><span class="p">,</span> <span class="s2">"strong"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"same START_TIME </span><span class="si">{</span><span class="n">first</span><span class="o">.</span><span class="n">start</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> and DURATION </span><span class="si">{</span><span class="n">first</span><span class="o">.</span><span class="n">start</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">1_000_000</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="p">))</span>
+    <span class="n">run</span> <span class="o">=</span> <span class="n">_longest_delay_run</span><span class="p">(</span><span class="n">first</span><span class="o">.</span><span class="n">delay_windows</span><span class="p">,</span> <span class="n">second</span><span class="o">.</span><span class="n">delay_windows</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">run</span><span class="p">:</span>
+        <span class="n">signals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CompareSignal</span><span class="p">(</span><span class="s2">"M1"</span><span class="p">,</span> <span class="s2">"medium"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">run</span><span class="si">}</span><span class="s2"> identical consecutive keyboard delays"</span><span class="p">))</span>
+    <span class="n">random_parts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">ping_run</span> <span class="o">=</span> <span class="n">_common_ping_run</span><span class="p">(</span><span class="n">first</span><span class="o">.</span><span class="n">ping_times</span><span class="p">,</span> <span class="n">second</span><span class="o">.</span><span class="n">ping_times</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ping_run</span><span class="p">:</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"time=</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2"> ms"</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">ping_run</span><span class="p">)</span>
+        <span class="n">random_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ping times in the same order: </span><span class="si">{</span><span class="n">times</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">stamps</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">first</span><span class="o">.</span><span class="n">tcpdump_times</span> <span class="o">&amp;</span> <span class="n">second</span><span class="o">.</span><span class="n">tcpdump_times</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stamps</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">MIN_TCPDUMP_TIMES</span><span class="p">:</span>
+        <span class="n">random_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"tcpdump timestamps: </span><span class="si">{</span><span class="n">_shorten</span><span class="p">(</span><span class="n">stamps</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">random_parts</span><span class="p">:</span>
+        <span class="n">signals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CompareSignal</span><span class="p">(</span><span class="s2">"M2"</span><span class="p">,</span> <span class="s2">"medium"</span><span class="p">,</span> <span class="s2">"same random output values: "</span> <span class="o">+</span> <span class="s2">"; "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">random_parts</span><span class="p">)))</span>
+    <span class="k">if</span> <span class="n">first</span><span class="o">.</span><span class="n">cpu_info</span> <span class="ow">and</span> <span class="n">first</span><span class="o">.</span><span class="n">cpu_info</span> <span class="o">==</span> <span class="n">second</span><span class="o">.</span><span class="n">cpu_info</span><span class="p">:</span>
+        <span class="n">signals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CompareSignal</span><span class="p">(</span><span class="s2">"M3"</span><span class="p">,</span> <span class="s2">"medium"</span><span class="p">,</span> <span class="s2">"identical CPU.txt"</span><span class="p">))</span>
+    <span class="n">errors</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">first</span><span class="o">.</span><span class="n">error_commands</span> <span class="o">&amp;</span> <span class="n">second</span><span class="o">.</span><span class="n">error_commands</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">errors</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">MIN_ERROR_COMMANDS</span><span class="p">:</span>
+        <span class="n">signals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CompareSignal</span><span class="p">(</span><span class="s2">"M4"</span><span class="p">,</span> <span class="s2">"medium"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"same erroneous commands: </span><span class="si">{</span><span class="n">_shorten</span><span class="p">(</span><span class="n">errors</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">first</span><span class="o">.</span><span class="n">cpu_model</span> <span class="ow">and</span> <span class="n">first</span><span class="o">.</span><span class="n">cpu_model</span> <span class="o">==</span> <span class="n">second</span><span class="o">.</span><span class="n">cpu_model</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span>
+        <span class="n">first</span><span class="o">.</span><span class="n">cpu_info</span> <span class="ow">and</span> <span class="n">first</span><span class="o">.</span><span class="n">cpu_info</span> <span class="o">==</span> <span class="n">second</span><span class="o">.</span><span class="n">cpu_info</span>
+    <span class="p">):</span>
+        <span class="n">signals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">CompareSignal</span><span class="p">(</span><span class="s2">"W1"</span><span class="p">,</span> <span class="s2">"weak"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"same CPU model: </span><span class="si">{</span><span class="n">first</span><span class="o">.</span><span class="n">cpu_model</span><span class="si">}</span><span class="s2">"</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">PairResult</span><span class="p">(</span><span class="n">first</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">second</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">signals</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="compare_fingerprints">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.compare.compare_fingerprints">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compare_fingerprints</span><span class="p">(</span><span class="n">fingerprints</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ReportFingerprint</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">PairResult</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Compare every pair of reports.</span>
+
+<span class="sd">    :param fingerprints: Reports in input order.</span>
+<span class="sd">    :returns: Pairs with signals, strongest first, then pairs without.</span>
+<span class="sd">    """</span>
+    <span class="n">pairs</span> <span class="o">=</span> <span class="p">[</span><span class="n">compare_pair</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">second</span><span class="p">)</span> <span class="k">for</span> <span class="n">first</span><span class="p">,</span> <span class="n">second</span> <span class="ow">in</span> <span class="n">combinations</span><span class="p">(</span><span class="n">fingerprints</span><span class="p">,</span> <span class="mi">2</span><span class="p">)]</span>
+    <span class="n">flagged</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">pair</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">pairs</span> <span class="k">if</span> <span class="n">pair</span><span class="o">.</span><span class="n">signals</span><span class="p">),</span>
+        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">pair</span><span class="p">:</span> <span class="p">(</span><span class="n">pair</span><span class="o">.</span><span class="n">level</span><span class="p">,</span> <span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">pair</span><span class="o">.</span><span class="n">signals</span><span class="p">)),</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">flagged</span> <span class="o">+</span> <span class="p">[</span><span class="n">pair</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">pairs</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">pair</span><span class="o">.</span><span class="n">signals</span><span class="p">])</span></div>
+
+
+
+<div class="viewcode-block" id="compare_reports">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.compare.compare_reports">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compare_reports</span><span class="p">(</span><span class="n">paths</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">],</span> <span class="n">limits</span><span class="p">:</span> <span class="n">ReportLimits</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CompareResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Load, fingerprint and compare reports.</span>
+
+<span class="sd">    :param paths: Report files and directories.</span>
+<span class="sd">    :param limits: Resource limits for reading each report.</span>
+<span class="sd">    :returns: Comparison result; ``reports`` is empty when none could be</span>
+<span class="sd">        read.</span>
+<span class="sd">    """</span>
+    <span class="n">report_paths</span><span class="p">,</span> <span class="n">warnings</span> <span class="o">=</span> <span class="n">collect_report_paths</span><span class="p">(</span><span class="n">paths</span><span class="p">)</span>
+    <span class="n">fingerprints</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">report_paths</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">recording</span> <span class="o">=</span> <span class="n">load_report</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">limits</span><span class="p">)</span>
+            <span class="n">fingerprints</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fingerprint_report</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">recording</span><span class="p">,</span> <span class="n">render_transcript</span><span class="p">(</span><span class="n">recording</span><span class="p">)))</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">PySnapError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">)</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: skipped: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">CompareResult</span><span class="p">(</span>
+        <span class="n">reports</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">fingerprint</span><span class="o">.</span><span class="n">path</span> <span class="k">for</span> <span class="n">fingerprint</span> <span class="ow">in</span> <span class="n">fingerprints</span><span class="p">),</span>
+        <span class="n">pairs</span><span class="o">=</span><span class="n">compare_fingerprints</span><span class="p">(</span><span class="n">fingerprints</span><span class="p">),</span>
+        <span class="n">warnings</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">warnings</span><span class="p">),</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_longest_delay_run</span><span class="p">(</span><span class="n">first</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">second</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return the longest shared run of input delays, 0 when shorter than ``DELAY_RUN``."""</span>
+    <span class="n">shared</span> <span class="o">=</span> <span class="p">{(</span><span class="n">position</span><span class="p">,</span> <span class="n">second</span><span class="p">[</span><span class="n">window</span><span class="p">])</span> <span class="k">for</span> <span class="n">window</span><span class="p">,</span> <span class="n">position</span> <span class="ow">in</span> <span class="n">first</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">window</span> <span class="ow">in</span> <span class="n">second</span><span class="p">}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">shared</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="n">longest</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="n">shared</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">start</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">start</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">in</span> <span class="n">shared</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">while</span> <span class="p">(</span><span class="n">start</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">length</span><span class="p">,</span> <span class="n">start</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">length</span><span class="p">)</span> <span class="ow">in</span> <span class="n">shared</span><span class="p">:</span>
+            <span class="n">length</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">longest</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">longest</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">longest</span> <span class="o">+</span> <span class="n">DELAY_RUN</span> <span class="o">-</span> <span class="mi">1</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_common_ping_run</span><span class="p">(</span><span class="n">first</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">second</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Return the longest run of ping times shared in order, empty when shorter than ``PING_RUN``."""</span>
+    <span class="n">starts</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">first</span><span class="p">)</span> <span class="o">-</span> <span class="n">PING_RUN</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">starts</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">first</span><span class="p">[</span><span class="n">index</span><span class="p">:</span><span class="n">index</span> <span class="o">+</span> <span class="n">PING_RUN</span><span class="p">],</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
+    <span class="n">best</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">second</span><span class="p">)</span> <span class="o">-</span> <span class="n">PING_RUN</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="n">starts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">second</span><span class="p">[</span><span class="n">index</span><span class="p">:</span><span class="n">index</span> <span class="o">+</span> <span class="n">PING_RUN</span><span class="p">],</span> <span class="p">()):</span>
+            <span class="n">length</span> <span class="o">=</span> <span class="n">PING_RUN</span>
+            <span class="k">while</span> <span class="p">(</span>
+                <span class="n">start</span> <span class="o">+</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">first</span><span class="p">)</span> <span class="ow">and</span> <span class="n">index</span> <span class="o">+</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">second</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">first</span><span class="p">[</span><span class="n">start</span> <span class="o">+</span> <span class="n">length</span><span class="p">]</span> <span class="o">==</span> <span class="n">second</span><span class="p">[</span><span class="n">index</span> <span class="o">+</span> <span class="n">length</span><span class="p">]</span>
+            <span class="p">):</span>
+                <span class="n">length</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">length</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">best</span><span class="p">):</span>
+                <span class="n">best</span> <span class="o">=</span> <span class="n">first</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">start</span> <span class="o">+</span> <span class="n">length</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">best</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_shorten</span><span class="p">(</span><span class="n">values</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Join values, listing at most ``limit`` of them."""</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">values</span><span class="p">[:</span><span class="n">limit</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">text</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">limit</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">text</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">limit</span><span class="si">}</span><span class="s2"> more"</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">PySnap</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/modules.html">pysnap</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, PySnap Authors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

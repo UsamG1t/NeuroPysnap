@@ -48,3 +48,7 @@ class VMDependencyError(PySnapError):
             f"{dependent_list}."
         )
 
+
+
+class ReportFormatError(PySnapError):
+    """Report that a file cannot be read as a ``report`` session archive."""

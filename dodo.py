@@ -4,11 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import shutil
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - exercised on Python < 3.11
-    import tomli as tomllib
+import tomllib
 
 
 ROOT = Path(__file__).resolve().parent

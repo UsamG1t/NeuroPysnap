@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pysnap.report.render &#8212; PySnap 2.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../_static/documentation_options.js?v=51b770b3"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for pysnap.report.render</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Replay a recording through ``pyte`` to obtain text and typed commands.</span>
+
+<span class="sd">The rendered transcript is what a reader would have seen: every line that</span>
+<span class="sd">scrolled off the screen or was wiped by ``clear``, followed by the final</span>
+<span class="sd">screen. Command lines are recovered from the screen rather than from the raw</span>
+<span class="sd">keystrokes, because the keystrokes contain line editing (Backspace, cursor</span>
+<span class="sd">keys, history recall) that only the shell resolves.</span>
+
+<span class="sd">A command is captured when Enter was pressed and the shell moves to the next</span>
+<span class="sd">line: the output chunk after Enter is fed up to its first line feed, and the</span>
+<span class="sd">logical input line is read from the screen at that moment. The input starts</span>
+<span class="sd">where the cursor stood at the first keystroke of the line, so prompts of</span>
+<span class="sd">other programs (``vtysh``, a remote shell) are handled the same way as the</span>
+<span class="sd">prompt installed by ``report``.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyte</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyte.screens</span><span class="w"> </span><span class="kn">import</span> <span class="n">Char</span><span class="p">,</span> <span class="n">Margins</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CellStyle</span><span class="p">,</span>
+    <span class="n">CommandRecord</span><span class="p">,</span>
+    <span class="n">PLAIN_STYLE</span><span class="p">,</span>
+    <span class="n">PromptInfo</span><span class="p">,</span>
+    <span class="n">Recording</span><span class="p">,</span>
+    <span class="n">ReportDiagnostic</span><span class="p">,</span>
+    <span class="n">StyledRun</span><span class="p">,</span>
+    <span class="n">Transcript</span><span class="p">,</span>
+    <span class="n">TranscriptLine</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.terminal.emulator</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_invisible_character</span>
+
+<span class="n">DEFAULT_COLUMNS</span> <span class="o">=</span> <span class="mi">80</span>
+<span class="n">DEFAULT_LINES</span> <span class="o">=</span> <span class="mi">24</span>
+<span class="n">DEFAULT_MAX_LINES</span> <span class="o">=</span> <span class="mi">200_000</span>
+<span class="c1"># Recorded sizes come from an untrusted report; a huge screen would make every</span>
+<span class="c1"># rendered row expensive, so sizes are clamped.</span>
+<span class="n">DEFAULT_MAX_SCREEN_SIZE</span> <span class="o">=</span> <span class="mi">1000</span>
+
+<span class="n">DIAG_TRANSCRIPT_TRUNCATED</span> <span class="o">=</span> <span class="s2">"transcript-truncated"</span>
+<span class="n">DIAG_SCREEN_SIZE</span> <span class="o">=</span> <span class="s2">"screen-size"</span>
+
+<span class="c1"># ``report`` installs ``PS1="[\u@NN-HOST \W]# "``.</span>
+<span class="n">PROMPT_PATTERN</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+    <span class="sa">r</span><span class="s2">"^\[(?P&lt;user&gt;[^@\]\s]+)@(?P&lt;task&gt;\d+)-(?P&lt;host&gt;[^\s\]]+) (?P&lt;dir&gt;[^\]]*)\][#$]$"</span>
+<span class="p">)</span>
+<span class="c1"># The same prompt anywhere inside a line, used to skip keys typed ahead while</span>
+<span class="c1"># a program was running: the shell prints its prompt after their echo.</span>
+<span class="n">_INLINE_PROMPT_PATTERN</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\[[^@\]\s]+@\d+-[^\s\]]+ [^\]]*\][#$] "</span><span class="p">)</span>
+<span class="n">_RESIZE_PATTERN</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\bROWS=(?P&lt;rows&gt;\d+)\s+COLS=(?P&lt;cols&gt;\d+)"</span><span class="p">)</span>
+<span class="c1"># Keys that abandon the current input line instead of submitting it.</span>
+<span class="n">_LINE_ABORT_KEYS</span> <span class="o">=</span> <span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\x03</span><span class="s2">"</span><span class="p">,</span> <span class="sa">b</span><span class="s2">"</span><span class="se">\x04</span><span class="s2">"</span><span class="p">,</span> <span class="sa">b</span><span class="s2">"</span><span class="se">\x1a</span><span class="s2">"</span><span class="p">)</span>
+<span class="c1"># Characters that must never reach the viewer's terminal: C0/C1 controls and</span>
+<span class="c1"># bidirectional overrides that could disguise the displayed text.</span>
+<span class="n">_UNSAFE_CHARACTERS</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+    <span class="s2">"[</span><span class="se">\x00</span><span class="s2">-</span><span class="se">\x1f\x7f</span><span class="s2">-</span><span class="se">\x9f</span><span class="s2">‎‏‪-‮⁦-⁩]"</span>
+<span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_CaptureScreen</span><span class="p">(</span><span class="n">pyte</span><span class="o">.</span><span class="n">Screen</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Hand every line that leaves the visible screen to a callback."""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">columns</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">lines</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">on_line_removed</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Char</span><span class="p">]],</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the screen.</span>
+
+<span class="sd">        :param columns: Screen width.</span>
+<span class="sd">        :param lines: Screen height.</span>
+<span class="sd">        :param on_line_removed: Receives each line leaving the top of the</span>
+<span class="sd">            screen; it must copy the line because ``pyte`` reuses it.</span>
+<span class="sd">        """</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">columns</span><span class="p">,</span> <span class="n">lines</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_on_line_removed</span> <span class="o">=</span> <span class="n">on_line_removed</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">draw</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Draw text, showing invisible characters as ``?``.</span>
+
+<span class="sd">        ``pyte`` stops drawing the rest of a chunk at the first character</span>
+<span class="sd">        without width that is not a combining mark (for example U+202E), so</span>
+<span class="sd">        such characters are made visible instead of hiding the text after</span>
+<span class="sd">        them.</span>
+<span class="sd">        """</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">_visible_character</span><span class="p">(</span><span class="n">char</span><span class="p">)</span> <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">data</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Scroll like ``pyte`` and keep the line leaving a full-screen scroll."""</span>
+        <span class="n">top</span><span class="p">,</span> <span class="n">bottom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">margins</span> <span class="ow">or</span> <span class="n">Margins</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">y</span> <span class="o">==</span> <span class="n">bottom</span> <span class="ow">and</span> <span class="n">top</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_on_line_removed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="n">top</span><span class="p">])</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">index</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">erase_in_display</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">how</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Keep the visible text before a full-screen erase such as ``clear``."""</span>
+        <span class="k">if</span> <span class="n">how</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">last</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">y</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">)</span> <span class="k">if</span> <span class="n">_row_has_text</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="n">y</span><span class="p">])),</span>
+                <span class="n">default</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">last</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_on_line_removed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="n">y</span><span class="p">])</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">erase_in_display</span><span class="p">(</span><span class="n">how</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">resize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">columns</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Keep the top lines that ``pyte`` drops when the screen shrinks.</span>
+
+<span class="sd">        ``pyte`` restores the cursor to its old row after dropping lines, so</span>
+<span class="sd">        the cursor is moved up with the content it was on, as terminals do.</span>
+<span class="sd">        """</span>
+        <span class="n">dropped</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">lines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">lines</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">:</span>
+            <span class="n">dropped</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span> <span class="o">-</span> <span class="n">lines</span>
+            <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dropped</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_on_line_removed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="n">y</span><span class="p">])</span>
+        <span class="n">cursor_row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">y</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="n">columns</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dropped</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">cursor_row</span> <span class="o">-</span> <span class="n">dropped</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_Renderer</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Drive one replay of a recording."""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recording</span><span class="p">:</span> <span class="n">Recording</span><span class="p">,</span> <span class="n">max_lines</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">max_screen_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Prepare the virtual screen.</span>
+
+<span class="sd">        :param recording: Parsed recording.</span>
+<span class="sd">        :param max_lines: Largest number of transcript lines to keep.</span>
+<span class="sd">        :param max_screen_size: Largest accepted screen width and height.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">recording</span> <span class="o">=</span> <span class="n">recording</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_lines</span> <span class="o">=</span> <span class="n">max_lines</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_screen_size</span> <span class="o">=</span> <span class="n">max_screen_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">removed</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">TranscriptLine</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">truncated</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ReportDiagnostic</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">screen</span> <span class="o">=</span> <span class="n">_CaptureScreen</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_clamp_size</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">columns</span> <span class="ow">or</span> <span class="n">DEFAULT_COLUMNS</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_clamp_size</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">lines</span> <span class="ow">or</span> <span class="n">DEFAULT_LINES</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_keep_line</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stream</span> <span class="o">=</span> <span class="n">pyte</span><span class="o">.</span><span class="n">ByteStream</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">commands</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">line_start</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">first_event</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pending_enter</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Transcript</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Replay all events and build the transcript.</span>
+
+<span class="sd">        :returns: Rendered transcript.</span>
+<span class="sd">        """</span>
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">event</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">recording</span><span class="o">.</span><span class="n">events</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">"S"</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_handle_signal</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">"I"</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_handle_input</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">time</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_handle_output</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending_enter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_capture_command</span><span class="p">()</span>
+
+        <span class="n">lines</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">removed</span> <span class="o">+</span> <span class="p">[</span>
+            <span class="n">_freeze_row</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="n">y</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="k">while</span> <span class="n">lines</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">lines</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">text</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="n">diagnostics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diagnostics</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">truncated</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_lines</span><span class="p">:</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_lines</span><span class="p">]</span>
+            <span class="n">diagnostics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">ReportDiagnostic</span><span class="p">(</span>
+                    <span class="n">DIAG_TRANSCRIPT_TRUNCATED</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">"The transcript was cut after </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_lines</span><span class="si">}</span><span class="s2"> lines."</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">Transcript</span><span class="p">(</span>
+            <span class="n">lines</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">lines</span><span class="p">),</span>
+            <span class="n">commands</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_finish_commands</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">)),</span>
+            <span class="n">diagnostics</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">diagnostics</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_keep_line</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Char</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Store a copy of a line that leaves the screen."""</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">removed</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_lines</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">truncated</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">removed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_freeze_row</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_handle_signal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Apply a recorded terminal resize."""</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="n">parse_resize</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_clamp_size</span><span class="p">(</span><span class="n">size</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clamp_size</span><span class="p">(</span><span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_clamp_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Limit a recorded screen dimension, reporting the first clamp."""</span>
+        <span class="k">if</span> <span class="n">size</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_screen_size</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">size</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">code</span> <span class="o">==</span> <span class="n">DIAG_SCREEN_SIZE</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">diagnostics</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">ReportDiagnostic</span><span class="p">(</span>
+                    <span class="n">DIAG_SCREEN_SIZE</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">"A recorded screen size of </span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2"> was limited to "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_screen_size</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_screen_size</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_handle_input</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Track where the current input line starts and when it is submitted."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending_enter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Enter was pressed but the shell has not moved on yet, for</span>
+            <span class="c1"># example when keys are typed ahead: capture what is on screen.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_capture_command</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_start</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">line_start</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_absolute_row</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">first_event</span> <span class="o">=</span> <span class="n">index</span>
+        <span class="k">if</span> <span class="sa">b</span><span class="s2">"</span><span class="se">\r</span><span class="s2">"</span> <span class="ow">in</span> <span class="n">data</span> <span class="ow">or</span> <span class="sa">b</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pending_enter</span> <span class="o">=</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">any</span><span class="p">(</span><span class="n">key</span> <span class="ow">in</span> <span class="n">data</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">_LINE_ABORT_KEYS</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">line_start</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_handle_output</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Feed output, capturing a submitted command before its line feed."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending_enter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">newline</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">newline</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">data</span><span class="p">[:</span><span class="n">newline</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_capture_command</span><span class="p">()</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">newline</span><span class="p">:]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_capture_command</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Read the submitted input line from the screen."""</span>
+        <span class="n">enter_event</span><span class="p">,</span> <span class="n">time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending_enter</span> <span class="ow">or</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pending_enter</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">truncated</span><span class="p">:</span>
+            <span class="c1"># Row numbers are no longer reliable once lines are discarded.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">line_start</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">return</span>
+        <span class="n">cursor_row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_absolute_row</span><span class="p">()</span>
+        <span class="n">start_row</span><span class="p">,</span> <span class="n">start_column</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_start</span> <span class="ow">or</span> <span class="p">(</span><span class="n">cursor_row</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">line_start</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">first_row</span> <span class="o">=</span> <span class="n">cursor_row</span>
+        <span class="k">while</span> <span class="n">first_row</span> <span class="o">&gt;</span> <span class="n">start_row</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_row_text</span><span class="p">(</span><span class="n">first_row</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">first_row</span> <span class="o">-=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">first_row</span> <span class="o">!=</span> <span class="n">start_row</span><span class="p">:</span>
+            <span class="c1"># The remembered start is not part of the submitted line (keys</span>
+            <span class="c1"># were typed while a program was running); fall back to the</span>
+            <span class="c1"># beginning of the logical line and a known prompt, if any.</span>
+            <span class="n">start_row</span><span class="p">,</span> <span class="n">start_column</span> <span class="o">=</span> <span class="n">first_row</span><span class="p">,</span> <span class="n">_prompt_width</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_row_text</span><span class="p">(</span><span class="n">first_row</span><span class="p">))</span>
+
+        <span class="n">first_text</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_row_text</span><span class="p">(</span><span class="n">start_row</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">match</span> <span class="ow">in</span> <span class="n">_INLINE_PROMPT_PATTERN</span><span class="o">.</span><span class="n">finditer</span><span class="p">(</span><span class="n">first_text</span><span class="p">,</span> <span class="n">start_column</span><span class="p">):</span>
+            <span class="n">start_column</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+        <span class="n">pieces</span> <span class="o">=</span> <span class="p">[</span><span class="n">first_text</span><span class="p">[</span><span class="n">start_column</span><span class="p">:]]</span>
+        <span class="n">pieces</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_row_text</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start_row</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">cursor_row</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pieces</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">text</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">prompt</span> <span class="o">=</span> <span class="n">first_text</span><span class="p">[:</span><span class="n">start_column</span><span class="p">]</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">commands</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">"time"</span><span class="p">:</span> <span class="n">time</span><span class="p">,</span>
+                <span class="s2">"line"</span><span class="p">:</span> <span class="n">start_row</span><span class="p">,</span>
+                <span class="s2">"column"</span><span class="p">:</span> <span class="n">start_column</span><span class="p">,</span>
+                <span class="s2">"prompt"</span><span class="p">:</span> <span class="n">prompt</span><span class="p">,</span>
+                <span class="s2">"text"</span><span class="p">:</span> <span class="n">text</span><span class="p">,</span>
+                <span class="s2">"prompt_info"</span><span class="p">:</span> <span class="n">parse_prompt</span><span class="p">(</span><span class="n">prompt</span><span class="p">),</span>
+                <span class="s2">"first_event"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">first_event</span><span class="p">,</span>
+                <span class="s2">"enter_event"</span><span class="p">:</span> <span class="n">enter_event</span><span class="p">,</span>
+                <span class="s2">"last_row"</span><span class="p">:</span> <span class="nb">max</span><span class="p">(</span><span class="n">cursor_row</span><span class="p">,</span> <span class="n">start_row</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_absolute_row</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return the transcript index of the cursor row."""</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">removed</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">y</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_row_text</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return the unstripped text of a transcript row by absolute index."""</span>
+        <span class="k">if</span> <span class="n">row</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">removed</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">removed</span><span class="p">[</span><span class="n">row</span><span class="p">]</span><span class="o">.</span><span class="n">text</span><span class="o">.</span><span class="n">ljust</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="n">row</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">removed</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">data</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_finish_commands</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">line_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">CommandRecord</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Attach output line ranges to the captured commands."""</span>
+        <span class="n">records</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">CommandRecord</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">position</span><span class="p">,</span> <span class="n">command</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">commands</span><span class="p">):</span>
+            <span class="n">next_line</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">commands</span><span class="p">[</span><span class="n">position</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="s2">"line"</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">position</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">commands</span><span class="p">)</span>
+                <span class="k">else</span> <span class="n">line_count</span>
+            <span class="p">)</span>
+            <span class="n">output_start</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">command</span><span class="p">[</span><span class="s2">"last_row"</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">line_count</span><span class="p">)</span>
+            <span class="n">records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">CommandRecord</span><span class="p">(</span>
+                    <span class="n">index</span><span class="o">=</span><span class="n">position</span><span class="p">,</span>
+                    <span class="n">time</span><span class="o">=</span><span class="n">command</span><span class="p">[</span><span class="s2">"time"</span><span class="p">],</span>
+                    <span class="n">line</span><span class="o">=</span><span class="n">command</span><span class="p">[</span><span class="s2">"line"</span><span class="p">],</span>
+                    <span class="n">column</span><span class="o">=</span><span class="n">command</span><span class="p">[</span><span class="s2">"column"</span><span class="p">],</span>
+                    <span class="n">prompt</span><span class="o">=</span><span class="n">command</span><span class="p">[</span><span class="s2">"prompt"</span><span class="p">],</span>
+                    <span class="n">text</span><span class="o">=</span><span class="n">command</span><span class="p">[</span><span class="s2">"text"</span><span class="p">],</span>
+                    <span class="n">prompt_info</span><span class="o">=</span><span class="n">command</span><span class="p">[</span><span class="s2">"prompt_info"</span><span class="p">],</span>
+                    <span class="n">first_event</span><span class="o">=</span><span class="n">command</span><span class="p">[</span><span class="s2">"first_event"</span><span class="p">],</span>
+                    <span class="n">enter_event</span><span class="o">=</span><span class="n">command</span><span class="p">[</span><span class="s2">"enter_event"</span><span class="p">],</span>
+                    <span class="n">output_start</span><span class="o">=</span><span class="n">output_start</span><span class="p">,</span>
+                    <span class="n">output_end</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">output_start</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">next_line</span><span class="p">,</span> <span class="n">line_count</span><span class="p">)),</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">records</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="render_transcript">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.render.render_transcript">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">render_transcript</span><span class="p">(</span>
+    <span class="n">recording</span><span class="p">:</span> <span class="n">Recording</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">max_lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">DEFAULT_MAX_LINES</span><span class="p">,</span>
+    <span class="n">max_screen_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">DEFAULT_MAX_SCREEN_SIZE</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Transcript</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Replay a recording and return its transcript and commands.</span>
+
+<span class="sd">    :param recording: Parsed recording.</span>
+<span class="sd">    :param max_lines: Largest number of transcript lines to keep.</span>
+<span class="sd">    :param max_screen_size: Largest accepted screen width and height.</span>
+<span class="sd">    :returns: Rendered transcript.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">_Renderer</span><span class="p">(</span><span class="n">recording</span><span class="p">,</span> <span class="n">max_lines</span><span class="p">,</span> <span class="n">max_screen_size</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="parse_resize">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.render.parse_resize">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">parse_resize</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Parse a ``SIGWINCH ROWS=&lt;n&gt; COLS=&lt;n&gt;`` signal entry.</span>
+
+<span class="sd">    :param data: Signal description from an ``S`` timing entry.</span>
+<span class="sd">    :returns: ``(rows, columns)`` or ``None`` for other or invalid signals.</span>
+<span class="sd">    """</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">_RESIZE_PATTERN</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"ascii"</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"replace"</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="p">[</span><span class="s2">"rows"</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="p">[</span><span class="s2">"cols"</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="p">[</span><span class="s2">"rows"</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="p">[</span><span class="s2">"cols"</span><span class="p">])</span></div>
+
+
+
+<div class="viewcode-block" id="parse_prompt">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.render.parse_prompt">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">parse_prompt</span><span class="p">(</span><span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PromptInfo</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Parse the prompt installed by ``report``.</span>
+
+<span class="sd">    :param prompt: Prompt text without trailing spaces.</span>
+<span class="sd">    :returns: Prompt parts or ``None`` for any other prompt.</span>
+<span class="sd">    """</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">PROMPT_PATTERN</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">PromptInfo</span><span class="p">(</span>
+        <span class="n">user</span><span class="o">=</span><span class="n">match</span><span class="p">[</span><span class="s2">"user"</span><span class="p">],</span>
+        <span class="n">task</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="p">[</span><span class="s2">"task"</span><span class="p">]),</span>
+        <span class="n">host</span><span class="o">=</span><span class="n">match</span><span class="p">[</span><span class="s2">"host"</span><span class="p">],</span>
+        <span class="n">directory</span><span class="o">=</span><span class="n">match</span><span class="p">[</span><span class="s2">"dir"</span><span class="p">],</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_prompt_width</span><span class="p">(</span><span class="n">row_text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return the width of a ``report`` prompt at the start of a row, or 0."""</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">_INLINE_PROMPT_PATTERN</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">row_text</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">match</span><span class="o">.</span><span class="n">end</span><span class="p">()</span> <span class="k">if</span> <span class="n">match</span> <span class="k">else</span> <span class="mi">0</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_visible_character</span><span class="p">(</span><span class="n">char</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Replace a character ``pyte`` would silently drop with ``?``."""</span>
+    <span class="k">return</span> <span class="s2">"?"</span> <span class="k">if</span> <span class="n">is_invisible_character</span><span class="p">(</span><span class="n">char</span><span class="p">)</span> <span class="k">else</span> <span class="n">char</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_row_has_text</span><span class="p">(</span><span class="n">row</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Char</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return whether a screen row holds any visible character."""</span>
+    <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">char</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">row</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_freeze_row</span><span class="p">(</span><span class="n">row</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Char</span><span class="p">],</span> <span class="n">columns</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TranscriptLine</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Copy a screen row into an immutable transcript line.</span>
+
+<span class="sd">    Trailing blanks without a visible background are dropped, unsafe</span>
+<span class="sd">    characters are replaced by ``?`` and wide-character placeholders are</span>
+<span class="sd">    skipped.</span>
+
+<span class="sd">    :param row: ``pyte`` screen row.</span>
+<span class="sd">    :param columns: Screen width.</span>
+<span class="sd">    :returns: Transcript line.</span>
+<span class="sd">    """</span>
+    <span class="n">cells</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">CellStyle</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">columns</span><span class="p">):</span>
+        <span class="n">char</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="n">x</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">char</span><span class="o">.</span><span class="n">data</span> <span class="o">==</span> <span class="s2">""</span><span class="p">:</span>
+            <span class="k">continue</span>  <span class="c1"># Right half of a wide character.</span>
+        <span class="n">cells</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">_UNSAFE_CHARACTERS</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">"?"</span><span class="p">,</span> <span class="n">char</span><span class="o">.</span><span class="n">data</span><span class="p">),</span> <span class="n">_style_of</span><span class="p">(</span><span class="n">char</span><span class="p">)))</span>
+    <span class="k">while</span> <span class="n">cells</span> <span class="ow">and</span> <span class="n">cells</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">" "</span> <span class="ow">and</span> <span class="n">_is_invisible_blank</span><span class="p">(</span><span class="n">cells</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]):</span>
+        <span class="n">cells</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+
+    <span class="n">runs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">StyledRun</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">text</span><span class="p">,</span> <span class="n">style</span> <span class="ow">in</span> <span class="n">cells</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">runs</span> <span class="ow">and</span> <span class="n">runs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">style</span> <span class="o">==</span> <span class="n">style</span><span class="p">:</span>
+            <span class="n">runs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">StyledRun</span><span class="p">(</span><span class="n">runs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">text</span> <span class="o">+</span> <span class="n">text</span><span class="p">,</span> <span class="n">style</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">runs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">StyledRun</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">style</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">TranscriptLine</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">runs</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_style_of</span><span class="p">(</span><span class="n">char</span><span class="p">:</span> <span class="n">Char</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CellStyle</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Convert ``pyte`` character attributes into a :class:`CellStyle`."""</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">char</span><span class="o">.</span><span class="n">fg</span> <span class="o">==</span> <span class="s2">"default"</span>
+        <span class="ow">and</span> <span class="n">char</span><span class="o">.</span><span class="n">bg</span> <span class="o">==</span> <span class="s2">"default"</span>
+        <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">char</span><span class="o">.</span><span class="n">bold</span> <span class="ow">or</span> <span class="n">char</span><span class="o">.</span><span class="n">italics</span> <span class="ow">or</span> <span class="n">char</span><span class="o">.</span><span class="n">underscore</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">char</span><span class="o">.</span><span class="n">strikethrough</span> <span class="ow">or</span> <span class="n">char</span><span class="o">.</span><span class="n">reverse</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="k">return</span> <span class="n">PLAIN_STYLE</span>
+    <span class="k">return</span> <span class="n">CellStyle</span><span class="p">(</span>
+        <span class="n">fg</span><span class="o">=</span><span class="n">char</span><span class="o">.</span><span class="n">fg</span><span class="p">,</span>
+        <span class="n">bg</span><span class="o">=</span><span class="n">char</span><span class="o">.</span><span class="n">bg</span><span class="p">,</span>
+        <span class="n">bold</span><span class="o">=</span><span class="n">char</span><span class="o">.</span><span class="n">bold</span><span class="p">,</span>
+        <span class="n">italics</span><span class="o">=</span><span class="n">char</span><span class="o">.</span><span class="n">italics</span><span class="p">,</span>
+        <span class="n">underscore</span><span class="o">=</span><span class="n">char</span><span class="o">.</span><span class="n">underscore</span><span class="p">,</span>
+        <span class="n">strikethrough</span><span class="o">=</span><span class="n">char</span><span class="o">.</span><span class="n">strikethrough</span><span class="p">,</span>
+        <span class="n">reverse</span><span class="o">=</span><span class="n">char</span><span class="o">.</span><span class="n">reverse</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_is_invisible_blank</span><span class="p">(</span><span class="n">style</span><span class="p">:</span> <span class="n">CellStyle</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return whether a blank cell with this style shows nothing."""</span>
+    <span class="k">return</span> <span class="n">style</span><span class="o">.</span><span class="n">bg</span> <span class="o">==</span> <span class="s2">"default"</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">style</span><span class="o">.</span><span class="n">reverse</span> <span class="ow">or</span> <span class="n">style</span><span class="o">.</span><span class="n">underscore</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">PySnap</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/modules.html">pysnap</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, PySnap Authors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

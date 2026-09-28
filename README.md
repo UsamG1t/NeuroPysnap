@@ -1,6 +1,6 @@
 # PySnap
 
-PySnap 1.1.0 is a Python 3.10+ command line package for importing VirtualBox OVA/OVF
+PySnap 2.0.0 is a Python 3.11+ command line package for importing VirtualBox OVA/OVF
 appliances, creating linked clones, configuring internal networks, starting
 virtual machines in headless mode, attaching to them through a built-in serial
 terminal, and removing virtual machines with dependency checks.
@@ -35,6 +35,14 @@ terminal, and removing virtual machines with dependency checks.
 - Wipe the VirtualBox machine and configuration directories with
   `pysnap full-clean` after a double interactive confirmation, with
   OS-specific defaults and explicit `--path` overrides.
+- Read student session reports recorded with the ``report`` utility safely:
+  print or page their text with highlighted prompts and commands, or replay
+  them with timing, speed control and jumps between commands; show report
+  information and statistics: identity, timing, commands, pauses, typing,
+  pasted input, addresses and integrity checks; grade a report against a
+  TOML check file with expected commands, output blocks and labeled values;
+  copy reports out of running VMs through the serial console; compare
+  reports pairwise for signs of a shared origin.
 - Run an end-to-end integration test that now verifies VM startup and monitor
   state transitions in addition to creation and cleanup.
 
@@ -55,6 +63,11 @@ pysnap stop [<VM> | --all]
 pysnap clone <BaseVM> <CloneVM> [-p PORT] [<int1-net> [<int2-net> [<int3-net>]]]
 pysnap erase [--clones-only] [--all | --group GROUP | <VM>]
 pysnap full-clean [--path DIRECTORY ...]
+pysnap report text REPORT [--commands] [--color WHEN] [--no-pager]
+pysnap report show REPORT [--speed X] [--max-delay SECONDS]
+pysnap report check REPORT [CHECK]
+pysnap report extract VM NAME [--output PATH] [--force]
+pysnap report compare PATH...
 ```
 
 ## Development
@@ -171,6 +184,29 @@ pysnap full-clean --path /data/vms --path /data/vbox-config
 When the VirtualBox data directories are missing, for example right after a
 full clean, `pysnap list` reports `No virtual machines found.` and exits
 cleanly instead of waiting on an unresponsive `VBoxManage`.
+
+Print a student report as text or list the entered commands:
+
+```bash
+pysnap report text report.01.first
+pysnap report text report.01.first --commands
+1  00:17.05  ip a show eth1
+2  00:29.86  ping -c5 10.9.0.2
+```
+
+Replay a report with its timing (``Space`` pauses, ``n``/``p`` jump between
+commands, ``q`` quits):
+
+```bash
+pysnap report show report.01.first --speed 2
+```
+
+Compare all reports of a group pairwise; pairs with signals of a shared
+origin are listed with those signals, the others as ``OK``:
+
+```bash
+pysnap report compare reports/
+```
 
 ## Proto Settings
 

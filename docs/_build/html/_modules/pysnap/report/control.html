@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pysnap.report.control &#8212; PySnap 2.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../_static/documentation_options.js?v=51b770b3"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for pysnap.report.control</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Control channel between ``pysnap report extract`` and ``pysnap connect``.</span>
+
+<span class="sd">VirtualBox serves one client on a ``UART1`` TCP port, so while</span>
+<span class="sd">``pysnap connect`` is attached only that process can talk to the console.</span>
+<span class="sd">The connect process listens on ``127.0.0.1`` on a random port</span>
+<span class="sd">and stores the port and a random secret in its session record, which only the</span>
+<span class="sd">current user can read. ``pysnap report extract`` sends one JSON request line</span>
+<span class="sd">with the secret and the quoted file path; the connect process runs the</span>
+<span class="sd">transfer protocol of :mod:`pysnap.report.extract` on its own serial</span>
+<span class="sd">connection and answers with one JSON line holding the file as base64 and its</span>
+<span class="sd">checksum, or an error message.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">base64</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">binascii</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hmac</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">secrets</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">socket</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Callable</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.extract</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_MAX_BYTES</span><span class="p">,</span> <span class="n">ExtractError</span>
+
+<span class="n">REQUEST_TIMEOUT</span> <span class="o">=</span> <span class="mf">5.0</span>
+<span class="n">MAX_REQUEST_BYTES</span> <span class="o">=</span> <span class="mi">64</span> <span class="o">*</span> <span class="mi">1024</span>
+<span class="n">CONTROL_HOST</span> <span class="o">=</span> <span class="s2">"127.0.0.1"</span>
+
+<span class="c1"># Runs a transfer for a quoted remote path and returns (data, checksum).</span>
+<span class="n">TransferRunner</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]]</span>
+
+
+<div class="viewcode-block" id="ControlServer">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.control.ControlServer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ControlServer</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Serve transfer requests for one ``pysnap connect`` session."""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_transfer</span><span class="p">:</span> <span class="n">TransferRunner</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the server.</span>
+
+<span class="sd">        :param run_transfer: Coroutine performing a transfer on the session's</span>
+<span class="sd">            serial connection.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">token</span> <span class="o">=</span> <span class="n">secrets</span><span class="o">.</span><span class="n">token_hex</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_run_transfer</span> <span class="o">=</span> <span class="n">run_transfer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">base_events</span><span class="o">.</span><span class="n">Server</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_busy</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="ControlServer.start">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.control.ControlServer.start">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Listen on a random local port.</span>
+
+<span class="sd">        :returns: The port number.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_server</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">start_server</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="p">,</span> <span class="n">CONTROL_HOST</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="n">MAX_REQUEST_BYTES</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">port</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">sockets</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">getsockname</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">port</span></div>
+
+
+<div class="viewcode-block" id="ControlServer.close">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.control.ControlServer.close">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Stop listening."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_server</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_server</span><span class="o">.</span><span class="n">wait_closed</span><span class="p">()</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_handle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reader</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">StreamReader</span><span class="p">,</span> <span class="n">writer</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">StreamWriter</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Serve one request."""</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_respond</span><span class="p">(</span><span class="n">reader</span><span class="p">)</span>
+            <span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">response</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="o">+</span> <span class="sa">b</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">await</span> <span class="n">writer</span><span class="o">.</span><span class="n">drain</span><span class="p">()</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ConnectionError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+            <span class="k">pass</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_respond</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reader</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">StreamReader</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Validate a request and run the transfer."""</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">line</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">readline</span><span class="p">(),</span> <span class="n">REQUEST_TIMEOUT</span><span class="p">)</span>
+            <span class="n">request</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">TimeoutError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">LimitOverrunError</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">"ok"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">"error"</span><span class="p">:</span> <span class="s2">"Invalid control request."</span><span class="p">}</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">hmac</span><span class="o">.</span><span class="n">compare_digest</span><span class="p">(</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"token"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)),</span> <span class="bp">self</span><span class="o">.</span><span class="n">token</span>
+        <span class="p">):</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">"ok"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">"error"</span><span class="p">:</span> <span class="s2">"Invalid control token."</span><span class="p">}</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"path"</span><span class="p">)</span>
+        <span class="n">max_bytes</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"max_bytes"</span><span class="p">,</span> <span class="n">DEFAULT_MAX_BYTES</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"action"</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">"extract"</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_bytes</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">"ok"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">"error"</span><span class="p">:</span> <span class="s2">"Unsupported control request."</span><span class="p">}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_busy</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">"ok"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">"error"</span><span class="p">:</span> <span class="s2">"Another transfer is running in pysnap connect."</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_busy</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data</span><span class="p">,</span> <span class="n">checksum</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_transfer</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">max_bytes</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">ExtractError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">"ok"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">"error"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">error</span><span class="p">)}</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_busy</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"ok"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"data"</span><span class="p">:</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"ascii"</span><span class="p">),</span> <span class="s2">"sha256"</span><span class="p">:</span> <span class="n">checksum</span><span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="request_transfer">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.control.request_transfer">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">request_transfer</span><span class="p">(</span>
+    <span class="n">port</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">remote_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">max_bytes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">DEFAULT_MAX_BYTES</span><span class="p">,</span>
+    <span class="n">connect_timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Ask an attached ``pysnap connect`` process to transfer a file.</span>
+
+<span class="sd">    :param port: Control port from the session record.</span>
+<span class="sd">    :param token: Control secret from the session record.</span>
+<span class="sd">    :param remote_path: Quoted shell path of the file.</span>
+<span class="sd">    :param max_bytes: Largest accepted file size.</span>
+<span class="sd">    :param connect_timeout: Seconds to wait for the control port.</span>
+<span class="sd">    :returns: File content and its SHA-256 checksum.</span>
+<span class="sd">    :raises ExtractError: When the session does not answer or the transfer</span>
+<span class="sd">        fails.</span>
+<span class="sd">    """</span>
+    <span class="n">request</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"token"</span><span class="p">:</span> <span class="n">token</span><span class="p">,</span> <span class="s2">"action"</span><span class="p">:</span> <span class="s2">"extract"</span><span class="p">,</span> <span class="s2">"path"</span><span class="p">:</span> <span class="n">remote_path</span><span class="p">,</span> <span class="s2">"max_bytes"</span><span class="p">:</span> <span class="n">max_bytes</span><span class="p">}</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">socket</span><span class="o">.</span><span class="n">create_connection</span><span class="p">((</span><span class="n">CONTROL_HOST</span><span class="p">,</span> <span class="n">port</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="n">connect_timeout</span><span class="p">)</span> <span class="k">as</span> <span class="n">connection</span><span class="p">:</span>
+            <span class="n">connection</span><span class="o">.</span><span class="n">settimeout</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>  <span class="c1"># The transfer ends on the guest's idle timeout.</span>
+            <span class="n">connection</span><span class="o">.</span><span class="n">sendall</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">request</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="o">+</span> <span class="sa">b</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">chunks</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">chunk</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">65536</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">chunk</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="n">chunks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ExtractError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"The attached pysnap connect session did not answer: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="sa">b</span><span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chunks</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ExtractError</span><span class="p">(</span><span class="s2">"The attached pysnap connect session sent an invalid answer."</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ok"</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">ExtractError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"error"</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">"The transfer failed in pysnap connect."</span><span class="p">))</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">response</span><span class="p">[</span><span class="s2">"data"</span><span class="p">],</span> <span class="n">validate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="n">binascii</span><span class="o">.</span><span class="n">Error</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">ExtractError</span><span class="p">(</span><span class="s2">"The attached pysnap connect session sent damaged data."</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+    <span class="n">checksum</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">checksum</span> <span class="o">!=</span> <span class="n">response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"sha256"</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">ExtractError</span><span class="p">(</span><span class="s2">"The checksum of the received file does not match; try again."</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="n">checksum</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">PySnap</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/modules.html">pysnap</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, PySnap Authors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

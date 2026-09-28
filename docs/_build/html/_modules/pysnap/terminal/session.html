@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pysnap.terminal.session &#8212; PySnap 1.1.0 documentation</title>
+    <title>pysnap.terminal.session &#8212; PySnap 2.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
-    <script src="../../../_static/documentation_options.js?v=fc837d61"></script>
+    <script src="../../../_static/documentation_options.js?v=51b770b3"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -32,7 +32,7 @@
           <div class="body" role="main">
             
   <h1>Source code for pysnap.terminal.session</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Interactive terminal session attached to a VM serial TCP console.&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""Interactive terminal session attached to a VM serial TCP console."""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -53,6 +53,8 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.service</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapService</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.control</span><span class="w"> </span><span class="kn">import</span> <span class="n">ControlServer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.extract</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExtractError</span><span class="p">,</span> <span class="n">QueueConsole</span><span class="p">,</span> <span class="n">run_transfer</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.terminal.clipboard</span><span class="w"> </span><span class="kn">import</span> <span class="n">copy_text_to_host_clipboard</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.terminal.emulator</span><span class="w"> </span><span class="kn">import</span> <span class="n">TerminalEmulator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.terminal.keymap</span><span class="w"> </span><span class="kn">import</span> <span class="n">key_press_to_bytes</span>
@@ -64,12 +66,12 @@
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.SessionStatus">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">SessionStatus</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mutable session status shown in the status bar.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Mutable session status shown in the status bar."""</span>
 
     <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">vm_state</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Changing&quot;</span>
+    <span class="n">vm_state</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Changing"</span>
     <span class="n">serial_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Connecting...&quot;</span></div>
+    <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Connecting..."</span></div>
 
 
 
@@ -77,7 +79,7 @@
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.TerminalSelection">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">TerminalSelection</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Visible terminal selection tracked in local screen coordinates.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Visible terminal selection tracked in local screen coordinates."""</span>
 
     <span class="n">anchor_row</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">anchor_column</span><span class="p">:</span> <span class="nb">int</span>
@@ -88,7 +90,7 @@
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.TerminalSelection.normalized">[docs]</a>
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">normalized</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return inclusive start/end coordinates in natural screen order.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Return inclusive start/end coordinates in natural screen order."""</span>
         <span class="n">start</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anchor_row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">anchor_column</span><span class="p">)</span>
         <span class="n">end</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">column</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;=</span> <span class="n">end</span><span class="p">:</span>
@@ -100,7 +102,7 @@
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.TerminalSelection.is_collapsed">[docs]</a>
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_collapsed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether the selection never left its anchor cell.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Return whether the selection never left its anchor cell."""</span>
         <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anchor_row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">anchor_column</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">row</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">column</span><span class="p">)</span></div>
 </div>
 
@@ -109,20 +111,20 @@
 <div class="viewcode-block" id="SelectionTracker">
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">SelectionTracker</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Track the visible drag selection and the text captured from it.</span>
+<span class="w">    </span><span class="sd">"""Track the visible drag selection and the text captured from it.</span>
 
 <span class="sd">    The tracker separates two lifetimes: the on-screen highlight, which</span>
 <span class="sd">    becomes stale as soon as new guest output moves the underlying cells,</span>
 <span class="sd">    and the captured text, which stays valid until the user copies it or</span>
 <span class="sd">    starts interacting with the guest again. This lets the copy chord work</span>
 <span class="sd">    while background utilities keep printing.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">emulator</span><span class="p">:</span> <span class="n">TerminalEmulator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the selection tracker.</span>
+<span class="w">        </span><span class="sd">"""Initialize the selection tracker.</span>
 
 <span class="sd">        :param emulator: Guest terminal emulator that owns the screen cells.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_emulator</span> <span class="o">=</span> <span class="n">emulator</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">selection</span><span class="p">:</span> <span class="n">TerminalSelection</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">captured_text</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
@@ -131,18 +133,18 @@
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.is_active">[docs]</a>
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_active</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether a highlight or captured text is currently held.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Return whether a highlight or captured text is currently held."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">selection</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">captured_text</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span></div>
 
 
 <div class="viewcode-block" id="SelectionTracker.begin">
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.begin">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">begin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Start a new drag selection at one screen cell.</span>
+<span class="w">        </span><span class="sd">"""Start a new drag selection at one screen cell.</span>
 
 <span class="sd">        :param x: Column of the drag start.</span>
 <span class="sd">        :param y: Row of the drag start.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">row</span><span class="p">,</span> <span class="n">column</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clamp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">selection</span> <span class="o">=</span> <span class="n">TerminalSelection</span><span class="p">(</span>
             <span class="n">anchor_row</span><span class="o">=</span><span class="n">row</span><span class="p">,</span>
@@ -156,11 +158,11 @@
 <div class="viewcode-block" id="SelectionTracker.update">
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.update">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extend the active drag selection to one screen cell.</span>
+<span class="w">        </span><span class="sd">"""Extend the active drag selection to one screen cell.</span>
 
 <span class="sd">        :param x: Column of the drag position.</span>
 <span class="sd">        :param y: Row of the drag position.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">selection</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span>
         <span class="n">row</span><span class="p">,</span> <span class="n">column</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clamp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
@@ -171,7 +173,7 @@
 <div class="viewcode-block" id="SelectionTracker.finish">
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.finish">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">finish</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Finalize the drag and capture the selected text.</span>
+<span class="w">        </span><span class="sd">"""Finalize the drag and capture the selected text.</span>
 
 <span class="sd">        A click that never left its anchor cell is treated as a plain click</span>
 <span class="sd">        and clears any previous selection instead of capturing one cell.</span>
@@ -179,7 +181,7 @@
 <span class="sd">        :param x: Column of the drag end.</span>
 <span class="sd">        :param y: Row of the drag end.</span>
 <span class="sd">        :returns: ``True`` when non-empty text was captured.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">selection</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
@@ -198,10 +200,10 @@
 <div class="viewcode-block" id="SelectionTracker.take_captured_text">
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.take_captured_text">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">take_captured_text</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the captured text and reset the tracker.</span>
+<span class="w">        </span><span class="sd">"""Return the captured text and reset the tracker.</span>
 
 <span class="sd">        :returns: Captured text or ``None`` when nothing is selected.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">text</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">captured_text</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">text</span></div>
@@ -210,25 +212,25 @@
 <div class="viewcode-block" id="SelectionTracker.clear_highlight">
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.clear_highlight">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">clear_highlight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Drop the stale on-screen highlight but keep the captured text.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Drop the stale on-screen highlight but keep the captured text."""</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">selection</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 
 <div class="viewcode-block" id="SelectionTracker.clear">
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.clear">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Drop both the on-screen highlight and the captured text.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Drop both the on-screen highlight and the captured text."""</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">selection</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">captured_text</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_clamp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Clamp one mouse position to valid screen coordinates.</span>
+<span class="w">        </span><span class="sd">"""Clamp one mouse position to valid screen coordinates.</span>
 
 <span class="sd">        :param x: Raw column reported by the mouse event.</span>
 <span class="sd">        :param y: Raw row reported by the mouse event.</span>
 <span class="sd">        :returns: Clamped ``(row, column)`` coordinates.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">row</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_emulator</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
         <span class="n">column</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_emulator</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">columns</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">row</span><span class="p">,</span> <span class="n">column</span></div>
@@ -238,7 +240,7 @@
 <div class="viewcode-block" id="ScrollableTerminalControl">
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.ScrollableTerminalControl">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ScrollableTerminalControl</span><span class="p">(</span><span class="n">FormattedTextControl</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Formatted text control with optional local scrollback mouse support.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Formatted text control with optional local scrollback mouse support."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -251,7 +253,7 @@
         <span class="n">on_selection_finish</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the scrollable terminal control.</span>
+<span class="w">        </span><span class="sd">"""Initialize the scrollable terminal control.</span>
 
 <span class="sd">        :param on_scroll_up: Callback for one local upward scroll action.</span>
 <span class="sd">        :param on_scroll_down: Callback for one local downward scroll action.</span>
@@ -259,7 +261,7 @@
 <span class="sd">        :param on_selection_start: Callback for selection drag start.</span>
 <span class="sd">        :param on_selection_update: Callback for selection drag updates.</span>
 <span class="sd">        :param on_selection_finish: Callback for selection drag end.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_on_scroll_up</span> <span class="o">=</span> <span class="n">on_scroll_up</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_on_scroll_down</span> <span class="o">=</span> <span class="n">on_scroll_down</span>
@@ -271,7 +273,7 @@
 <div class="viewcode-block" id="ScrollableTerminalControl.mouse_handler">
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.ScrollableTerminalControl.mouse_handler">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">mouse_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mouse_event</span><span class="p">:</span> <span class="n">MouseEvent</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle local wheel scrolling before delegating to the base control.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Handle local wheel scrolling before delegating to the base control."""</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="n">mouse_event</span><span class="o">.</span><span class="n">event_type</span> <span class="o">==</span> <span class="n">MouseEventType</span><span class="o">.</span><span class="n">MOUSE_DOWN</span>
             <span class="ow">and</span> <span class="n">mouse_event</span><span class="o">.</span><span class="n">button</span> <span class="o">==</span> <span class="n">MouseButton</span><span class="o">.</span><span class="n">LEFT</span>
@@ -316,26 +318,26 @@
 <div class="viewcode-block" id="TerminalSession">
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.TerminalSession">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TerminalSession</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Manage one interactive terminal connection to a VM.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Manage one interactive terminal connection to a VM."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service</span><span class="p">:</span> <span class="n">PySnapService</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the terminal session helper.</span>
+<span class="w">        </span><span class="sd">"""Initialize the terminal session helper.</span>
 
 <span class="sd">        :param service: Optional application service.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">service</span> <span class="o">=</span> <span class="n">service</span> <span class="ow">or</span> <span class="n">PySnapService</span><span class="p">()</span>
 
 <div class="viewcode-block" id="TerminalSession.run">
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.session.TerminalSession.run">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Start or attach to a VM and launch the terminal interface.</span>
+<span class="w">        </span><span class="sd">"""Start or attach to a VM and launch the terminal interface.</span>
 
 <span class="sd">        :param vm_name: Virtual machine name.</span>
 <span class="sd">        :returns: Exit code.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">vm_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="o">.</span><span class="n">prepare_vm_connection</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">vm_info</span><span class="o">.</span><span class="n">serial_port</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Virtual machine &quot;</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">&quot; does not expose a serial TCP port.&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" does not expose a serial TCP port.'</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_run_async</span><span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">vm_info</span><span class="o">.</span><span class="n">serial_port</span><span class="p">))</span>
         <span class="k">except</span> <span class="p">(</span><span class="ne">KeyboardInterrupt</span><span class="p">,</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">):</span>
@@ -344,31 +346,35 @@
 
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_run_async</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">serial_port</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the asynchronous terminal session.</span>
+<span class="w">        </span><span class="sd">"""Run the asynchronous terminal session.</span>
 
 <span class="sd">        :param vm_name: Virtual machine name.</span>
 <span class="sd">        :param serial_port: Serial TCP port.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">reader</span><span class="p">,</span> <span class="n">writer</span> <span class="o">=</span> <span class="k">await</span> <span class="n">open_serial_connection</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="n">serial_port</span><span class="p">)</span>
+<span class="sd">        """</span>
+        <span class="n">reader</span><span class="p">,</span> <span class="n">writer</span> <span class="o">=</span> <span class="k">await</span> <span class="n">open_serial_connection</span><span class="p">(</span><span class="s2">"localhost"</span><span class="p">,</span> <span class="n">serial_port</span><span class="p">)</span>
         <span class="n">columns</span><span class="p">,</span> <span class="n">rows</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">get_terminal_size</span><span class="p">(</span><span class="n">fallback</span><span class="o">=</span><span class="p">(</span><span class="mi">80</span><span class="p">,</span> <span class="mi">24</span><span class="p">))</span>
         <span class="n">emulator</span> <span class="o">=</span> <span class="n">TerminalEmulator</span><span class="p">(</span><span class="o">*</span><span class="n">_terminal_content_size</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span> <span class="n">rows</span><span class="o">=</span><span class="n">rows</span><span class="p">))</span>
         <span class="n">query_responder</span> <span class="o">=</span> <span class="n">TerminalQueryResponder</span><span class="p">()</span>
         <span class="n">status</span> <span class="o">=</span> <span class="n">SessionStatus</span><span class="p">(</span>
             <span class="n">vm_name</span><span class="o">=</span><span class="n">vm_name</span><span class="p">,</span>
-            <span class="n">vm_state</span><span class="o">=</span><span class="s2">&quot;Working&quot;</span><span class="p">,</span>
+            <span class="n">vm_state</span><span class="o">=</span><span class="s2">"Working"</span><span class="p">,</span>
             <span class="n">serial_port</span><span class="o">=</span><span class="n">serial_port</span><span class="p">,</span>
-            <span class="n">message</span><span class="o">=</span><span class="s2">&quot;Connected. Waking serial console...&quot;</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">=</span><span class="s2">"Connected. Waking serial console..."</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">stop_event</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>
         <span class="n">received_output</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>
         <span class="n">selection_tracker</span> <span class="o">=</span> <span class="n">SelectionTracker</span><span class="p">(</span><span class="n">emulator</span><span class="p">)</span>
+        <span class="c1"># Set while ``pysnap report extract`` uses this connection: guest</span>
+        <span class="c1"># output goes to the transfer instead of the screen and keys pause.</span>
+        <span class="n">transfer</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">QueueConsole</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"console"</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
+        <span class="n">transfer_output</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">()</span>
 
         <span class="k">await</span> <span class="n">_wake_serial_console</span><span class="p">(</span><span class="n">writer</span><span class="p">)</span>
-        <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Connected. Ctrl-Q detaches.&quot;</span>
+        <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">"Connected. Ctrl-Q detaches."</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">begin_selection</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">selection_tracker</span><span class="o">.</span><span class="n">begin</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
-            <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Selecting text...&quot;</span>
+            <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">"Selecting text..."</span>
             <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">update_selection</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -377,7 +383,7 @@
 
         <span class="k">def</span><span class="w"> </span><span class="nf">finish_selection</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">selection_tracker</span><span class="o">.</span><span class="n">finish</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
-                <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Selection ready. Ctrl+Shift+C copies.&quot;</span>
+                <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">"Selection ready. Ctrl+Shift+C copies."</span>
             <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">scroll_up</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -398,14 +404,14 @@
             <span class="k">return</span> <span class="n">emulator</span><span class="o">.</span><span class="n">as_formatted_text</span><span class="p">(</span><span class="n">selection</span><span class="o">=</span><span class="n">current_selection</span><span class="p">)</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">render_status</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
-            <span class="n">scrollback_suffix</span> <span class="o">=</span> <span class="s2">&quot; | Scrollback&quot;</span> <span class="k">if</span> <span class="n">emulator</span><span class="o">.</span><span class="n">is_scrollback_active</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
-            <span class="n">selection_suffix</span> <span class="o">=</span> <span class="s2">&quot; | Selection&quot;</span> <span class="k">if</span> <span class="n">selection_tracker</span><span class="o">.</span><span class="n">is_active</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">scrollback_suffix</span> <span class="o">=</span> <span class="s2">" | Scrollback"</span> <span class="k">if</span> <span class="n">emulator</span><span class="o">.</span><span class="n">is_scrollback_active</span> <span class="k">else</span> <span class="s2">""</span>
+            <span class="n">selection_suffix</span> <span class="o">=</span> <span class="s2">" | Selection"</span> <span class="k">if</span> <span class="n">selection_tracker</span><span class="o">.</span><span class="n">is_active</span> <span class="k">else</span> <span class="s2">""</span>
             <span class="n">text</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">vm_name</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">vm_state</span><span class="si">}</span><span class="s2"> | &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;UART1:</span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">serial_port</span><span class="si">}</span><span class="s2"> | &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">message</span><span class="si">}{</span><span class="n">scrollback_suffix</span><span class="si">}{</span><span class="n">selection_suffix</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">vm_name</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">vm_state</span><span class="si">}</span><span class="s2"> | "</span>
+                <span class="sa">f</span><span class="s2">"UART1:</span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">serial_port</span><span class="si">}</span><span class="s2"> | "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">status</span><span class="o">.</span><span class="n">message</span><span class="si">}{</span><span class="n">scrollback_suffix</span><span class="si">}{</span><span class="n">selection_suffix</span><span class="si">}</span><span class="s2"> "</span>
             <span class="p">)</span>
-            <span class="k">return</span> <span class="p">[(</span><span class="s2">&quot;reverse&quot;</span><span class="p">,</span> <span class="n">text</span><span class="p">)]</span>
+            <span class="k">return</span> <span class="p">[(</span><span class="s2">"reverse"</span><span class="p">,</span> <span class="n">text</span><span class="p">)]</span>
 
         <span class="n">terminal_control</span> <span class="o">=</span> <span class="n">ScrollableTerminalControl</span><span class="p">(</span>
             <span class="n">text</span><span class="o">=</span><span class="n">render_terminal</span><span class="p">,</span>
@@ -432,68 +438,74 @@
 
         <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">ControlQ</span><span class="p">)</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_detach</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Detach from the VM without stopping it.&quot;&quot;&quot;</span>
-            <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Detached.&quot;</span>
+<span class="w">            </span><span class="sd">"""Detach from the VM without stopping it."""</span>
+            <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">"Detached."</span>
             <span class="n">stop_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
             <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
 
         <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">ControlL</span><span class="p">)</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_redraw</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Force a redraw of the terminal interface.&quot;&quot;&quot;</span>
-            <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Screen refreshed.&quot;</span>
+<span class="w">            </span><span class="sd">"""Force a redraw of the terminal interface."""</span>
+            <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">"Screen refreshed."</span>
             <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
 
         <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">Escape</span><span class="p">,</span> <span class="n">Keys</span><span class="o">.</span><span class="n">Up</span><span class="p">)</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_scroll_older_line</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Scroll one line toward older local terminal output.&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""Scroll one line toward older local terminal output."""</span>
             <span class="n">emulator</span><span class="o">.</span><span class="n">scroll_up</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
             <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
 
         <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">Escape</span><span class="p">,</span> <span class="n">Keys</span><span class="o">.</span><span class="n">Down</span><span class="p">)</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_scroll_newer_line</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Scroll one line toward newer local terminal output.&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""Scroll one line toward newer local terminal output."""</span>
             <span class="n">emulator</span><span class="o">.</span><span class="n">scroll_down</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
             <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
 
         <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">Escape</span><span class="p">,</span> <span class="n">Keys</span><span class="o">.</span><span class="n">Left</span><span class="p">)</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_scroll_to_top</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Jump to the oldest retained local scrollback output.&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""Jump to the oldest retained local scrollback output."""</span>
             <span class="n">selection_tracker</span><span class="o">.</span><span class="n">clear_highlight</span><span class="p">()</span>
             <span class="n">emulator</span><span class="o">.</span><span class="n">scroll_to_top</span><span class="p">()</span>
             <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
 
         <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">Escape</span><span class="p">,</span> <span class="n">Keys</span><span class="o">.</span><span class="n">Right</span><span class="p">)</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_scroll_to_bottom</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Jump back to the live end of local output.&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""Jump back to the live end of local output."""</span>
             <span class="n">selection_tracker</span><span class="o">.</span><span class="n">clear_highlight</span><span class="p">()</span>
             <span class="n">emulator</span><span class="o">.</span><span class="n">scroll_to_bottom</span><span class="p">()</span>
             <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
 
         <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">ControlC</span><span class="p">)</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_copy_or_interrupt</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Copy the captured selection or forward an interrupt to the guest.</span>
+<span class="w">            </span><span class="sd">"""Copy the captured selection or forward an interrupt to the guest.</span>
 
 <span class="sd">            Classic terminals deliver ``Ctrl+Shift+C`` and ``Ctrl+C`` as the</span>
 <span class="sd">            same ``ETX`` byte, so PySnap disambiguates by selection state:</span>
 <span class="sd">            with a captured selection the chord copies without touching the</span>
 <span class="sd">            guest, and without one it forwards a real ``Ctrl+C``.</span>
-<span class="sd">            &quot;&quot;&quot;</span>
+<span class="sd">            """</span>
             <span class="n">captured_text</span> <span class="o">=</span> <span class="n">selection_tracker</span><span class="o">.</span><span class="n">take_captured_text</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">captured_text</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x03</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">transfer</span><span class="p">[</span><span class="s2">"console"</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">return</span>
+                <span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\x03</span><span class="s2">"</span><span class="p">)</span>
                 <span class="k">return</span>
             <span class="n">copied</span> <span class="o">=</span> <span class="n">copy_text_to_host_clipboard</span><span class="p">(</span><span class="n">captured_text</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">output</span><span class="p">)</span>
             <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="s2">&quot;Selection copied.&quot;</span>
+                <span class="s2">"Selection copied."</span>
                 <span class="k">if</span> <span class="n">copied</span>
-                <span class="k">else</span> <span class="s2">&quot;Selection captured, but clipboard export failed.&quot;</span>
+                <span class="k">else</span> <span class="s2">"Selection captured, but clipboard export failed."</span>
             <span class="p">)</span>
             <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
 
         <span class="nd">@bindings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Keys</span><span class="o">.</span><span class="n">Any</span><span class="p">)</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_forward_key</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Forward arbitrary key input to the serial transport.&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""Forward arbitrary key input to the serial transport."""</span>
             <span class="n">selection_tracker</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">transfer</span><span class="p">[</span><span class="s2">"console"</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">"Report transfer in progress; keys are paused."</span>
+                <span class="n">event</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+                <span class="k">return</span>
             <span class="n">key_press</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">key_sequence</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
             <span class="n">payload</span> <span class="o">=</span> <span class="n">key_press_to_bytes</span><span class="p">(</span><span class="n">key_press</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">payload</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -515,8 +527,10 @@
         <span class="n">app</span><span class="o">.</span><span class="n">ttimeoutlen</span> <span class="o">=</span> <span class="mf">0.05</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">report_connection_closed</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">status</span><span class="o">.</span><span class="n">vm_state</span> <span class="o">=</span> <span class="s2">&quot;Changing&quot;</span>
-            <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Serial connection closed.&quot;</span>
+            <span class="k">if</span> <span class="n">transfer</span><span class="p">[</span><span class="s2">"console"</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">transfer</span><span class="p">[</span><span class="s2">"console"</span><span class="p">]</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">status</span><span class="o">.</span><span class="n">vm_state</span> <span class="o">=</span> <span class="s2">"Changing"</span>
+            <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">"Serial connection closed."</span>
             <span class="n">stop_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
             <span class="n">_safe_exit_application</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
 
@@ -527,6 +541,10 @@
                     <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="p">:</span>
                         <span class="n">report_connection_closed</span><span class="p">()</span>
                         <span class="k">return</span>
+                    <span class="k">if</span> <span class="n">transfer</span><span class="p">[</span><span class="s2">"console"</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">transfer_output</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+                        <span class="n">transfer</span><span class="p">[</span><span class="s2">"console"</span><span class="p">]</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+                        <span class="k">continue</span>
                     <span class="n">received_output</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
                     <span class="n">selection_tracker</span><span class="o">.</span><span class="n">clear_highlight</span><span class="p">()</span>
                     <span class="n">responses</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
@@ -556,8 +574,8 @@
                         <span class="k">return</span>
                     <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
             <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-                <span class="n">status</span><span class="o">.</span><span class="n">vm_state</span> <span class="o">=</span> <span class="s2">&quot;Changing&quot;</span>
-                <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Connection error: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">status</span><span class="o">.</span><span class="n">vm_state</span> <span class="o">=</span> <span class="s2">"Changing"</span>
+                <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"Connection error: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span>
                 <span class="n">stop_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
                 <span class="n">_safe_exit_application</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
 
@@ -574,8 +592,8 @@
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">stop_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
                     <span class="k">return</span>
-                <span class="n">status</span><span class="o">.</span><span class="n">vm_state</span> <span class="o">=</span> <span class="s2">&quot;Changing&quot;</span>
-                <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Resize watcher error: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">status</span><span class="o">.</span><span class="n">vm_state</span> <span class="o">=</span> <span class="s2">"Changing"</span>
+                <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"Resize watcher error: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span>
                 <span class="n">stop_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
                 <span class="n">_safe_exit_application</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
 
@@ -585,16 +603,16 @@
                     <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
                     <span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="o">.</span><span class="n">get_monitor_state_label</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
                     <span class="n">status</span><span class="o">.</span><span class="n">vm_state</span> <span class="o">=</span> <span class="n">current_state</span>
-                    <span class="k">if</span> <span class="n">current_state</span> <span class="o">!=</span> <span class="s2">&quot;Working&quot;</span><span class="p">:</span>
-                        <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;VM state changed to </span><span class="si">{</span><span class="n">current_state</span><span class="si">}</span><span class="s2">.&quot;</span>
+                    <span class="k">if</span> <span class="n">current_state</span> <span class="o">!=</span> <span class="s2">"Working"</span><span class="p">:</span>
+                        <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"VM state changed to </span><span class="si">{</span><span class="n">current_state</span><span class="si">}</span><span class="s2">."</span>
                     <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
-                    <span class="k">if</span> <span class="n">current_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Working&quot;</span><span class="p">,</span> <span class="s2">&quot;Active&quot;</span><span class="p">}:</span>
+                    <span class="k">if</span> <span class="n">current_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"Working"</span><span class="p">,</span> <span class="s2">"Active"</span><span class="p">}:</span>
                         <span class="n">stop_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
                         <span class="n">_safe_exit_application</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
                         <span class="k">return</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-                <span class="n">status</span><span class="o">.</span><span class="n">vm_state</span> <span class="o">=</span> <span class="s2">&quot;Changing&quot;</span>
-                <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Watcher error: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">status</span><span class="o">.</span><span class="n">vm_state</span> <span class="o">=</span> <span class="s2">"Changing"</span>
+                <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"Watcher error: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span>
                 <span class="n">stop_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
                 <span class="n">_safe_exit_application</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
 
@@ -604,11 +622,50 @@
             <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">TimeoutError</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">stop_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
                     <span class="k">return</span>
-                <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Connected. Press Enter if the guest stays silent.&quot;</span>
+                <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">"Connected. Press Enter if the guest stays silent."</span>
                 <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
 
+        <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_control_transfer</span><span class="p">(</span><span class="n">remote_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">max_bytes</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">            </span><span class="sd">"""Run a ``pysnap report extract`` transfer on this connection."""</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_running_loop</span><span class="p">()</span>
+            <span class="n">console</span> <span class="o">=</span> <span class="n">QueueConsole</span><span class="p">(</span><span class="k">lambda</span> <span class="n">data</span><span class="p">:</span> <span class="n">loop</span><span class="o">.</span><span class="n">call_soon_threadsafe</span><span class="p">(</span><span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">,</span> <span class="n">data</span><span class="p">))</span>
+            <span class="n">transfer_output</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+            <span class="n">transfer</span><span class="p">[</span><span class="s2">"console"</span><span class="p">]</span> <span class="o">=</span> <span class="n">console</span>
+            <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">"Extracting a report for pysnap report extract; keys are paused."</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span>
+                    <span class="n">run_transfer</span><span class="p">,</span> <span class="n">console</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">,</span> <span class="n">remote_path</span><span class="p">,</span> <span class="n">max_bytes</span><span class="o">=</span><span class="n">max_bytes</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="n">ExtractError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+                <span class="n">transfer</span><span class="p">[</span><span class="s2">"console"</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"Report transfer failed: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span>
+                <span class="c1"># Show what the guest printed and send nothing more: after a</span>
+                <span class="c1"># refusal a report recording may be running.</span>
+                <span class="n">emulator</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="nb">bytes</span><span class="p">(</span><span class="n">transfer_output</span><span class="p">))</span>
+                <span class="n">transfer_output</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+                <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+                <span class="k">raise</span>
+            <span class="n">transfer</span><span class="p">[</span><span class="s2">"console"</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">transfer_output</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+            <span class="n">status</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="s2">"Report transferred. Ctrl-Q detaches."</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">stop_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+                <span class="c1"># The transfer ended with ``clear`` on the guest; show a</span>
+                <span class="c1"># clean screen and ask the shell for a fresh prompt.</span>
+                <span class="n">emulator</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\x1b</span><span class="s2">[H</span><span class="se">\x1b</span><span class="s2">[2J"</span><span class="p">)</span>
+                <span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\r</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">app</span><span class="o">.</span><span class="n">invalidate</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">result</span>
+
+        <span class="n">control</span> <span class="o">=</span> <span class="n">ControlServer</span><span class="p">(</span><span class="n">run_control_transfer</span><span class="p">)</span>
+        <span class="n">control_port</span> <span class="o">=</span> <span class="k">await</span> <span class="n">control</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="o">.</span><span class="n">session_registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">serial_port</span><span class="p">):</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="o">.</span><span class="n">session_registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+                <span class="n">vm_name</span><span class="p">,</span>
+                <span class="n">serial_port</span><span class="p">,</span>
+                <span class="n">control_port</span><span class="o">=</span><span class="n">control_port</span><span class="p">,</span>
+                <span class="n">control_token</span><span class="o">=</span><span class="n">control</span><span class="o">.</span><span class="n">token</span><span class="p">,</span>
+            <span class="p">):</span>
                 <span class="n">app</span><span class="o">.</span><span class="n">create_background_task</span><span class="p">(</span><span class="n">reader_loop</span><span class="p">())</span>
                 <span class="n">app</span><span class="o">.</span><span class="n">create_background_task</span><span class="p">(</span><span class="n">resize_loop</span><span class="p">())</span>
                 <span class="n">app</span><span class="o">.</span><span class="n">create_background_task</span><span class="p">(</span><span class="n">watcher_loop</span><span class="p">())</span>
@@ -616,6 +673,7 @@
                 <span class="k">await</span> <span class="n">app</span><span class="o">.</span><span class="n">run_async</span><span class="p">(</span><span class="n">handle_sigint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="k">finally</span><span class="p">:</span>
             <span class="n">stop_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+            <span class="k">await</span> <span class="n">control</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
             <span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
             <span class="k">await</span> <span class="n">writer</span><span class="o">.</span><span class="n">wait_closed</span><span class="p">()</span></div>
 
@@ -626,16 +684,16 @@
 
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_read_pending_burst</span><span class="p">(</span><span class="n">reader</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">StreamReader</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return one immediately-following chunk of a fast output burst.</span>
+<span class="w">    </span><span class="sd">"""Return one immediately-following chunk of a fast output burst.</span>
 
 <span class="sd">    Fast guest output such as full-screen editor redraws arrives as many</span>
 <span class="sd">    small TCP chunks. Coalescing chunks that follow within a short window</span>
 <span class="sd">    lets the reader loop redraw once per burst instead of once per chunk.</span>
 
 <span class="sd">    :param reader: Async stream reader bound to the serial TCP transport.</span>
-<span class="sd">    :returns: More bytes, ``b&quot;&quot;`` when the connection closed, or ``None``</span>
+<span class="sd">    :returns: More bytes, ``b""`` when the connection closed, or ``None``</span>
 <span class="sd">        when the guest paused.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">return</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span>
             <span class="n">reader</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">_READ_CHUNK_SIZE</span><span class="p">),</span>
@@ -646,48 +704,48 @@
 
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_wake_serial_console</span><span class="p">(</span><span class="n">writer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Prompt the guest serial console to emit its current login screen.</span>
+<span class="w">    </span><span class="sd">"""Prompt the guest serial console to emit its current login screen.</span>
 
 <span class="sd">    Many guest systems connected through VirtualBox ``UART1`` stay visually</span>
 <span class="sd">    silent until they receive an initial newline. Sending one after attach</span>
 <span class="sd">    mirrors the manual ``Enter`` press a user would otherwise need.</span>
 
 <span class="sd">    :param writer: Async stream writer bound to the serial TCP transport.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;</span><span class="se">\r\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="sd">    """</span>
+    <span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\r\n</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">await</span> <span class="n">writer</span><span class="o">.</span><span class="n">drain</span><span class="p">()</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_terminal_content_size</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">columns</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">rows</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert outer terminal geometry into the visible guest text area.</span>
+<span class="w">    </span><span class="sd">"""Convert outer terminal geometry into the visible guest text area.</span>
 
-<span class="sd">    One row is reserved for PySnap&#39;s local status bar.</span>
+<span class="sd">    One row is reserved for PySnap's local status bar.</span>
 
 <span class="sd">    :param columns: Outer terminal width.</span>
 <span class="sd">    :param rows: Outer terminal height.</span>
 <span class="sd">    :returns: Visible guest area as ``(columns, lines)``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">columns</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">rows</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_output_columns</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">Application</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the current guest-visible width reported by prompt-toolkit.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Return the current guest-visible width reported by prompt-toolkit."""</span>
     <span class="n">columns</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_terminal_content_size_from_output</span><span class="p">(</span><span class="n">app</span><span class="o">=</span><span class="n">app</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">columns</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_output_lines</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">Application</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the current guest-visible height reported by prompt-toolkit.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Return the current guest-visible height reported by prompt-toolkit."""</span>
     <span class="n">_</span><span class="p">,</span> <span class="n">lines</span> <span class="o">=</span> <span class="n">_terminal_content_size_from_output</span><span class="p">(</span><span class="n">app</span><span class="o">=</span><span class="n">app</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">lines</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_terminal_content_size_from_output</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">Application</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the current visible guest area from the prompt-toolkit output.</span>
+<span class="w">    </span><span class="sd">"""Return the current visible guest area from the prompt-toolkit output.</span>
 
 <span class="sd">    :param app: Running prompt-toolkit application.</span>
 <span class="sd">    :returns: Visible guest area as ``(columns, lines)``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">size</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">get_size</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">_terminal_content_size</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">size</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">rows</span><span class="o">=</span><span class="n">size</span><span class="o">.</span><span class="n">rows</span><span class="p">)</span>
 
@@ -697,41 +755,41 @@
     <span class="n">app</span><span class="p">:</span> <span class="n">Application</span><span class="p">,</span>
     <span class="n">emulator</span><span class="p">:</span> <span class="n">TerminalEmulator</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resize the emulator to the current outer terminal dimensions.</span>
+<span class="w">    </span><span class="sd">"""Resize the emulator to the current outer terminal dimensions.</span>
 
 <span class="sd">    :param app: Running prompt-toolkit application.</span>
 <span class="sd">    :param emulator: Guest terminal emulator.</span>
 <span class="sd">    :returns: Applied visible guest area as ``(columns, lines)``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">columns</span><span class="p">,</span> <span class="n">lines</span> <span class="o">=</span> <span class="n">_terminal_content_size_from_output</span><span class="p">(</span><span class="n">app</span><span class="o">=</span><span class="n">app</span><span class="p">)</span>
     <span class="n">emulator</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span> <span class="n">lines</span><span class="o">=</span><span class="n">lines</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">columns</span><span class="p">,</span> <span class="n">lines</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_should_use_full_screen</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return whether the prompt-toolkit UI should use alternate-screen mode.</span>
+<span class="w">    </span><span class="sd">"""Return whether the prompt-toolkit UI should use alternate-screen mode.</span>
 
 <span class="sd">    Git Bash on Windows commonly runs inside ``mintty``, where full-screen</span>
 <span class="sd">    alternate-screen applications are more fragile than in native consoles.</span>
 
 <span class="sd">    :returns: ``True`` when full-screen mode is preferred.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="ow">not</span> <span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">&quot;win32&quot;</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;MSYSTEM&quot;</span><span class="p">))</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="ow">not</span> <span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">"win32"</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"MSYSTEM"</span><span class="p">))</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_should_enable_mouse_scrolling</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return whether local wheel scrolling should be enabled.</span>
+<span class="w">    </span><span class="sd">"""Return whether local wheel scrolling should be enabled.</span>
 
 <span class="sd">    Linux terminals provide the most predictable wheel-event handling in the</span>
 <span class="sd">    current PySnap UI, so wheel-based scrollback stays Linux-only for now.</span>
 
 <span class="sd">    :returns: ``True`` when Linux mouse-wheel scrolling is preferred.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;linux&quot;</span><span class="p">)</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"linux"</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_safe_exit_application</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">Application</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Exit a prompt-toolkit application only when it is still active.</span>
+<span class="w">    </span><span class="sd">"""Exit a prompt-toolkit application only when it is still active.</span>
 
 <span class="sd">    Background reader and watcher tasks can race with a user-triggered detach.</span>
 <span class="sd">    In that case, prompt-toolkit may raise benign exceptions because the</span>
@@ -740,7 +798,7 @@
 <span class="sd">    :param app: Running prompt-toolkit application.</span>
 <span class="sd">    :raises Exception: Propagated when prompt-toolkit reports an unexpected</span>
 <span class="sd">        failure unrelated to a repeated exit attempt.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">app</span><span class="o">.</span><span class="n">is_running</span> <span class="ow">or</span> <span class="n">app</span><span class="o">.</span><span class="n">is_done</span><span class="p">:</span>
         <span class="k">return</span>
 
@@ -749,8 +807,8 @@
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
         <span class="n">message</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">message</span> <span class="ow">in</span> <span class="p">{</span>
-            <span class="s2">&quot;Application is not running. Application.exit() failed.&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;Return value already set. Application.exit() failed.&quot;</span><span class="p">,</span>
+            <span class="s2">"Application is not running. Application.exit() failed."</span><span class="p">,</span>
+            <span class="s2">"Return value already set. Application.exit() failed."</span><span class="p">,</span>
         <span class="p">}:</span>
             <span class="k">return</span>
         <span class="k">raise</span>
@@ -813,7 +871,7 @@
       &#169;2026, PySnap Authors.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
       &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
       
     </div>

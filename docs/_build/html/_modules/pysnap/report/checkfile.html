@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pysnap.report.checkfile &#8212; PySnap 2.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../_static/documentation_options.js?v=51b770b3"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for pysnap.report.checkfile</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Check files: expected commands, output blocks and grading.</span>
+
+<span class="sd">A check file is TOML::</span>
+
+<span class="sd">    [report]              # optional expectations, reported as warnings</span>
+<span class="sd">    task = 1</span>
+<span class="sd">    host = "first"</span>
+
+<span class="sd">    [[command]]</span>
+<span class="sd">    id = "addr"           # optional, referenced by ``of`` and ``after``</span>
+<span class="sd">    cmd = "ip a show &lt;ETH-A&gt;"</span>
+<span class="sd">    after = "other-id"    # optional, commands only</span>
+<span class="sd">    points = 1            # optional weight, default 1</span>
+
+<span class="sd">    [[output]]</span>
+<span class="sd">    of = "addr"           # optional: search only the output of that command</span>
+<span class="sd">    order = "any"         # optional: lines in any order (default: sequence)</span>
+<span class="sd">    min_count = 3         # optional: the block must occur this many times</span>
+<span class="sd">    text = '''</span>
+<span class="sd">    inet &lt;IP-A&gt;/&lt;MASK&gt; scope global &lt;ETH-A&gt;</span>
+<span class="sd">    '''</span>
+
+<span class="sd">    [grading]</span>
+<span class="sd">    total = 10</span>
+<span class="sd">    scale = [[90, "5"], [75, "4"], [50, "3"], [0, "2"]]</span>
+
+<span class="sd">Parameters: ``&lt;IP&gt;``, ``&lt;ETH&gt;`` and ``&lt;MASK&gt;`` match any value of their</span>
+<span class="sd">type; ``&lt;IP-A&gt;``-style labels bind the first matched value and require it</span>
+<span class="sd">later; any other name such as ``&lt;X&gt;`` binds one word. ``&lt;*&gt;`` matches any</span>
+<span class="sd">text inside a line and a line holding only ``...`` matches any number of</span>
+<span class="sd">lines. Whitespace is normalized on both sides.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">tomllib</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapError</span>
+
+<span class="n">PARAMETER_TYPES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"IP"</span><span class="p">:</span> <span class="sa">r</span><span class="s2">"(?:\d{1,3}\.)</span><span class="si">{3}</span><span class="s2">\d{1,3}"</span><span class="p">,</span>
+    <span class="s2">"ETH"</span><span class="p">:</span> <span class="sa">r</span><span class="s2">"eth\d+"</span><span class="p">,</span>
+    <span class="s2">"MASK"</span><span class="p">:</span> <span class="sa">r</span><span class="s2">"\d{1,2}"</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">WORD_PATTERN</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">"\S+"</span>
+<span class="n">GAP_LINE</span> <span class="o">=</span> <span class="s2">"..."</span>
+<span class="n">ORDER_SEQUENCE</span> <span class="o">=</span> <span class="s2">"sequence"</span>
+<span class="n">ORDER_ANY</span> <span class="o">=</span> <span class="s2">"any"</span>
+
+<span class="n">_TOKEN_PATTERN</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"</span><span class="se">\\</span><span class="s2">&lt;|&lt;(\*|[A-Za-z][A-Za-z0-9_]*(?:-[A-Za-z0-9_]+)?)&gt;"</span><span class="p">)</span>
+<span class="n">_WHITESPACE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\s+"</span><span class="p">)</span>
+
+<span class="n">_REPORT_KEYS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"task"</span><span class="p">,</span> <span class="s2">"host"</span><span class="p">}</span>
+<span class="n">_COMMAND_KEYS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"id"</span><span class="p">,</span> <span class="s2">"cmd"</span><span class="p">,</span> <span class="s2">"after"</span><span class="p">,</span> <span class="s2">"points"</span><span class="p">}</span>
+<span class="n">_OUTPUT_KEYS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"of"</span><span class="p">,</span> <span class="s2">"text"</span><span class="p">,</span> <span class="s2">"order"</span><span class="p">,</span> <span class="s2">"min_count"</span><span class="p">,</span> <span class="s2">"points"</span><span class="p">}</span>
+<span class="n">_GRADING_KEYS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"total"</span><span class="p">,</span> <span class="s2">"scale"</span><span class="p">}</span>
+<span class="n">_TOP_LEVEL_KEYS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"report"</span><span class="p">,</span> <span class="s2">"command"</span><span class="p">,</span> <span class="s2">"output"</span><span class="p">,</span> <span class="s2">"grading"</span><span class="p">}</span>
+
+
+<div class="viewcode-block" id="CheckFileError">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.checkfile.CheckFileError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CheckFileError</span><span class="p">(</span><span class="n">PySnapError</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Report a check file that cannot be used."""</span></div>
+
+
+
+<div class="viewcode-block" id="Parameter">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.checkfile.Parameter">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Parameter</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Describe one ``&lt;...&gt;`` placeholder of a pattern.</span>
+
+<span class="sd">    :param kind: ``"IP"``, ``"ETH"``, ``"MASK"`` or ``"WORD"`` for free names.</span>
+<span class="sd">    :param name: Binding name, ``None`` for unlabeled typed parameters.</span>
+<span class="sd">    """</span>
+
+    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span></div>
+
+
+
+<div class="viewcode-block" id="Pattern">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.checkfile.Pattern">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Pattern</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Represent one line pattern split into literal text and parameters.</span>
+
+<span class="sd">    :param source: Pattern text as written, whitespace-normalized.</span>
+<span class="sd">    :param parts: Literal strings, :class:`Parameter` objects and ``None``</span>
+<span class="sd">        for ``&lt;*&gt;``, in order.</span>
+<span class="sd">    """</span>
+
+    <span class="n">source</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">parts</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">Parameter</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+
+<div class="viewcode-block" id="Pattern.names">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.checkfile.Pattern.names">[docs]</a>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Return the binding names used by the pattern."""</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">part</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parts</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">)</span> <span class="ow">and</span> <span class="n">part</span><span class="o">.</span><span class="n">name</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Pattern.match">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.checkfile.Pattern.match">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">match</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">bindings</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Match a whitespace-normalized line.</span>
+
+<span class="sd">        :param text: Normalized line.</span>
+<span class="sd">        :param bindings: Values already bound by earlier matches.</span>
+<span class="sd">        :returns: Bindings including new values, or ``None`` without match.</span>
+<span class="sd">        """</span>
+        <span class="n">regex</span><span class="p">,</span> <span class="n">groups</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compile</span><span class="p">(</span><span class="n">bindings</span><span class="p">)</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="n">regex</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">bindings</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">groups</span><span class="p">):</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">found</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">_valid_value</span><span class="p">(</span><span class="n">parameter</span><span class="o">.</span><span class="n">kind</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">parameter</span><span class="o">.</span><span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">parameter</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="n">value</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bindings</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">re</span><span class="o">.</span><span class="n">Pattern</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">Parameter</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Build a regular expression with bound values as literals."""</span>
+        <span class="n">pieces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">groups</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Parameter</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parts</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">part</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">pieces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">".*?"</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">pieces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">part</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="n">part</span><span class="o">.</span><span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">part</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">bindings</span><span class="p">:</span>
+                <span class="n">pieces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">bindings</span><span class="p">[</span><span class="n">part</span><span class="o">.</span><span class="n">name</span><span class="p">]))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">pieces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"(</span><span class="si">{</span><span class="n">PARAMETER_TYPES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">part</span><span class="o">.</span><span class="n">kind</span><span class="p">,</span><span class="w"> </span><span class="n">WORD_PATTERN</span><span class="p">)</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+                <span class="n">groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">part</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pieces</span><span class="p">)),</span> <span class="n">groups</span></div>
+
+
+
+<div class="viewcode-block" id="CommandCheck">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.checkfile.CommandCheck">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CommandCheck</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Represent one ``[[command]]`` item."""</span>
+
+    <span class="n">number</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">pattern</span><span class="p">:</span> <span class="n">Pattern</span>
+    <span class="n">after</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">points</span><span class="p">:</span> <span class="nb">float</span></div>
+
+
+
+<div class="viewcode-block" id="OutputCheck">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.checkfile.OutputCheck">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">OutputCheck</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Represent one ``[[output]]`` item.</span>
+
+<span class="sd">    :param lines: Line patterns; ``None`` stands for a ``...`` gap.</span>
+<span class="sd">    """</span>
+
+    <span class="n">number</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">of</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">lines</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Pattern</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">order</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">min_count</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">points</span><span class="p">:</span> <span class="nb">float</span></div>
+
+
+
+<div class="viewcode-block" id="GradeStep">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.checkfile.GradeStep">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">GradeStep</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Represent one step of the grading scale."""</span>
+
+    <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">mark</span><span class="p">:</span> <span class="nb">str</span></div>
+
+
+
+<div class="viewcode-block" id="CheckSpec">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.checkfile.CheckSpec">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CheckSpec</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Represent a loaded check file."""</span>
+
+    <span class="n">source_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">expected_task</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">expected_host</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">commands</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">CommandCheck</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">outputs</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">OutputCheck</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">total</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">scale</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">GradeStep</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="normalize_spacing">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.checkfile.normalize_spacing">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">normalize_spacing</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Trim a line and collapse whitespace runs to single spaces.</span>
+
+<span class="sd">    :param text: Raw line.</span>
+<span class="sd">    :returns: Normalized line.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">_WHITESPACE</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">" "</span><span class="p">,</span> <span class="n">text</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="compile_pattern">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.checkfile.compile_pattern">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compile_pattern</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">where</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"pattern"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pattern</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Compile one line pattern.</span>
+
+<span class="sd">    :param text: Pattern line.</span>
+<span class="sd">    :param where: Location used in error messages.</span>
+<span class="sd">    :returns: Compiled pattern.</span>
+<span class="sd">    :raises CheckFileError: For an unknown ``&lt;NAME-label&gt;`` form.</span>
+<span class="sd">    """</span>
+    <span class="n">normalized</span> <span class="o">=</span> <span class="n">normalize_spacing</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+    <span class="n">parts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">Parameter</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">literal</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">position</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">_TOKEN_PATTERN</span><span class="o">.</span><span class="n">finditer</span><span class="p">(</span><span class="n">normalized</span><span class="p">):</span>
+        <span class="n">literal</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">normalized</span><span class="p">[</span><span class="n">position</span><span class="p">:</span><span class="n">token</span><span class="o">.</span><span class="n">start</span><span class="p">()])</span>
+        <span class="n">position</span> <span class="o">=</span> <span class="n">token</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">token</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"</span><span class="se">\\</span><span class="s2">&lt;"</span><span class="p">:</span>
+            <span class="n">literal</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"&lt;"</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">literal</span><span class="p">:</span>
+            <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">literal</span><span class="p">))</span>
+            <span class="n">literal</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_parameter</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">where</span><span class="p">))</span>
+    <span class="n">literal</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">normalized</span><span class="p">[</span><span class="n">position</span><span class="p">:])</span>
+    <span class="k">if</span> <span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">literal</span><span class="p">):</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">literal</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">Pattern</span><span class="p">(</span><span class="n">normalized</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">part</span> <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">parts</span> <span class="k">if</span> <span class="n">part</span> <span class="o">!=</span> <span class="s2">""</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="load_check">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.checkfile.load_check">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_check</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CheckSpec</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Load and validate a check file.</span>
+
+<span class="sd">    :param path: Path to the TOML check file.</span>
+<span class="sd">    :returns: Validated check specification.</span>
+<span class="sd">    :raises CheckFileError: When the file is missing, is not valid TOML or</span>
+<span class="sd">        does not follow the check file format.</span>
+<span class="sd">    """</span>
+    <span class="n">check_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">check_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="n">CheckFileError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Check file "</span><span class="si">{</span><span class="n">check_path</span><span class="si">}</span><span class="s1">" was not found.'</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">tomllib</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">check_path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">))</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">tomllib</span><span class="o">.</span><span class="n">TOMLDecodeError</span><span class="p">,</span> <span class="ne">UnicodeDecodeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">CheckFileError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Check file "</span><span class="si">{</span><span class="n">check_path</span><span class="si">}</span><span class="s1">" is not valid TOML: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+    <span class="k">return</span> <span class="n">parse_check</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">check_path</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="parse_check">
+<a class="viewcode-back" href="../../../api/pysnap.report.html#pysnap.report.checkfile.parse_check">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">parse_check</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">source_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CheckSpec</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Validate parsed check file data.</span>
+
+<span class="sd">    :param data: Parsed TOML document.</span>
+<span class="sd">    :param source_name: File name used in messages.</span>
+<span class="sd">    :returns: Validated check specification.</span>
+<span class="sd">    :raises CheckFileError: When the data does not follow the format.</span>
+<span class="sd">    """</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fail</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CheckFileError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">CheckFileError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Check file </span><span class="si">{</span><span class="n">source_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="n">_reject_unknown</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">_TOP_LEVEL_KEYS</span><span class="p">,</span> <span class="s2">"top level"</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span>
+    <span class="n">report</span> <span class="o">=</span> <span class="n">_table</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"report"</span><span class="p">,</span> <span class="p">{}),</span> <span class="s2">"[report]"</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span>
+    <span class="n">_reject_unknown</span><span class="p">(</span><span class="n">report</span><span class="p">,</span> <span class="n">_REPORT_KEYS</span><span class="p">,</span> <span class="s2">"[report]"</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span>
+    <span class="n">expected_task</span> <span class="o">=</span> <span class="n">report</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"task"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">expected_task</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">expected_task</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expected_task</span><span class="p">,</span> <span class="nb">int</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="s2">"[report] task must be an integer."</span><span class="p">)</span>
+    <span class="n">expected_host</span> <span class="o">=</span> <span class="n">report</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"host"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">expected_host</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expected_host</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="s2">"[report] host must be a string."</span><span class="p">)</span>
+
+    <span class="n">commands</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">CommandCheck</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">known_ids</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">number</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">_items</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">"command"</span><span class="p">,</span> <span class="n">fail</span><span class="p">),</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">where</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"command #</span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s2">"</span>
+        <span class="n">_reject_unknown</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">_COMMAND_KEYS</span><span class="p">,</span> <span class="n">where</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"cmd"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">normalize_spacing</span><span class="p">(</span><span class="n">cmd</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2"> needs a non-empty cmd string."</span><span class="p">)</span>
+        <span class="n">item_id</span> <span class="o">=</span> <span class="n">_optional_string</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="s2">"id"</span><span class="p">,</span> <span class="n">where</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span>
+        <span class="n">after</span> <span class="o">=</span> <span class="n">_optional_string</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="s2">"after"</span><span class="p">,</span> <span class="n">where</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">after</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">after</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">known_ids</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s1">: after = "</span><span class="si">{</span><span class="n">after</span><span class="si">}</span><span class="s1">" must name an id of an earlier command.'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">item_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">item_id</span> <span class="ow">in</span> <span class="n">known_ids</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s1">: duplicate id "</span><span class="si">{</span><span class="n">item_id</span><span class="si">}</span><span class="s1">".'</span><span class="p">)</span>
+            <span class="n">known_ids</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">item_id</span><span class="p">)</span>
+        <span class="n">commands</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">CommandCheck</span><span class="p">(</span>
+                <span class="n">number</span><span class="o">=</span><span class="n">number</span><span class="p">,</span>
+                <span class="nb">id</span><span class="o">=</span><span class="n">item_id</span><span class="p">,</span>
+                <span class="n">pattern</span><span class="o">=</span><span class="n">_pattern</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">where</span><span class="p">,</span> <span class="n">fail</span><span class="p">),</span>
+                <span class="n">after</span><span class="o">=</span><span class="n">after</span><span class="p">,</span>
+                <span class="n">points</span><span class="o">=</span><span class="n">_points</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">where</span><span class="p">,</span> <span class="n">fail</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="n">outputs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">OutputCheck</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">number</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">_items</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">"output"</span><span class="p">,</span> <span class="n">fail</span><span class="p">),</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">where</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"output #</span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s2">"</span>
+        <span class="k">if</span> <span class="s2">"after"</span> <span class="ow">in</span> <span class="n">item</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2">: after is allowed only for commands; use of for outputs."</span><span class="p">)</span>
+        <span class="n">_reject_unknown</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">_OUTPUT_KEYS</span><span class="p">,</span> <span class="n">where</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span>
+        <span class="n">of</span> <span class="o">=</span> <span class="n">_optional_string</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="s2">"of"</span><span class="p">,</span> <span class="n">where</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">of</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">of</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">known_ids</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s1">: of = "</span><span class="si">{</span><span class="n">of</span><span class="si">}</span><span class="s1">" must name an id of a command.'</span><span class="p">)</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"order"</span><span class="p">,</span> <span class="n">ORDER_SEQUENCE</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">order</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="n">ORDER_SEQUENCE</span><span class="p">,</span> <span class="n">ORDER_ANY</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s1">: order must be "</span><span class="si">{</span><span class="n">ORDER_SEQUENCE</span><span class="si">}</span><span class="s1">" or "</span><span class="si">{</span><span class="n">ORDER_ANY</span><span class="si">}</span><span class="s1">".'</span><span class="p">)</span>
+        <span class="n">min_count</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"min_count"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">min_count</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">min_count</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="n">min_count</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2">: min_count must be a positive integer."</span><span class="p">)</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"text"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2"> needs a text string."</span><span class="p">)</span>
+        <span class="n">patterns</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="kc">None</span> <span class="k">if</span> <span class="n">normalize_spacing</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span> <span class="o">==</span> <span class="n">GAP_LINE</span> <span class="k">else</span> <span class="n">_pattern</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">where</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">raw</span> <span class="ow">in</span> <span class="n">_block_lines</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">pattern</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="n">patterns</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2">: text has no lines to match."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">order</span> <span class="o">==</span> <span class="n">ORDER_ANY</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">pattern</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="n">patterns</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s1">: "..." lines are not allowed with order = "any".'</span><span class="p">)</span>
+        <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">OutputCheck</span><span class="p">(</span>
+                <span class="n">number</span><span class="o">=</span><span class="n">number</span><span class="p">,</span>
+                <span class="n">of</span><span class="o">=</span><span class="n">of</span><span class="p">,</span>
+                <span class="n">lines</span><span class="o">=</span><span class="n">patterns</span><span class="p">,</span>
+                <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span>
+                <span class="n">min_count</span><span class="o">=</span><span class="n">min_count</span><span class="p">,</span>
+                <span class="n">points</span><span class="o">=</span><span class="n">_points</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">where</span><span class="p">,</span> <span class="n">fail</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">commands</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">outputs</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="s2">"it defines no [[command]] or [[output]] items."</span><span class="p">)</span>
+
+    <span class="n">grading</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"grading"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">grading</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="s2">"the [grading] table with total and scale is required."</span><span class="p">)</span>
+    <span class="n">grading</span> <span class="o">=</span> <span class="n">_table</span><span class="p">(</span><span class="n">grading</span><span class="p">,</span> <span class="s2">"[grading]"</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span>
+    <span class="n">_reject_unknown</span><span class="p">(</span><span class="n">grading</span><span class="p">,</span> <span class="n">_GRADING_KEYS</span><span class="p">,</span> <span class="s2">"[grading]"</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="n">grading</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"total"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">total</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">total</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span> <span class="ow">or</span> <span class="n">total</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="s2">"[grading] total must be a positive number."</span><span class="p">)</span>
+    <span class="n">scale</span> <span class="o">=</span> <span class="n">_scale</span><span class="p">(</span><span class="n">grading</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"scale"</span><span class="p">),</span> <span class="n">fail</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">CheckSpec</span><span class="p">(</span>
+        <span class="n">source_name</span><span class="o">=</span><span class="n">source_name</span><span class="p">,</span>
+        <span class="n">expected_task</span><span class="o">=</span><span class="n">expected_task</span><span class="p">,</span>
+        <span class="n">expected_host</span><span class="o">=</span><span class="n">expected_host</span><span class="p">,</span>
+        <span class="n">commands</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">commands</span><span class="p">),</span>
+        <span class="n">outputs</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">outputs</span><span class="p">),</span>
+        <span class="n">total</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">total</span><span class="p">),</span>
+        <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_parameter</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">where</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Parameter</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Translate one placeholder name."""</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">"*"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">kind</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">label</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">"-"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">PARAMETER_TYPES</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Parameter</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">name</span> <span class="k">if</span> <span class="n">label</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">label</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">CheckFileError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2">: &lt;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt; uses a label, but labels are allowed only for "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PARAMETER_TYPES</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">Parameter</span><span class="p">(</span><span class="s2">"WORD"</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_valid_value</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Check a matched value against the structure of its type."""</span>
+    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"IP"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">octet</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">255</span> <span class="k">for</span> <span class="n">octet</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"."</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"MASK"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">32</span>
+    <span class="k">return</span> <span class="kc">True</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_pattern</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">where</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pattern</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Compile a pattern, wrapping errors with the file name."""</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">compile_pattern</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">where</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">CheckFileError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">error</span><span class="p">))</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_block_lines</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Split a text block, dropping blank lines at its start and end."""</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">while</span> <span class="n">lines</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">while</span> <span class="n">lines</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">lines</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">lines</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_items</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""Return an array of tables."""</span>
+    <span class="n">items</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[])</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">items</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> items must be written as [[</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">]] tables."</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">items</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_table</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">where</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Return a table or fail."""</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2"> must be a table."</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">value</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_reject_unknown</span><span class="p">(</span><span class="n">table</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">allowed</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">where</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Fail on keys that the format does not define."""</span>
+    <span class="n">unknown</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">table</span><span class="p">)</span> <span class="o">-</span> <span class="n">allowed</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">unknown</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2">: unknown key(s) </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">unknown</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_optional_string</span><span class="p">(</span><span class="n">item</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">where</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return an optional non-empty string value."""</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> must be a non-empty string."</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">value</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_points</span><span class="p">(</span><span class="n">item</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">where</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return the weight of an item (default 1)."""</span>
+    <span class="n">points</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"points"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span> <span class="ow">or</span> <span class="n">points</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2">: points must be a positive number."</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_scale</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">fail</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">GradeStep</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Validate the grading scale: thresholds in percent, strictly descending."""</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="s1">'[grading] scale must be a non-empty list of [threshold, "mark"] pairs.'</span><span class="p">)</span>
+    <span class="n">steps</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">GradeStep</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">value</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span>
+            <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">bool</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span>
+            <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="s1">'[grading] scale entries must be [threshold, "mark"] pairs.'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">entry</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">100</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="s2">"[grading] scale thresholds must be between 0 and 100."</span><span class="p">)</span>
+        <span class="n">steps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">GradeStep</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">entry</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="n">thresholds</span> <span class="o">=</span> <span class="p">[</span><span class="n">step</span><span class="o">.</span><span class="n">threshold</span> <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="n">steps</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">thresholds</span> <span class="o">!=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">thresholds</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">thresholds</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">thresholds</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">fail</span><span class="p">(</span><span class="s2">"[grading] scale thresholds must be listed from highest to lowest."</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">steps</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">PySnap</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/modules.html">pysnap</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, PySnap Authors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

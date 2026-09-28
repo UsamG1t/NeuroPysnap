@@ -5,12 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>pysnap.cli package &#8212; PySnap 1.1.0 documentation</title>
+    <title>pysnap.cli package &#8212; PySnap 2.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
-    <script src="../_static/documentation_options.js?v=fc837d61"></script>
+    <script src="../_static/documentation_options.js?v=51b770b3"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -313,6 +313,145 @@
 </dd></dl>
 
 </section>
+<section id="module-pysnap.cli.report">
+<span id="pysnap-cli-report-module"></span><h2>pysnap.cli.report module<a class="headerlink" href="#module-pysnap.cli.report" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">report</span></code> subcommands.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.cli.report.build_report_parser">
+<span class="sig-prename descclassname"><span class="pre">pysnap.cli.report.</span></span><span class="sig-name descname"><span class="pre">build_report_parser</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stdout</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stderr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/cli/report.html#build_report_parser"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.cli.report.build_report_parser" title="Link to this definition">¶</a></dt>
+<dd><p>Build the <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">report</span></code> parser with its subcommands.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stdout</strong> (<em>TextIO</em>) – Stream used for help output.</p></li>
+<li><p><strong>stderr</strong> (<em>TextIO</em>) – Stream used for parser errors.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Configured parser.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>ArgumentParser</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.cli.report.run_report_command">
+<span class="sig-prename descclassname"><span class="pre">pysnap.cli.report.</span></span><span class="sig-name descname"><span class="pre">run_report_command</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arguments</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">service</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stdout</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stderr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/cli/report.html#run_report_command"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.cli.report.run_report_command" title="Link to this definition">¶</a></dt>
+<dd><p>Run <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">report</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>arguments</strong> (<em>Sequence</em><em>[</em><em>str</em><em>]</em>) – Arguments after <code class="docutils literal notranslate"><span class="pre">report</span></code>.</p></li>
+<li><p><strong>service</strong> (<a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService" title="pysnap.core.service.PySnapService"><em>PySnapService</em></a>) – Application service.</p></li>
+<li><p><strong>stdout</strong> (<em>TextIO</em>) – Output stream.</p></li>
+<li><p><strong>stderr</strong> (<em>TextIO</em>) – Error stream.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Process exit code.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.cli.report.format_compare_result">
+<span class="sig-prename descclassname"><span class="pre">pysnap.cli.report.</span></span><span class="sig-name descname"><span class="pre">format_compare_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/cli/report.html#format_compare_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.cli.report.format_compare_result" title="Link to this definition">¶</a></dt>
+<dd><p>Render a pairwise comparison.</p>
+<p>Pairs with signals come first with only the signals found; pairs
+without signals take one line each.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>result</strong> (<a class="reference internal" href="pysnap.report.html#pysnap.report.compare.CompareResult" title="pysnap.report.compare.CompareResult"><em>CompareResult</em></a>) – Comparison result.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Multi-line human-readable text.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.cli.report.format_check_result">
+<span class="sig-prename descclassname"><span class="pre">pysnap.cli.report.</span></span><span class="sig-name descname"><span class="pre">format_check_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transcript</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/cli/report.html#format_check_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.cli.report.format_check_result" title="Link to this definition">¶</a></dt>
+<dd><p>Render the per-item results and the grade.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>result</strong> (<a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.CheckResult" title="pysnap.report.matcher.CheckResult"><em>CheckResult</em></a>) – Graded check result.</p></li>
+<li><p><strong>transcript</strong> (<a class="reference internal" href="pysnap.report.html#pysnap.report.models.Transcript" title="pysnap.report.models.Transcript"><em>Transcript</em></a>) – Rendered report, used to show what matched.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Multi-line human-readable text.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.cli.report.format_report_stats">
+<span class="sig-prename descclassname"><span class="pre">pysnap.cli.report.</span></span><span class="sig-name descname"><span class="pre">format_report_stats</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stats</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/cli/report.html#format_report_stats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.cli.report.format_report_stats" title="Link to this definition">¶</a></dt>
+<dd><p>Render the report information block.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>stats</strong> (<a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats" title="pysnap.report.stats.ReportStats"><em>ReportStats</em></a>) – Report statistics.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Multi-line human-readable text.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.cli.report.format_transcript">
+<span class="sig-prename descclassname"><span class="pre">pysnap.cli.report.</span></span><span class="sig-name descname"><span class="pre">format_transcript</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transcript</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">color</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/cli/report.html#format_transcript"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.cli.report.format_transcript" title="Link to this definition">¶</a></dt>
+<dd><p>Render transcript lines, highlighting prompts and commands.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>transcript</strong> (<a class="reference internal" href="pysnap.report.html#pysnap.report.models.Transcript" title="pysnap.report.models.Transcript"><em>Transcript</em></a>) – Rendered session.</p></li>
+<li><p><strong>color</strong> (<em>bool</em>) – Whether to emit ANSI styles.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Output lines.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.cli.report.format_command_list">
+<span class="sig-prename descclassname"><span class="pre">pysnap.cli.report.</span></span><span class="sig-name descname"><span class="pre">format_command_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">commands</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/cli/report.html#format_command_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.cli.report.format_command_list" title="Link to this definition">¶</a></dt>
+<dd><p>Render the numbered list of entered commands.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>commands</strong> (<em>Sequence</em><em>[</em><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CommandRecord" title="pysnap.report.models.CommandRecord"><em>CommandRecord</em></a><em>]</em>) – Commands in recording order.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>One line per command with its recording time.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
 </section>
 
 
@@ -380,7 +519,7 @@
       &#169;2026, PySnap Authors.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
       &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
       
       |

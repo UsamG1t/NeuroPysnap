@@ -5,12 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>pysnap package &#8212; PySnap 1.1.0 documentation</title>
+    <title>pysnap package &#8212; PySnap 2.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
-    <script src="../_static/documentation_options.js?v=fc837d61"></script>
+    <script src="../_static/documentation_options.js?v=51b770b3"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -70,6 +70,16 @@
 <li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.format_import_result"><code class="docutils literal notranslate"><span class="pre">format_import_result()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.format_integration_test_result"><code class="docutils literal notranslate"><span class="pre">format_integration_test_result()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.formatters.format_monitor_records"><code class="docutils literal notranslate"><span class="pre">format_monitor_records()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.cli.html#module-pysnap.cli.report">pysnap.cli.report module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.report.build_report_parser"><code class="docutils literal notranslate"><span class="pre">build_report_parser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.report.run_report_command"><code class="docutils literal notranslate"><span class="pre">run_report_command()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.report.format_compare_result"><code class="docutils literal notranslate"><span class="pre">format_compare_result()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.report.format_check_result"><code class="docutils literal notranslate"><span class="pre">format_check_result()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.report.format_report_stats"><code class="docutils literal notranslate"><span class="pre">format_report_stats()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.report.format_transcript"><code class="docutils literal notranslate"><span class="pre">format_transcript()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.cli.html#pysnap.cli.report.format_command_list"><code class="docutils literal notranslate"><span class="pre">format_command_list()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -183,6 +193,400 @@
 </li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="pysnap.report.html">pysnap.report package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.report.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.report.html#module-pysnap.report.archive">pysnap.report.archive module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.archive.read_report_archive"><code class="docutils literal notranslate"><span class="pre">read_report_archive()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.report.html#module-pysnap.report.checkfile">pysnap.report.checkfile module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.CheckFileError"><code class="docutils literal notranslate"><span class="pre">CheckFileError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.Parameter"><code class="docutils literal notranslate"><span class="pre">Parameter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.Parameter.kind"><code class="docutils literal notranslate"><span class="pre">Parameter.kind</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.Parameter.name"><code class="docutils literal notranslate"><span class="pre">Parameter.name</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.Pattern"><code class="docutils literal notranslate"><span class="pre">Pattern</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.Pattern.source"><code class="docutils literal notranslate"><span class="pre">Pattern.source</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.Pattern.parts"><code class="docutils literal notranslate"><span class="pre">Pattern.parts</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.Pattern.names"><code class="docutils literal notranslate"><span class="pre">Pattern.names</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.Pattern.match"><code class="docutils literal notranslate"><span class="pre">Pattern.match()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.CommandCheck"><code class="docutils literal notranslate"><span class="pre">CommandCheck</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.CommandCheck.number"><code class="docutils literal notranslate"><span class="pre">CommandCheck.number</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.CommandCheck.id"><code class="docutils literal notranslate"><span class="pre">CommandCheck.id</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.CommandCheck.pattern"><code class="docutils literal notranslate"><span class="pre">CommandCheck.pattern</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.CommandCheck.after"><code class="docutils literal notranslate"><span class="pre">CommandCheck.after</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.CommandCheck.points"><code class="docutils literal notranslate"><span class="pre">CommandCheck.points</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.OutputCheck"><code class="docutils literal notranslate"><span class="pre">OutputCheck</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.OutputCheck.number"><code class="docutils literal notranslate"><span class="pre">OutputCheck.number</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.OutputCheck.of"><code class="docutils literal notranslate"><span class="pre">OutputCheck.of</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.OutputCheck.lines"><code class="docutils literal notranslate"><span class="pre">OutputCheck.lines</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.OutputCheck.order"><code class="docutils literal notranslate"><span class="pre">OutputCheck.order</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.OutputCheck.min_count"><code class="docutils literal notranslate"><span class="pre">OutputCheck.min_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.OutputCheck.points"><code class="docutils literal notranslate"><span class="pre">OutputCheck.points</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.GradeStep"><code class="docutils literal notranslate"><span class="pre">GradeStep</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.GradeStep.threshold"><code class="docutils literal notranslate"><span class="pre">GradeStep.threshold</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.GradeStep.mark"><code class="docutils literal notranslate"><span class="pre">GradeStep.mark</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.CheckSpec"><code class="docutils literal notranslate"><span class="pre">CheckSpec</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.CheckSpec.source_name"><code class="docutils literal notranslate"><span class="pre">CheckSpec.source_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.CheckSpec.expected_task"><code class="docutils literal notranslate"><span class="pre">CheckSpec.expected_task</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.CheckSpec.expected_host"><code class="docutils literal notranslate"><span class="pre">CheckSpec.expected_host</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.CheckSpec.commands"><code class="docutils literal notranslate"><span class="pre">CheckSpec.commands</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.CheckSpec.outputs"><code class="docutils literal notranslate"><span class="pre">CheckSpec.outputs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.CheckSpec.total"><code class="docutils literal notranslate"><span class="pre">CheckSpec.total</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.CheckSpec.scale"><code class="docutils literal notranslate"><span class="pre">CheckSpec.scale</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.normalize_spacing"><code class="docutils literal notranslate"><span class="pre">normalize_spacing()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.compile_pattern"><code class="docutils literal notranslate"><span class="pre">compile_pattern()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.load_check"><code class="docutils literal notranslate"><span class="pre">load_check()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.checkfile.parse_check"><code class="docutils literal notranslate"><span class="pre">parse_check()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.report.html#module-pysnap.report.compare">pysnap.report.compare module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.CompareSignal"><code class="docutils literal notranslate"><span class="pre">CompareSignal</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.CompareSignal.code"><code class="docutils literal notranslate"><span class="pre">CompareSignal.code</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.CompareSignal.level"><code class="docutils literal notranslate"><span class="pre">CompareSignal.level</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.CompareSignal.description"><code class="docutils literal notranslate"><span class="pre">CompareSignal.description</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.PairResult"><code class="docutils literal notranslate"><span class="pre">PairResult</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.PairResult.first"><code class="docutils literal notranslate"><span class="pre">PairResult.first</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.PairResult.second"><code class="docutils literal notranslate"><span class="pre">PairResult.second</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.PairResult.signals"><code class="docutils literal notranslate"><span class="pre">PairResult.signals</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.PairResult.level"><code class="docutils literal notranslate"><span class="pre">PairResult.level</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.CompareResult"><code class="docutils literal notranslate"><span class="pre">CompareResult</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.CompareResult.reports"><code class="docutils literal notranslate"><span class="pre">CompareResult.reports</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.CompareResult.pairs"><code class="docutils literal notranslate"><span class="pre">CompareResult.pairs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.CompareResult.warnings"><code class="docutils literal notranslate"><span class="pre">CompareResult.warnings</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.ReportFingerprint"><code class="docutils literal notranslate"><span class="pre">ReportFingerprint</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.ReportFingerprint.path"><code class="docutils literal notranslate"><span class="pre">ReportFingerprint.path</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.ReportFingerprint.file_sha256"><code class="docutils literal notranslate"><span class="pre">ReportFingerprint.file_sha256</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.ReportFingerprint.output_sha256"><code class="docutils literal notranslate"><span class="pre">ReportFingerprint.output_sha256</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.ReportFingerprint.macs"><code class="docutils literal notranslate"><span class="pre">ReportFingerprint.macs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.ReportFingerprint.start"><code class="docutils literal notranslate"><span class="pre">ReportFingerprint.start</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.ReportFingerprint.delay_windows"><code class="docutils literal notranslate"><span class="pre">ReportFingerprint.delay_windows</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.ReportFingerprint.ping_times"><code class="docutils literal notranslate"><span class="pre">ReportFingerprint.ping_times</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.ReportFingerprint.tcpdump_times"><code class="docutils literal notranslate"><span class="pre">ReportFingerprint.tcpdump_times</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.ReportFingerprint.error_commands"><code class="docutils literal notranslate"><span class="pre">ReportFingerprint.error_commands</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.ReportFingerprint.cpu_info"><code class="docutils literal notranslate"><span class="pre">ReportFingerprint.cpu_info</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.ReportFingerprint.cpu_model"><code class="docutils literal notranslate"><span class="pre">ReportFingerprint.cpu_model</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.collect_report_paths"><code class="docutils literal notranslate"><span class="pre">collect_report_paths()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.fingerprint_report"><code class="docutils literal notranslate"><span class="pre">fingerprint_report()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.compare_pair"><code class="docutils literal notranslate"><span class="pre">compare_pair()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.compare_fingerprints"><code class="docutils literal notranslate"><span class="pre">compare_fingerprints()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.compare.compare_reports"><code class="docutils literal notranslate"><span class="pre">compare_reports()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.report.html#module-pysnap.report.control">pysnap.report.control module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.control.ControlServer"><code class="docutils literal notranslate"><span class="pre">ControlServer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.control.ControlServer.start"><code class="docutils literal notranslate"><span class="pre">ControlServer.start()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.control.ControlServer.close"><code class="docutils literal notranslate"><span class="pre">ControlServer.close()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.control.request_transfer"><code class="docutils literal notranslate"><span class="pre">request_transfer()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.report.html#module-pysnap.report.extract">pysnap.report.extract module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.ExtractError"><code class="docutils literal notranslate"><span class="pre">ExtractError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.ExtractResult"><code class="docutils literal notranslate"><span class="pre">ExtractResult</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.ExtractResult.vm_name"><code class="docutils literal notranslate"><span class="pre">ExtractResult.vm_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.ExtractResult.remote_path"><code class="docutils literal notranslate"><span class="pre">ExtractResult.remote_path</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.ExtractResult.destination"><code class="docutils literal notranslate"><span class="pre">ExtractResult.destination</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.ExtractResult.size"><code class="docutils literal notranslate"><span class="pre">ExtractResult.size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.ExtractResult.sha256"><code class="docutils literal notranslate"><span class="pre">ExtractResult.sha256</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.extract_file"><code class="docutils literal notranslate"><span class="pre">extract_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.run_transfer"><code class="docutils literal notranslate"><span class="pre">run_transfer()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.remote_shell_path"><code class="docutils literal notranslate"><span class="pre">remote_shell_path()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.ConsoleIO"><code class="docutils literal notranslate"><span class="pre">ConsoleIO</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.ConsoleIO.buffer"><code class="docutils literal notranslate"><span class="pre">ConsoleIO.buffer</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.ConsoleIO.send"><code class="docutils literal notranslate"><span class="pre">ConsoleIO.send()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.ConsoleIO.exchange"><code class="docutils literal notranslate"><span class="pre">ConsoleIO.exchange()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.ConsoleIO.read_until"><code class="docutils literal notranslate"><span class="pre">ConsoleIO.read_until()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.SocketConsole"><code class="docutils literal notranslate"><span class="pre">SocketConsole</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.QueueConsole"><code class="docutils literal notranslate"><span class="pre">QueueConsole</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.QueueConsole.feed"><code class="docutils literal notranslate"><span class="pre">QueueConsole.feed()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.extract.QueueConsole.close"><code class="docutils literal notranslate"><span class="pre">QueueConsole.close()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.report.html#module-pysnap.report.highlight">pysnap.report.highlight module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.highlight.highlight_transcript"><code class="docutils literal notranslate"><span class="pre">highlight_transcript()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.report.html#module-pysnap.report.matcher">pysnap.report.matcher module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.ItemResult"><code class="docutils literal notranslate"><span class="pre">ItemResult</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.ItemResult.kind"><code class="docutils literal notranslate"><span class="pre">ItemResult.kind</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.ItemResult.number"><code class="docutils literal notranslate"><span class="pre">ItemResult.number</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.ItemResult.label"><code class="docutils literal notranslate"><span class="pre">ItemResult.label</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.ItemResult.pattern"><code class="docutils literal notranslate"><span class="pre">ItemResult.pattern</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.ItemResult.passed"><code class="docutils literal notranslate"><span class="pre">ItemResult.passed</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.ItemResult.points"><code class="docutils literal notranslate"><span class="pre">ItemResult.points</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.ItemResult.command"><code class="docutils literal notranslate"><span class="pre">ItemResult.command</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.ItemResult.lines"><code class="docutils literal notranslate"><span class="pre">ItemResult.lines</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.ItemResult.count"><code class="docutils literal notranslate"><span class="pre">ItemResult.count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.ItemResult.reason"><code class="docutils literal notranslate"><span class="pre">ItemResult.reason</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.ItemResult.closest"><code class="docutils literal notranslate"><span class="pre">ItemResult.closest</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.CheckResult"><code class="docutils literal notranslate"><span class="pre">CheckResult</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.CheckResult.check_name"><code class="docutils literal notranslate"><span class="pre">CheckResult.check_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.CheckResult.items"><code class="docutils literal notranslate"><span class="pre">CheckResult.items</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.CheckResult.bindings"><code class="docutils literal notranslate"><span class="pre">CheckResult.bindings</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.CheckResult.earned_weight"><code class="docutils literal notranslate"><span class="pre">CheckResult.earned_weight</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.CheckResult.total_weight"><code class="docutils literal notranslate"><span class="pre">CheckResult.total_weight</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.CheckResult.percent"><code class="docutils literal notranslate"><span class="pre">CheckResult.percent</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.CheckResult.points"><code class="docutils literal notranslate"><span class="pre">CheckResult.points</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.CheckResult.total_points"><code class="docutils literal notranslate"><span class="pre">CheckResult.total_points</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.CheckResult.mark"><code class="docutils literal notranslate"><span class="pre">CheckResult.mark</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.CheckResult.warnings"><code class="docutils literal notranslate"><span class="pre">CheckResult.warnings</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.CheckResult.search_exhausted"><code class="docutils literal notranslate"><span class="pre">CheckResult.search_exhausted</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.matcher.run_check"><code class="docutils literal notranslate"><span class="pre">run_check()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.report.html#module-pysnap.report.models">pysnap.report.models module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.ReportLimits"><code class="docutils literal notranslate"><span class="pre">ReportLimits</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.ReportLimits.max_archive_bytes"><code class="docutils literal notranslate"><span class="pre">ReportLimits.max_archive_bytes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.ReportLimits.max_member_bytes"><code class="docutils literal notranslate"><span class="pre">ReportLimits.max_member_bytes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.ReportLimits.max_unpacked_bytes"><code class="docutils literal notranslate"><span class="pre">ReportLimits.max_unpacked_bytes</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.ReportDiagnostic"><code class="docutils literal notranslate"><span class="pre">ReportDiagnostic</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.ReportDiagnostic.code"><code class="docutils literal notranslate"><span class="pre">ReportDiagnostic.code</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.ReportDiagnostic.message"><code class="docutils literal notranslate"><span class="pre">ReportDiagnostic.message</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.ReportName"><code class="docutils literal notranslate"><span class="pre">ReportName</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.ReportName.task"><code class="docutils literal notranslate"><span class="pre">ReportName.task</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.ReportName.host"><code class="docutils literal notranslate"><span class="pre">ReportName.host</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.ReportName.parse"><code class="docutils literal notranslate"><span class="pre">ReportName.parse()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.ReportArchive"><code class="docutils literal notranslate"><span class="pre">ReportArchive</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.ReportArchive.members"><code class="docutils literal notranslate"><span class="pre">ReportArchive.members</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.ReportArchive.mtimes"><code class="docutils literal notranslate"><span class="pre">ReportArchive.mtimes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.ReportArchive.diagnostics"><code class="docutils literal notranslate"><span class="pre">ReportArchive.diagnostics</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.TimingEvent"><code class="docutils literal notranslate"><span class="pre">TimingEvent</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.TimingEvent.kind"><code class="docutils literal notranslate"><span class="pre">TimingEvent.kind</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.TimingEvent.delay"><code class="docutils literal notranslate"><span class="pre">TimingEvent.delay</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.TimingEvent.time"><code class="docutils literal notranslate"><span class="pre">TimingEvent.time</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.TimingEvent.data"><code class="docutils literal notranslate"><span class="pre">TimingEvent.data</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Recording"><code class="docutils literal notranslate"><span class="pre">Recording</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Recording.source_name"><code class="docutils literal notranslate"><span class="pre">Recording.source_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Recording.name"><code class="docutils literal notranslate"><span class="pre">Recording.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Recording.headers"><code class="docutils literal notranslate"><span class="pre">Recording.headers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Recording.start_time"><code class="docutils literal notranslate"><span class="pre">Recording.start_time</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Recording.duration"><code class="docutils literal notranslate"><span class="pre">Recording.duration</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Recording.exit_code"><code class="docutils literal notranslate"><span class="pre">Recording.exit_code</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Recording.columns"><code class="docutils literal notranslate"><span class="pre">Recording.columns</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Recording.lines"><code class="docutils literal notranslate"><span class="pre">Recording.lines</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Recording.events"><code class="docutils literal notranslate"><span class="pre">Recording.events</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Recording.input_bytes"><code class="docutils literal notranslate"><span class="pre">Recording.input_bytes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Recording.output_bytes"><code class="docutils literal notranslate"><span class="pre">Recording.output_bytes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Recording.cpu_info"><code class="docutils literal notranslate"><span class="pre">Recording.cpu_info</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Recording.mtimes"><code class="docutils literal notranslate"><span class="pre">Recording.mtimes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Recording.diagnostics"><code class="docutils literal notranslate"><span class="pre">Recording.diagnostics</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CellStyle"><code class="docutils literal notranslate"><span class="pre">CellStyle</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CellStyle.fg"><code class="docutils literal notranslate"><span class="pre">CellStyle.fg</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CellStyle.bg"><code class="docutils literal notranslate"><span class="pre">CellStyle.bg</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CellStyle.bold"><code class="docutils literal notranslate"><span class="pre">CellStyle.bold</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CellStyle.italics"><code class="docutils literal notranslate"><span class="pre">CellStyle.italics</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CellStyle.underscore"><code class="docutils literal notranslate"><span class="pre">CellStyle.underscore</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CellStyle.strikethrough"><code class="docutils literal notranslate"><span class="pre">CellStyle.strikethrough</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CellStyle.reverse"><code class="docutils literal notranslate"><span class="pre">CellStyle.reverse</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.StyledRun"><code class="docutils literal notranslate"><span class="pre">StyledRun</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.StyledRun.text"><code class="docutils literal notranslate"><span class="pre">StyledRun.text</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.StyledRun.style"><code class="docutils literal notranslate"><span class="pre">StyledRun.style</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.TranscriptLine"><code class="docutils literal notranslate"><span class="pre">TranscriptLine</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.TranscriptLine.runs"><code class="docutils literal notranslate"><span class="pre">TranscriptLine.runs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.TranscriptLine.text"><code class="docutils literal notranslate"><span class="pre">TranscriptLine.text</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.PromptInfo"><code class="docutils literal notranslate"><span class="pre">PromptInfo</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.PromptInfo.user"><code class="docutils literal notranslate"><span class="pre">PromptInfo.user</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.PromptInfo.task"><code class="docutils literal notranslate"><span class="pre">PromptInfo.task</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.PromptInfo.host"><code class="docutils literal notranslate"><span class="pre">PromptInfo.host</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.PromptInfo.directory"><code class="docutils literal notranslate"><span class="pre">PromptInfo.directory</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CommandRecord"><code class="docutils literal notranslate"><span class="pre">CommandRecord</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CommandRecord.index"><code class="docutils literal notranslate"><span class="pre">CommandRecord.index</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CommandRecord.time"><code class="docutils literal notranslate"><span class="pre">CommandRecord.time</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CommandRecord.line"><code class="docutils literal notranslate"><span class="pre">CommandRecord.line</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CommandRecord.column"><code class="docutils literal notranslate"><span class="pre">CommandRecord.column</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CommandRecord.prompt"><code class="docutils literal notranslate"><span class="pre">CommandRecord.prompt</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CommandRecord.text"><code class="docutils literal notranslate"><span class="pre">CommandRecord.text</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CommandRecord.prompt_info"><code class="docutils literal notranslate"><span class="pre">CommandRecord.prompt_info</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CommandRecord.first_event"><code class="docutils literal notranslate"><span class="pre">CommandRecord.first_event</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CommandRecord.enter_event"><code class="docutils literal notranslate"><span class="pre">CommandRecord.enter_event</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CommandRecord.output_start"><code class="docutils literal notranslate"><span class="pre">CommandRecord.output_start</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.CommandRecord.output_end"><code class="docutils literal notranslate"><span class="pre">CommandRecord.output_end</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Transcript"><code class="docutils literal notranslate"><span class="pre">Transcript</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Transcript.lines"><code class="docutils literal notranslate"><span class="pre">Transcript.lines</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Transcript.commands"><code class="docutils literal notranslate"><span class="pre">Transcript.commands</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.models.Transcript.diagnostics"><code class="docutils literal notranslate"><span class="pre">Transcript.diagnostics</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.report.html#module-pysnap.report.player">pysnap.report.player module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.ReplayPlayer"><code class="docutils literal notranslate"><span class="pre">ReplayPlayer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.ReplayPlayer.finished"><code class="docutils literal notranslate"><span class="pre">ReplayPlayer.finished</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.ReplayPlayer.current_command"><code class="docutils literal notranslate"><span class="pre">ReplayPlayer.current_command</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.ReplayPlayer.seek"><code class="docutils literal notranslate"><span class="pre">ReplayPlayer.seek()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.ReplayPlayer.next_command_time"><code class="docutils literal notranslate"><span class="pre">ReplayPlayer.next_command_time()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.ReplayPlayer.previous_command_time"><code class="docutils literal notranslate"><span class="pre">ReplayPlayer.previous_command_time()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.PlaybackController"><code class="docutils literal notranslate"><span class="pre">PlaybackController</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.PlaybackController.speed"><code class="docutils literal notranslate"><span class="pre">PlaybackController.speed</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.PlaybackController.tick"><code class="docutils literal notranslate"><span class="pre">PlaybackController.tick()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.PlaybackController.toggle"><code class="docutils literal notranslate"><span class="pre">PlaybackController.toggle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.PlaybackController.faster"><code class="docutils literal notranslate"><span class="pre">PlaybackController.faster()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.PlaybackController.slower"><code class="docutils literal notranslate"><span class="pre">PlaybackController.slower()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.PlaybackController.next_command"><code class="docutils literal notranslate"><span class="pre">PlaybackController.next_command()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.PlaybackController.previous_command"><code class="docutils literal notranslate"><span class="pre">PlaybackController.previous_command()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.PlaybackController.to_start"><code class="docutils literal notranslate"><span class="pre">PlaybackController.to_start()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.player.PlaybackController.to_end"><code class="docutils literal notranslate"><span class="pre">PlaybackController.to_end()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.report.html#module-pysnap.report.recording">pysnap.report.recording module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.recording.load_report"><code class="docutils literal notranslate"><span class="pre">load_report()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.recording.parse_recording"><code class="docutils literal notranslate"><span class="pre">parse_recording()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.report.html#module-pysnap.report.render">pysnap.report.render module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.render.render_transcript"><code class="docutils literal notranslate"><span class="pre">render_transcript()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.render.parse_resize"><code class="docutils literal notranslate"><span class="pre">parse_resize()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.render.parse_prompt"><code class="docutils literal notranslate"><span class="pre">parse_prompt()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.report.html#module-pysnap.report.stats">pysnap.report.stats module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.CommandStats"><code class="docutils literal notranslate"><span class="pre">CommandStats</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.CommandStats.index"><code class="docutils literal notranslate"><span class="pre">CommandStats.index</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.CommandStats.text"><code class="docutils literal notranslate"><span class="pre">CommandStats.text</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.CommandStats.pause"><code class="docutils literal notranslate"><span class="pre">CommandStats.pause</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.CommandStats.typing_time"><code class="docutils literal notranslate"><span class="pre">CommandStats.typing_time</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.CommandStats.keys"><code class="docutils literal notranslate"><span class="pre">CommandStats.keys</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.CommandStats.backspaces"><code class="docutils literal notranslate"><span class="pre">CommandStats.backspaces</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.CommandStats.from_history"><code class="docutils literal notranslate"><span class="pre">CommandStats.from_history</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.CommandStats.interrupted"><code class="docutils literal notranslate"><span class="pre">CommandStats.interrupted</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.CommandStats.foreign_prompt"><code class="docutils literal notranslate"><span class="pre">CommandStats.foreign_prompt</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.PasteEvent"><code class="docutils literal notranslate"><span class="pre">PasteEvent</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.PasteEvent.time"><code class="docutils literal notranslate"><span class="pre">PasteEvent.time</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.PasteEvent.text"><code class="docutils literal notranslate"><span class="pre">PasteEvent.text</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.PasteEvent.command"><code class="docutils literal notranslate"><span class="pre">PasteEvent.command</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.MemberTimeCheck"><code class="docutils literal notranslate"><span class="pre">MemberTimeCheck</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.MemberTimeCheck.member"><code class="docutils literal notranslate"><span class="pre">MemberTimeCheck.member</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.MemberTimeCheck.expected"><code class="docutils literal notranslate"><span class="pre">MemberTimeCheck.expected</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.MemberTimeCheck.difference"><code class="docutils literal notranslate"><span class="pre">MemberTimeCheck.difference</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.MemberTimeCheck.within_tolerance"><code class="docutils literal notranslate"><span class="pre">MemberTimeCheck.within_tolerance</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats"><code class="docutils literal notranslate"><span class="pre">ReportStats</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.source_name"><code class="docutils literal notranslate"><span class="pre">ReportStats.source_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.file_task"><code class="docutils literal notranslate"><span class="pre">ReportStats.file_task</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.file_host"><code class="docutils literal notranslate"><span class="pre">ReportStats.file_host</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.prompt_identities"><code class="docutils literal notranslate"><span class="pre">ReportStats.prompt_identities</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.start_time"><code class="docutils literal notranslate"><span class="pre">ReportStats.start_time</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.end_time"><code class="docutils literal notranslate"><span class="pre">ReportStats.end_time</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.duration"><code class="docutils literal notranslate"><span class="pre">ReportStats.duration</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.exit_code"><code class="docutils literal notranslate"><span class="pre">ReportStats.exit_code</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.tty"><code class="docutils literal notranslate"><span class="pre">ReportStats.tty</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.term"><code class="docutils literal notranslate"><span class="pre">ReportStats.term</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.columns"><code class="docutils literal notranslate"><span class="pre">ReportStats.columns</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.lines"><code class="docutils literal notranslate"><span class="pre">ReportStats.lines</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.cpu_model"><code class="docutils literal notranslate"><span class="pre">ReportStats.cpu_model</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.hypervisor"><code class="docutils literal notranslate"><span class="pre">ReportStats.hypervisor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.commands"><code class="docutils literal notranslate"><span class="pre">ReportStats.commands</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.unique_commands"><code class="docutils literal notranslate"><span class="pre">ReportStats.unique_commands</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.pause_min"><code class="docutils literal notranslate"><span class="pre">ReportStats.pause_min</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.pause_median"><code class="docutils literal notranslate"><span class="pre">ReportStats.pause_median</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.pause_max"><code class="docutils literal notranslate"><span class="pre">ReportStats.pause_max</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.longest_pause_command"><code class="docutils literal notranslate"><span class="pre">ReportStats.longest_pause_command</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.typing_speed"><code class="docutils literal notranslate"><span class="pre">ReportStats.typing_speed</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.backspace_share"><code class="docutils literal notranslate"><span class="pre">ReportStats.backspace_share</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.pastes"><code class="docutils literal notranslate"><span class="pre">ReportStats.pastes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.ip_addresses"><code class="docutils literal notranslate"><span class="pre">ReportStats.ip_addresses</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.mac_addresses"><code class="docutils literal notranslate"><span class="pre">ReportStats.mac_addresses</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.member_times"><code class="docutils literal notranslate"><span class="pre">ReportStats.member_times</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.diagnostics"><code class="docutils literal notranslate"><span class="pre">ReportStats.diagnostics</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.ReportStats.warnings"><code class="docutils literal notranslate"><span class="pre">ReportStats.warnings</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.compute_stats"><code class="docutils literal notranslate"><span class="pre">compute_stats()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.split_keys"><code class="docutils literal notranslate"><span class="pre">split_keys()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.transcript_output_text"><code class="docutils literal notranslate"><span class="pre">transcript_output_text()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.stats.parse_cpu_info"><code class="docutils literal notranslate"><span class="pre">parse_cpu_info()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="pysnap.report.html#module-pysnap.report.viewer">pysnap.report.viewer module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.PagerState"><code class="docutils literal notranslate"><span class="pre">PagerState</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.PagerState.max_offset"><code class="docutils literal notranslate"><span class="pre">PagerState.max_offset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.PagerState.set_height"><code class="docutils literal notranslate"><span class="pre">PagerState.set_height()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.PagerState.max_column"><code class="docutils literal notranslate"><span class="pre">PagerState.max_column</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.PagerState.set_width"><code class="docutils literal notranslate"><span class="pre">PagerState.set_width()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.PagerState.scroll_right"><code class="docutils literal notranslate"><span class="pre">PagerState.scroll_right()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.PagerState.scroll_left"><code class="docutils literal notranslate"><span class="pre">PagerState.scroll_left()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.PagerState.scroll"><code class="docutils literal notranslate"><span class="pre">PagerState.scroll()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.PagerState.page_down"><code class="docutils literal notranslate"><span class="pre">PagerState.page_down()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.PagerState.page_up"><code class="docutils literal notranslate"><span class="pre">PagerState.page_up()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.PagerState.to_top"><code class="docutils literal notranslate"><span class="pre">PagerState.to_top()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.PagerState.to_bottom"><code class="docutils literal notranslate"><span class="pre">PagerState.to_bottom()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.PagerState.visible_range"><code class="docutils literal notranslate"><span class="pre">PagerState.visible_range()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.clip_runs"><code class="docutils literal notranslate"><span class="pre">clip_runs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.style_runs_to_fragments"><code class="docutils literal notranslate"><span class="pre">style_runs_to_fragments()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.cell_style_to_prompt_toolkit"><code class="docutils literal notranslate"><span class="pre">cell_style_to_prompt_toolkit()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.run_pager"><code class="docutils literal notranslate"><span class="pre">run_pager()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.screen_viewport"><code class="docutils literal notranslate"><span class="pre">screen_viewport()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.split_rows"><code class="docutils literal notranslate"><span class="pre">split_rows()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.format_player_status"><code class="docutils literal notranslate"><span class="pre">format_player_status()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.report.html#pysnap.report.viewer.run_player"><code class="docutils literal notranslate"><span class="pre">run_player()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="pysnap.runtime.html">pysnap.runtime package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="pysnap.runtime.html#submodules">Submodules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pysnap.runtime.html#module-pysnap.runtime.sessions">pysnap.runtime.sessions module</a><ul>
@@ -191,6 +595,8 @@
 <li class="toctree-l4"><a class="reference internal" href="pysnap.runtime.html#pysnap.runtime.sessions.SessionRecord.serial_port"><code class="docutils literal notranslate"><span class="pre">SessionRecord.serial_port</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.runtime.html#pysnap.runtime.sessions.SessionRecord.pid"><code class="docutils literal notranslate"><span class="pre">SessionRecord.pid</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.runtime.html#pysnap.runtime.sessions.SessionRecord.attached_at"><code class="docutils literal notranslate"><span class="pre">SessionRecord.attached_at</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.runtime.html#pysnap.runtime.sessions.SessionRecord.control_port"><code class="docutils literal notranslate"><span class="pre">SessionRecord.control_port</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.runtime.html#pysnap.runtime.sessions.SessionRecord.control_token"><code class="docutils literal notranslate"><span class="pre">SessionRecord.control_token</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="pysnap.runtime.html#pysnap.runtime.sessions.SessionRegistry"><code class="docutils literal notranslate"><span class="pre">SessionRegistry</span></code></a><ul>
@@ -213,6 +619,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="pysnap.terminal.html#module-pysnap.terminal.emulator">pysnap.terminal.emulator module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.emulator.is_invisible_character"><code class="docutils literal notranslate"><span class="pre">is_invisible_character()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator"><code class="docutils literal notranslate"><span class="pre">TerminalEmulator</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.feed"><code class="docutils literal notranslate"><span class="pre">TerminalEmulator.feed()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.resize"><code class="docutils literal notranslate"><span class="pre">TerminalEmulator.resize()</span></code></a></li>
@@ -451,6 +858,13 @@ During development, PySnap also accepts the Sphinx build directory under
 </dl>
 </dd></dl>
 
+<dl class="py exception">
+<dt class="sig sig-object py" id="pysnap.errors.ReportFormatError">
+<span class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.errors.</span></span><span class="sig-name descname"><span class="pre">ReportFormatError</span></span><a class="reference internal" href="../_modules/pysnap/errors.html#ReportFormatError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.errors.ReportFormatError" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><code class="xref py py-class docutils literal notranslate"><span class="pre">PySnapError</span></code></a></p>
+<p>Report that a file cannot be read as a <code class="docutils literal notranslate"><span class="pre">report</span></code> session archive.</p>
+</dd></dl>
+
 </section>
 </section>
 
@@ -517,7 +931,7 @@ During development, PySnap also accepts the Sphinx build directory under
       &#169;2026, PySnap Authors.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
       &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
       
       |
