@@ -19,6 +19,8 @@ terminal, and removing virtual machines with dependency checks.
 - Plug a stopped VM into the PySnap connection model by assigning a safe
   `UART1 tcpserver` port.
 - Allocate the next available serial TCP port automatically when `-p` is omitted.
+- Show or change the COM ports and network adapters of a stopped VM with
+  `pysnap set`: TCP servers, host pipes between VMs, internal networks, NAT.
 - Start virtual machines in headless mode and attach to them through a
   cross-platform Python terminal interface.
 - Track outer-terminal resize events during ``connect`` sessions and answer
@@ -57,6 +59,7 @@ pysnap protosettings BASE_VM
 pysnap docs [--browser BROWSER]
 pysnap show <VM>
 pysnap plug <VM>
+pysnap set <VM> [comN=auto|PORT|server:NAME|client:NAME|off] [nicN=NETWORK|nat|off] ...
 pysnap connect <VM>
 pysnap monitor
 pysnap stop [<VM> | --all]
@@ -134,6 +137,13 @@ pysnap plug srv
 Name: srv
 Group: /Lab
 Serial port: 2345
+```
+
+Connect two stopped clones through internal networks and a COM2 host pipe:
+
+```bash
+pysnap set first nic2=left com2=server:link
+pysnap set second nic2=left com2=client:link
 ```
 
 Monitor running or changing VMs in a compact form:

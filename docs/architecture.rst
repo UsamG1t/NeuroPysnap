@@ -92,6 +92,13 @@ is not already occupied by another mode such as ``tcpclient`` or ``file``.
 When needed, the selected TCP port must be available both in VirtualBox and on
 the host system.
 
+Automatic allocation counts the TCP servers of all four serial ports of all
+VMs as used. ``pysnap set`` reads ``COM1``-``COM4`` and ``NIC1``-``NIC4`` from
+``showvminfo``, validates every option and TCP port before changing anything,
+and applies the result with one ``modifyvm`` call using the standard PC
+resources of each COM port. Host pipes are named by a short name that is
+mapped to the host's pipe path format.
+
 During ``pysnap connect``, PySnap continuously tracks the outer terminal size
 and resizes the local emulator to the current visible guest area. Because raw
 serial TCP does not offer a PTY-style ``SIGWINCH`` path into the guest, PySnap

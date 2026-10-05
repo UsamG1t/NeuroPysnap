@@ -11,6 +11,9 @@ import sys
 from typing import Callable, Protocol, Sequence
 
 from pysnap.core.models import (
+    ComPortSetting,
+    NicSetting,
+    VMHardware,
     ImportCandidate,
     SerialPortConfiguration,
     VMInfo,
@@ -234,6 +237,15 @@ class VBoxManageClient:
     # for example right after the machine and configuration folders were
     # deleted. A bounded timeout turns that hang into a reportable error.
     LIST_COMMAND_TIMEOUT = 15.0
+    COM_COUNT = 4
+    NIC_COUNT = 4
+    # Standard PC I/O base addresses and IRQs of COM1-COM4.
+    COM_RESOURCES = {
+        1: ("0x3F8", "4"),
+        2: ("0x2F8", "3"),
+        3: ("0x3E8", "4"),
+        4: ("0x2E8", "3"),
+    }
 
     def __init__(self, runner: RunnerProtocol | None = None) -> None:
         """Initialize the VirtualBox client.
@@ -281,7 +293,66 @@ class VBoxManageClient:
             parent_name=metadata.get("pysnap/parent") or None,
             managed=metadata.get("pysnap/managed") == "true",
             metadata=metadata,
+            serial_tcp_ports=tuple(
+                setting.port
+                for setting in self._parse_com_ports(properties)
+                if setting.mode == "tcpserver" and setting.port is not None
+            ),
         )
+
+    def get_vm_hardware(self, vm_name: str) -> VMHardware:
+        """Read the serial ports and network adapters of a VM.
+
+        :param vm_name: VM name to inspect.
+        :returns: Settings of COM1-COM4 and NIC1-NIC4.
+        """
+        properties = self._get_vm_properties(vm_name)
+        nics = []
+        for number in range(1, self.NIC_COUNT + 1):
+            attachment = (properties.get(f"nic{number}", "") or "none").strip().lower()
+            network = properties.get(f"intnet{number}") if attachment == "intnet" else None
+            nics.append(NicSetting(attachment=attachment, network=network or None))
+        return VMHardware(com_ports=self._parse_com_ports(properties), nics=tuple(nics))
+
+    def apply_vm_hardware(
+        self,
+        vm_name: str,
+        com_ports: dict[int, ComPortSetting],
+        nics: dict[int, NicSetting],
+    ) -> None:
+        """Change serial ports and network adapters with one ``modifyvm`` call.
+
+        :param vm_name: VM name.
+        :param com_ports: Port numbers (1-4) mapped to their new settings.
+        :param nics: Adapter numbers (1-4) mapped to their new settings.
+        """
+        arguments: list[str] = ["modifyvm", vm_name]
+        for number, setting in sorted(com_ports.items()):
+            if setting.mode == "off":
+                arguments.extend([f"--uart{number}", "off"])
+                continue
+            address, irq = self.COM_RESOURCES[number]
+            arguments.extend([f"--uart{number}", address, irq, f"--uartmode{number}"])
+            if setting.mode == "tcpserver":
+                arguments.extend(["tcpserver", str(setting.port)])
+            else:
+                arguments.extend([setting.mode, setting.path or ""])
+        for number, setting in sorted(nics.items()):
+            if setting.attachment == "intnet":
+                arguments.extend(
+                    [f"--nic{number}", "intnet", f"--intnet{number}", setting.network or ""]
+                )
+            else:
+                arguments.extend([f"--nic{number}", setting.attachment])
+        self.runner.run(arguments)
+
+    def set_dmi_system_sku(self, vm_name: str, system_sku: str) -> None:
+        """Replace the DMI system SKU of a VM.
+
+        :param vm_name: VM name.
+        :param system_sku: New DMI system SKU value.
+        """
+        self.runner.run(["setextradata", vm_name, self.DMI_SYSTEM_SKU_KEY, system_sku])
 
     def get_serial_port_configuration(self, vm_name: str) -> SerialPortConfiguration:
         """Read the raw ``UART1`` configuration of a VM.
@@ -543,6 +614,33 @@ class VBoxManageClient:
         return parse_machine_readable(
             self.runner.run(["showvminfo", vm_name, "--machinereadable"])
         )
+
+    def _parse_com_ports(self, properties: dict[str, str]) -> tuple[ComPortSetting, ...]:
+        """Parse COM1-COM4 from machine-readable VM properties.
+
+        :param properties: Parsed machine-readable VM properties.
+        :returns: Settings of COM1-COM4.
+        """
+        settings = []
+        for number in range(1, self.COM_COUNT + 1):
+            uart = (properties.get(f"uart{number}", "") or "").strip()
+            mode_value = (properties.get(f"uartmode{number}", "") or "").strip()
+            if not uart or uart.lower() == "off":
+                settings.append(ComPortSetting(mode="off"))
+                continue
+            mode, _, argument = mode_value.partition(",")
+            mode = mode.strip().lower()
+            argument = argument.strip()
+            if mode == "tcpserver":
+                port = int(argument) if argument.isdigit() else None
+                settings.append(ComPortSetting(mode="tcpserver", port=port))
+            elif mode in {"server", "client"}:
+                settings.append(ComPortSetting(mode=mode, path=argument))
+            else:
+                settings.append(
+                    ComPortSetting(mode=mode or "disconnected", detail=argument or None)
+                )
+        return tuple(settings)
 
     def _parse_serial_port(self, properties: dict[str, str]) -> int | None:
         """Extract the TCP port configured for ``UART1``.

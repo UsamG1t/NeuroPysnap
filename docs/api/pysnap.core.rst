@@ -32,3 +32,11 @@ pysnap.core.service module
    :members:
    :show-inheritance:
    :undoc-members:
+
+pysnap.core.settings module
+---------------------------
+
+.. automodule:: pysnap.core.settings
+   :members:
+   :show-inheritance:
+   :undoc-members:

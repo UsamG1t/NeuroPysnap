@@ -14,12 +14,16 @@ from uuid import uuid4
 from pysnap.config.protosettings import ProtoSettingsStore
 from pysnap.core.appliance import read_appliance_vm_names
 from pysnap.core.models import (
+    ComPortSetting,
     ImportCandidate,
     IntegrationTestResult,
     VMGroup,
+    VMHardware,
     VMInfo,
     VMMonitorRecord,
+    VMSettingsResult,
 )
+from pysnap.core.settings import ComPortRequest, com_setting_from_request, parse_set_options
 from pysnap.errors import (
     CommandExecutionError,
     PySnapError,
@@ -469,6 +473,46 @@ class PySnapService:
         self.client.configure_serial_port(vm_name, serial_port)
         return self.client.get_vm_info(vm_name)
 
+    def set_vm_settings(self, vm_name: str, options: Sequence[str]) -> VMSettingsResult:
+        """Change the serial ports and network adapters of a stopped VM.
+
+        Without options the current settings are returned unchanged. All
+        options are validated before one ``modifyvm`` call applies them. For
+        proto-settings clones the DMI system SKU is rebuilt from the new COM1
+        port and the internal networks of NIC2-NIC4.
+
+        :param vm_name: VM name.
+        :param options: ``comN=VALUE`` and ``nicN=VALUE`` options.
+        :returns: Settings after the change and warnings.
+        :raises PySnapError: For invalid options, a VM that is not stopped or
+            TCP ports in use.
+        """
+        request = parse_set_options(options)
+        vm_info = self._require_vm(vm_name)
+        current = self.client.get_vm_hardware(vm_name)
+        if request.empty:
+            return VMSettingsResult(vm_name, vm_info.vm_state, current)
+        if (vm_info.vm_state or "").lower() not in self.STOPPED_STATES:
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" must be stopped before its serial ports '
+                f"and network adapters can be changed; run pysnap stop {vm_name}."
+            )
+
+        com_settings = self._resolve_com_requests(vm_name, current, request.com_ports)
+        warnings = []
+        for number, setting in sorted(com_settings.items()):
+            before = current.com_ports[number - 1]
+            if before.mode == "tcpserver" and setting.mode != "tcpserver":
+                note = f"COM{number} no longer serves TCP port {before.port}"
+                if number == 1:
+                    note += "; pysnap connect uses COM1 and cannot reach this VM"
+                warnings.append(note + ".")
+
+        self.client.apply_vm_hardware(vm_name, com_settings, request.nics)
+        updated = self.client.get_vm_hardware(vm_name)
+        self._update_proto_system_sku(vm_name, updated)
+        return VMSettingsResult(vm_name, vm_info.vm_state, updated, tuple(warnings))
+
     def clone_vm(
         self,
         base_vm: str,
@@ -545,22 +589,26 @@ class PySnapService:
         self._require_vm(vm_name)
         return self.proto_settings_store.add_vm_name(vm_name)
 
-    def _allocate_serial_port(self, require_host_availability: bool = False) -> int:
-        """Allocate the next TCP port for automatic ``UART1`` configuration.
+    def _allocate_serial_port(
+        self,
+        require_host_availability: bool = False,
+        reserved: set[int] | frozenset[int] = frozenset(),
+    ) -> int:
+        """Allocate the next TCP port for an automatic serial TCP server.
 
         The automatic sequence starts at ``1024`` when no existing VM currently
-        exposes a TCP-backed serial port.
+        exposes a TCP-backed serial port. Ports of all serial ports of all VMs
+        count as used.
 
         :param require_host_availability: Whether the chosen TCP port must also
             be available on the host system.
+        :param reserved: Further ports that must not be chosen.
         :returns: The next TCP port to assign.
         :raises PySnapError: If the TCP port range is exhausted.
         """
-        used_ports = {
-            info.serial_port
-            for info in self._collect_vm_infos()
-            if info.serial_port is not None
-        }
+        used_ports = set(reserved)
+        for info in self._collect_vm_infos():
+            used_ports.update(self._vm_tcp_ports(info))
         next_port = (max(used_ports) + 1) if used_ports else self.DEFAULT_SERIAL_TCP_PORT
         while next_port <= 65535:
             if next_port in used_ports:
@@ -571,6 +619,111 @@ class PySnapService:
                 continue
             return next_port
         raise PySnapError("No free serial TCP ports are available.")
+
+    def _resolve_com_requests(
+        self,
+        vm_name: str,
+        current: VMHardware,
+        requests: dict[int, ComPortRequest],
+    ) -> dict[int, ComPortSetting]:
+        """Turn requested serial ports into settings with checked TCP ports.
+
+        ``auto`` keeps the TCP port of a port that already is a TCP server.
+
+        :param vm_name: VM name.
+        :param current: Current settings of the VM.
+        :param requests: Requested changes by port number.
+        :returns: New settings by port number.
+        :raises PySnapError: When a TCP port is used by another VM, by another
+            port of this VM or on the host.
+        """
+        other_ports: dict[int, str] = {}
+        for info in self._collect_vm_infos():
+            if info.name != vm_name:
+                for port in self._vm_tcp_ports(info):
+                    other_ports.setdefault(port, info.name)
+        own_ports = {
+            setting.port
+            for setting in current.com_ports
+            if setting.mode == "tcpserver" and setting.port is not None
+        }
+        taken = {
+            setting.port
+            for number, setting in enumerate(current.com_ports, start=1)
+            if number not in requests and setting.mode == "tcpserver" and setting.port is not None
+        }
+
+        resolved: dict[int, ComPortSetting] = {}
+        for number, request in sorted(requests.items()):
+            if request.mode != "tcpserver" or request.port is None:
+                continue
+            port = request.port
+            if port in other_ports:
+                raise PySnapError(
+                    f'COM{number}: TCP port {port} is already used by virtual machine '
+                    f'"{other_ports[port]}".'
+                )
+            if port in taken:
+                raise PySnapError(
+                    f"COM{number}: TCP port {port} is already used by another COM port of this VM."
+                )
+            if port not in own_ports and not self._is_host_tcp_port_available(port):
+                raise PySnapError(f"COM{number}: TCP port {port} is busy on this computer.")
+            taken.add(port)
+            resolved[number] = com_setting_from_request(request, port)
+
+        for number, request in sorted(requests.items()):
+            if number in resolved:
+                continue
+            port = None
+            if request.mode == "tcpserver":
+                before = current.com_ports[number - 1]
+                if before.mode == "tcpserver" and before.port is not None and before.port not in taken:
+                    port = before.port
+                else:
+                    port = self._allocate_serial_port(
+                        require_host_availability=True,
+                        reserved=taken | set(other_ports),
+                    )
+                taken.add(port)
+            resolved[number] = com_setting_from_request(request, port)
+        return resolved
+
+    def _update_proto_system_sku(self, vm_name: str, hardware: VMHardware) -> None:
+        """Rebuild the DMI system SKU of a proto-settings clone.
+
+        The SKU is ``port<COM1 port>.<NIC2>.<NIC3>.<NIC4>`` with the internal
+        network names; adapters without one leave an empty place and empty
+        places at the end are dropped. When COM1 is no TCP server, the port
+        part of the previous SKU is kept.
+
+        :param vm_name: VM name.
+        :param hardware: Settings after the change.
+        """
+        previous = self.client.get_metadata(vm_name).get(VBoxManageClient.DMI_SYSTEM_SKU_KEY)
+        if not previous:
+            return
+        com1 = hardware.com_ports[0]
+        if com1.mode == "tcpserver" and com1.port is not None:
+            port_part = f"port{com1.port}"
+        else:
+            port_part = previous.split(".", 1)[0]
+        names = [
+            (nic.network or "") if nic.attachment == "intnet" else ""
+            for nic in hardware.nics[1:4]
+        ]
+        while names and not names[-1]:
+            names.pop()
+        system_sku = ".".join([port_part, *names])
+        if system_sku != previous:
+            self.client.set_dmi_system_sku(vm_name, system_sku)
+
+    @staticmethod
+    def _vm_tcp_ports(info: VMInfo) -> tuple[int, ...]:
+        """Return the TCP ports served by the serial ports of a VM."""
+        if info.serial_tcp_ports:
+            return info.serial_tcp_ports
+        return (info.serial_port,) if info.serial_port is not None else ()
 
     def _cleanup_integration_vms(
         self,

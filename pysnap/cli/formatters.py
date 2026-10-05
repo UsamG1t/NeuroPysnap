@@ -5,11 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TextIO
 
+from pysnap.core.settings import host_pipe_name
 from pysnap.core.models import (
+    ComPortSetting,
     IntegrationTestResult,
+    NicSetting,
     VMGroup,
     VMInfo,
     VMMonitorRecord,
+    VMSettingsResult,
 )
 
 
@@ -80,6 +84,46 @@ def format_vm_info(vm_info: VMInfo) -> str:
     if vm_info.parent_name:
         lines.append(f"Parent VM: {vm_info.parent_name}")
     return "\n".join(lines)
+
+
+def format_vm_settings(result: VMSettingsResult) -> str:
+    """Format the serial ports and network adapters of a VM.
+
+    :param result: Result of ``pysnap set``.
+    :returns: Human-readable text output.
+    """
+    lines = [f"{result.vm_name} ({result.vm_state or 'unknown state'})"]
+    for number, setting in enumerate(result.hardware.com_ports, start=1):
+        lines.append(f"  COM{number}  {_describe_com_port(setting)}")
+    for number, setting in enumerate(result.hardware.nics, start=1):
+        lines.append(f"  NIC{number}  {_describe_nic(setting)}")
+    return "\n".join(lines)
+
+
+def _describe_com_port(setting: ComPortSetting) -> str:
+    """Describe one serial port."""
+    if setting.mode == "off":
+        return "off"
+    if setting.mode == "tcpserver":
+        return f"TCP server, port {setting.port}" if setting.port is not None else "TCP server"
+    if setting.mode in {"server", "client"}:
+        role = "creates" if setting.mode == "server" else "connects to"
+        name = host_pipe_name(setting.path or "")
+        if name is not None:
+            return f'pipe {setting.mode}, {role} "{name}" ({setting.path})'
+        return f"pipe {setting.mode}, {role} {setting.path}"
+    return f"{setting.mode} {setting.detail}" if setting.detail else setting.mode
+
+
+def _describe_nic(setting: NicSetting) -> str:
+    """Describe one network adapter."""
+    if setting.attachment == "none":
+        return "off"
+    if setting.attachment == "nat":
+        return "NAT"
+    if setting.attachment == "intnet":
+        return f'internal network "{setting.network}"'
+    return setting.attachment
 
 
 def format_import_result(imported_vms: list[VMInfo]) -> str:

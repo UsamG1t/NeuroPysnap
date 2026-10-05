@@ -15,6 +15,7 @@ from pysnap.cli.formatters import (
     format_integration_test_result,
     format_monitor_records,
     format_vm_info,
+    format_vm_settings,
 )
 from pysnap.cli.report import run_report_command
 from pysnap.core.service import PySnapService
@@ -107,6 +108,7 @@ def build_root_parser(
             "  pysnap protosettings BASE_VM\n"
             "  pysnap show VM\n"
             "  pysnap plug VM\n"
+            "  pysnap set VM [comN=auto|PORT|server:NAME|client:NAME|off] [nicN=NETWORK|nat|off] ...\n"
             "  pysnap docs [--browser BROWSER]\n"
             "  pysnap connect VM\n"
             "  pysnap monitor\n"
@@ -175,6 +177,8 @@ def run_cli(
             return _run_show(arguments[1:], app_service, output, error_output)
         if command == "plug":
             return _run_plug(arguments[1:], app_service, output, error_output)
+        if command == "set":
+            return _run_set(arguments[1:], app_service, output, error_output)
         if command == "docs":
             return _run_docs(arguments[1:], output, error_output)
         if command == "connect":
@@ -339,6 +343,53 @@ def _run_plug(
     namespace = parser.parse_args(list(arguments))
     vm_info = service.plug_vm(namespace.vm)
     print(format_vm_info(vm_info), file=stdout)
+    return 0
+
+
+def _run_set(
+    arguments: Sequence[str],
+    service: PySnapService,
+    stdout: TextIO,
+    stderr: TextIO,
+) -> int:
+    """Run the ``set`` subcommand.
+
+    :param arguments: Subcommand arguments.
+    :param service: Application service.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :returns: Process exit code.
+    """
+    parser = CliArgumentParser(
+        prog="pysnap set",
+        description=(
+            "Show or change the serial ports and network adapters of a stopped VM. "
+            "Without options the current settings are shown."
+        ),
+        epilog=(
+            "Options:\n"
+            "  comN=auto        TCP server on a free port (N is 1-4)\n"
+            "  comN=PORT        TCP server on the given port\n"
+            "  comN=server:NAME host pipe NAME, this VM creates it\n"
+            "  comN=client:NAME host pipe NAME, this VM connects to it\n"
+            "  comN=off         no serial port\n"
+            "  nicN=NETWORK     internal network NETWORK (N is 1-4)\n"
+            "  nicN=nat         NAT\n"
+            "  nicN=off         no network adapter\n"
+            "\n"
+            "Example: pysnap set first nic2=left nic3=right com2=server:link"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        stdout=stdout,
+        stderr=stderr,
+    )
+    parser.add_argument("vm", help="Virtual machine name.")
+    parser.add_argument("options", nargs="*", metavar="OPTION", help="comN=VALUE or nicN=VALUE.")
+    namespace = parser.parse_args(list(arguments))
+    result = service.set_vm_settings(namespace.vm, namespace.options)
+    for warning in result.warnings:
+        print(f"Warning: {warning}", file=stderr)
+    print(format_vm_settings(result), file=stdout)
     return 0
 
 

@@ -174,6 +174,54 @@ built-in terminal interface.
    Graphviz example diagrams are rendered automatically when the ``dot``
    executable is available on the documentation build host.
 
+Set Serial Ports and Network Adapters
+-------------------------------------
+
+The ``set`` command shows or changes the four serial (COM) ports and the four
+network adapters of a VM. Each option is ``KEY=VALUE``; ``N`` is ``1`` to
+``4``:
+
+- ``comN=auto``: a TCP server on a free port (an existing TCP server keeps
+  its port); ``comN=PORT`` uses the given port
+- ``comN=server:NAME`` and ``comN=client:NAME``: a host pipe between two VMs,
+  created by the VM with ``server`` and joined by the VM with ``client``
+- ``comN=off``: no serial port
+- ``nicN=NETWORK``: the internal network ``NETWORK``
+- ``nicN=nat``: NAT; ``nicN=off``: no network adapter
+
+.. code-block:: text
+
+   pysnap set first  nic2=left nic3=right com2=server:link
+   pysnap set second nic2=left com2=client:link
+   pysnap set first
+   first (poweroff)
+     COM1  TCP server, port 2326
+     COM2  pipe server, creates "link" (/tmp/pysnap-link)
+     COM3  off
+     COM4  off
+     NIC1  NAT
+     NIC2  internal network "left"
+     NIC3  internal network "right"
+     NIC4  off
+
+Without options the current settings are printed. Changes require a stopped
+VM; all options are checked first and then applied together, so an invalid
+option changes nothing. PySnap checks that a TCP port is not used by another
+VM, by another COM port of the same VM or on the host. Removing a TCP server
+prints a warning; ``pysnap connect`` uses ``COM1`` and cannot reach a VM
+without it.
+
+A pipe name is short; PySnap turns it into the path format of the host
+(``\\.\pipe\pysnap-NAME`` on Windows, a ``pysnap-NAME`` socket in the
+temporary directory elsewhere), so the same name connects two VMs on any
+platform.
+
+For clones of proto-settings base VMs, the DMI system SKU is rebuilt from the
+new ``COM1`` port and the internal networks of ``NIC2``-``NIC4``, for example
+``port2326.left.right``. An adapter without an internal network leaves an
+empty place (``port2326..right``); when ``COM1`` is no TCP server, the port
+part of the previous SKU is kept.
+
 Connect to a Headless Virtual Machine
 -------------------------------------
 
