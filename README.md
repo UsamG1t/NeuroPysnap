@@ -30,6 +30,8 @@ terminal, and removing virtual machines with dependency checks.
 - Open the bundled HTML documentation directly from the installed package.
 - Monitor active and changing virtual machines with compact runtime states.
 - Stop one running VM or all running VMs through `acpipowerbutton`.
+- Pause and resume one VM or all VMs; `connect` stays attached to a paused VM
+  with keys held back until it is resumed.
 - Discover `VBoxManage` automatically on macOS through the standard
   `/Applications/VirtualBox.app/...` bundle path when needed.
 - Delete one VM, a group of VMs, or all registered VMs with dependency checks,
@@ -63,6 +65,8 @@ pysnap set <VM> [comN=auto|PORT|server:NAME|client:NAME|off] [nicN=NETWORK|nat|o
 pysnap connect <VM>
 pysnap monitor
 pysnap stop [<VM> | --all]
+pysnap pause [<VM> | --all]
+pysnap resume [<VM> | --all]
 pysnap clone <BaseVM> <CloneVM> [-p PORT] [<int1-net> [<int2-net> [<int3-net>]]]
 pysnap erase [--clones-only] [--all | --group GROUP | <VM>]
 pysnap full-clean [--path DIRECTORY ...]
@@ -166,6 +170,13 @@ Stop a single machine or all running machines:
 ```bash
 pysnap stop srv
 pysnap stop --all
+```
+
+Pause a VM and continue it later; it stays in memory meanwhile:
+
+```bash
+pysnap pause srv
+pysnap resume srv
 ```
 
 Delete only linked clones, keeping the imported base VMs. PySnap recognizes

@@ -499,6 +499,20 @@ class VBoxManageClient:
         """
         self.runner.run(["controlvm", vm_name, "acpipowerbutton"])
 
+    def pause_vm(self, vm_name: str) -> None:
+        """Pause a running VM; it stays in memory.
+
+        :param vm_name: VM name.
+        """
+        self.runner.run(["controlvm", vm_name, "pause"])
+
+    def resume_vm(self, vm_name: str) -> None:
+        """Resume a paused VM.
+
+        :param vm_name: VM name.
+        """
+        self.runner.run(["controlvm", vm_name, "resume"])
+
     def get_vm_state(self, vm_name: str) -> str:
         """Return the current VirtualBox runtime state of a VM.
 

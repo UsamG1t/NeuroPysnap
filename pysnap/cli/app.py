@@ -113,6 +113,8 @@ def build_root_parser(
             "  pysnap connect VM\n"
             "  pysnap monitor\n"
             "  pysnap stop [VM | --all]\n"
+            "  pysnap pause [VM | --all]\n"
+            "  pysnap resume [VM | --all]\n"
             "  pysnap clone BASE_VM CLONE_VM [-p PORT] [INTNET1 [INTNET2 [INTNET3]]]\n"
             "  pysnap erase [--clones-only] [--all | --group GROUP | VM]\n"
             "  pysnap full-clean [--path DIRECTORY ...]\n"
@@ -187,6 +189,8 @@ def run_cli(
             return _run_monitor(arguments[1:], app_service, output, error_output)
         if command == "stop":
             return _run_stop(arguments[1:], app_service, output, error_output)
+        if command in {"pause", "resume"}:
+            return _run_pause_resume(command, arguments[1:], app_service, output, error_output)
         if command == "clone":
             return _run_clone(arguments[1:], app_service, output, error_output)
         if command == "erase":
@@ -533,6 +537,58 @@ def _run_stop(
 
     service.stop_runtime_vm(namespace.vm)
     print(f'Stopped virtual machine: {namespace.vm}', file=stdout)
+    return 0
+
+
+def _run_pause_resume(
+    command: str,
+    arguments: Sequence[str],
+    service: PySnapService,
+    stdout: TextIO,
+    stderr: TextIO,
+) -> int:
+    """Run the ``pause`` or ``resume`` command.
+
+    :param command: ``"pause"`` or ``"resume"``.
+    :param arguments: Subcommand arguments.
+    :param service: Application service.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :returns: Process exit code.
+    """
+    pausing = command == "pause"
+    parser = CliArgumentParser(
+        prog=f"pysnap {command}",
+        description=(
+            "Pause a running VM; it stays in memory until pysnap resume."
+            if pausing
+            else "Resume a paused VM."
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    parser.add_argument("vm", nargs="?", help=f"Virtual machine name to {command}.")
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Pause all running VMs." if pausing else "Resume all paused VMs.",
+    )
+    namespace = parser.parse_args(list(arguments))
+
+    if sum(bool(value) for value in (namespace.all, namespace.vm)) != 1:
+        parser.error('exactly one of "--all" or "VM" must be provided')
+
+    label = "Paused" if pausing else "Resumed"
+    if namespace.all:
+        names = service.pause_all_runtime_vms() if pausing else service.resume_all_runtime_vms()
+        print(f"{label} virtual machines: {', '.join(names) if names else 'none'}", file=stdout)
+        return 0
+
+    if pausing:
+        service.pause_runtime_vm(namespace.vm)
+    else:
+        service.resume_runtime_vm(namespace.vm)
+    print(f"{label} virtual machine: {namespace.vm}", file=stdout)
     return 0
 
 

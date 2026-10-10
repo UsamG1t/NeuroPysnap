@@ -56,6 +56,7 @@ class PySnapService:
     DEFAULT_SERIAL_TCP_PORT = 1024
     DEFAULT_START_TIMEOUT = 30.0
     DEFAULT_STOP_TIMEOUT = 60.0
+    DEFAULT_PAUSE_TIMEOUT = 30.0
     DEFAULT_INTEGRATION_STOP_TIMEOUT = 180.0
     STOPPED_STATES = {"poweroff", "saved", "aborted"}
     STOPPING_STATES = {"stopping"}
@@ -366,7 +367,7 @@ class PySnapService:
         if raw_state == "running":
             return vm_info
         if raw_state in self.PAUSED_STATES:
-            raise PySnapError(f'Virtual machine "{vm_name}" is paused.')
+            return vm_info
         if raw_state in self.ERROR_STATES:
             raise PySnapError(
                 f'Virtual machine "{vm_name}" is in an error state: {raw_state}.'
@@ -405,6 +406,10 @@ class PySnapService:
             raise PySnapError(
                 f'Virtual machine "{vm_name}" is changing state; try again later.'
             )
+        if display_state == "Paused":
+            # A paused guest cannot handle the ACPI power button.
+            self._resume_vm_and_wait(vm_name, timeout)
+            display_state = "Active"
         if display_state not in {"Working", "Active"}:
             raise PySnapError(
                 f'Virtual machine "{vm_name}" cannot be stopped from state {display_state}.'
@@ -424,12 +429,141 @@ class PySnapService:
         :param timeout: Optional per-VM timeout in seconds.
         :returns: Names of VMs that received a stop request and stopped.
         """
-        stoppable_names = [
+        records = self.list_monitored_vms()
+        paused_names = [record.name for record in records if record.display_state == "Paused"]
+        resume_failures = self._run_parallel_vm_actions(
+            paused_names, lambda vm_name: self._resume_vm_and_wait(vm_name, timeout)
+        )
+        if resume_failures:
+            raise PySnapError(
+                "Unable to resume paused VMs before stopping them: "
+                + "; ".join(f"{name}: {message}" for name, message in sorted(resume_failures.items()))
+            )
+        stoppable_names = sorted(
+            [record.name for record in records if record.display_state in {"Working", "Active"}]
+            + paused_names
+        )
+        return self._stop_runtime_vm_names(stoppable_names, timeout=timeout)
+
+    def pause_runtime_vm(self, vm_name: str, timeout: float | None = None) -> None:
+        """Pause one running VM; it stays in memory until it is resumed.
+
+        :param vm_name: VM name.
+        :param timeout: Optional timeout in seconds.
+        :raises PySnapError: If the VM is not running.
+        """
+        display_state = self.get_monitor_state_label(vm_name)
+        if display_state == "Paused":
+            raise PySnapError(f'Virtual machine "{vm_name}" is already paused.')
+        if display_state not in {"Working", "Active"}:
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" cannot be paused from state {display_state}.'
+            )
+        self.client.pause_vm(vm_name)
+        self._wait_for_vm_state(
+            vm_name=vm_name,
+            acceptable_states=self.PAUSED_STATES,
+            timeout=timeout or self.DEFAULT_PAUSE_TIMEOUT,
+            action_description="pause",
+        )
+
+    def resume_runtime_vm(self, vm_name: str, timeout: float | None = None) -> None:
+        """Resume one paused VM.
+
+        :param vm_name: VM name.
+        :param timeout: Optional timeout in seconds.
+        :raises PySnapError: If the VM is not paused.
+        """
+        display_state = self.get_monitor_state_label(vm_name)
+        if display_state != "Paused":
+            raise PySnapError(f'Virtual machine "{vm_name}" is not paused ({display_state}).')
+        self._resume_vm_and_wait(vm_name, timeout)
+
+    def pause_all_runtime_vms(self, timeout: float | None = None) -> list[str]:
+        """Pause all running VMs.
+
+        :param timeout: Optional per-VM timeout in seconds.
+        :returns: Names of the paused VMs.
+        :raises PySnapError: If one or more VMs cannot be paused.
+        """
+        names = [
             record.name
             for record in self.list_monitored_vms()
             if record.display_state in {"Working", "Active"}
         ]
-        return self._stop_runtime_vm_names(stoppable_names, timeout=timeout)
+        return self._change_vm_states(
+            names,
+            self.client.pause_vm,
+            self.PAUSED_STATES,
+            timeout or self.DEFAULT_PAUSE_TIMEOUT,
+            "pause",
+        )
+
+    def resume_all_runtime_vms(self, timeout: float | None = None) -> list[str]:
+        """Resume all paused VMs.
+
+        :param timeout: Optional per-VM timeout in seconds.
+        :returns: Names of the resumed VMs.
+        :raises PySnapError: If one or more VMs cannot be resumed.
+        """
+        names = [
+            record.name for record in self.list_monitored_vms() if record.display_state == "Paused"
+        ]
+        return self._change_vm_states(
+            names,
+            self.client.resume_vm,
+            {"running"},
+            timeout or self.DEFAULT_PAUSE_TIMEOUT,
+            "resume",
+        )
+
+    def _resume_vm_and_wait(self, vm_name: str, timeout: float | None) -> None:
+        """Resume a paused VM and wait until it runs."""
+        self.client.resume_vm(vm_name)
+        self._wait_for_vm_state(
+            vm_name=vm_name,
+            acceptable_states={"running"},
+            timeout=timeout or self.DEFAULT_PAUSE_TIMEOUT,
+            action_description="resume",
+        )
+
+    def _change_vm_states(
+        self,
+        vm_names: list[str],
+        request: Callable[[str], object],
+        acceptable_states: set[str],
+        timeout: float,
+        action: str,
+    ) -> list[str]:
+        """Request a state change for several VMs in parallel and wait for it.
+
+        :param vm_names: VM names.
+        :param request: Client call that requests the change.
+        :param acceptable_states: States that complete the change.
+        :param timeout: Per-VM timeout in seconds.
+        :param action: Verb used in messages, such as ``"pause"``.
+        :returns: Sorted names of the changed VMs.
+        :raises PySnapError: If one or more VMs did not change.
+        """
+        failures = self._run_parallel_vm_actions(vm_names, request)
+        requested = [name for name in vm_names if name not in failures]
+        failures.update(
+            self._run_parallel_vm_actions(
+                requested,
+                lambda vm_name: self._wait_for_vm_state(
+                    vm_name=vm_name,
+                    acceptable_states=acceptable_states,
+                    timeout=timeout,
+                    action_description=action,
+                ),
+            )
+        )
+        if failures:
+            raise PySnapError(
+                f"Unable to {action} all requested VMs: "
+                + "; ".join(f"{name}: {message}" for name, message in sorted(failures.items()))
+            )
+        return sorted(vm_names)
 
     def show_vm(self, vm_name: str) -> VMInfo:
         """Return details for a single VM.

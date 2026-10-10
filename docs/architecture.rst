@@ -140,6 +140,11 @@ PySnap translates raw VirtualBox runtime states into compact monitor labels:
 - ``Paused`` for paused VMs
 - ``Error`` for explicit error-like VirtualBox states
 
+A ``pysnap connect`` session ends on every label except ``Working``,
+``Active`` and ``Paused``. ``PauseTracker`` follows pause and resume: while
+paused, keys are not forwarded, and a session that started on a paused VM
+wakes the console after the resume only when no guest output arrived yet.
+
 Host Cleanup Strategy
 ---------------------
 

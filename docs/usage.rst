@@ -270,6 +270,15 @@ for ``VBoxManage`` when the command is not exported in ``PATH``.
 
    pysnap connect MyVM
 
+A paused VM can be attached too: the status line shows ``Paused``, keys are
+held back and nothing is sent to the guest until ``pysnap resume``. Then the
+keys work again, and when the guest has not printed anything yet PySnap sends
+the usual waking newline. When a VM is paused during a session, the session
+stays open in the same way, so ``Ctrl-Q`` on a paused VM and a new
+``connect`` lead to the same state. If the paused VM does not accept the
+serial connection within three seconds, ``connect`` fails with a hint to run
+``pysnap resume``.
+
 Monitor Active Virtual Machines
 -------------------------------
 
@@ -302,10 +311,29 @@ shutdown modes is used.
 When a VM stops, any active ``pysnap connect`` session attached to it finishes
 automatically because the VM state changes and the serial connection is closed.
 
+A paused guest cannot handle the ACPI power button, so ``stop`` resumes a
+paused VM first; ``stop --all`` also stops paused VMs.
+
 .. code-block:: text
 
    pysnap stop MyVM
    pysnap stop --all
+
+Pause and Resume Virtual Machines
+---------------------------------
+
+``pause`` freezes a running VM through ``VBoxManage controlvm <VM> pause``; it
+stays in memory and shows up as ``Paused`` in ``pysnap monitor``. ``resume``
+continues it. With ``--all`` the commands act on every running or every paused
+VM. This is not ``savestate``: nothing is written to disk and the VM does not
+stop.
+
+.. code-block:: text
+
+   pysnap pause MyVM
+   pysnap resume MyVM
+   pysnap pause --all
+   pysnap resume --all
 
 Create a Linked Clone
 ---------------------
