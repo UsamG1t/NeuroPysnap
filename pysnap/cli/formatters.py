@@ -95,8 +95,11 @@ def format_vm_settings(result: VMSettingsResult) -> str:
     lines = [f"{result.vm_name} ({result.vm_state or 'unknown state'})"]
     for number, setting in enumerate(result.hardware.com_ports, start=1):
         lines.append(f"  COM{number}  {_describe_com_port(setting)}")
-    for number, setting in enumerate(result.hardware.nics, start=1):
-        lines.append(f"  NIC{number}  {_describe_nic(setting)}")
+    # Show NIC1-NIC4 and further adapters up to the last one in use.
+    used = [number for number, nic in enumerate(result.hardware.nics, start=1) if nic.attachment != "none"]
+    shown = max([4, *used])
+    for number, setting in enumerate(result.hardware.nics[:shown], start=1):
+        lines.append(f"  NIC{number:<2} {_describe_nic(setting)}")
     return "\n".join(lines)
 
 

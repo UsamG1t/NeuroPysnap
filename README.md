@@ -52,6 +52,9 @@ terminal, and removing virtual machines with dependency checks.
 
 ## Command Summary
 
+`pysnap --help` lists the commands; `pysnap COMMAND --help` describes one
+command with its arguments, options and examples.
+
 ```text
 pysnap
 pysnap list

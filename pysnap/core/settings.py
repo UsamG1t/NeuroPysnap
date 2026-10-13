@@ -2,9 +2,13 @@
 
 Each option is ``KEY=VALUE``:
 
-- ``com1`` ... ``com4``: ``auto`` or a TCP port number for a TCP server,
-  ``server:NAME`` or ``client:NAME`` for a host pipe between VMs, or ``off``;
-- ``nic1`` ... ``nic4``: an internal network name, ``nat`` or ``off``.
+- ``comN``: ``auto`` or a TCP port number for a TCP server, ``server:NAME``
+  or ``client:NAME`` for a host pipe between VMs, or ``off``;
+- ``nicN``: an internal network name, ``nat`` or ``off``.
+
+``N`` is any port or adapter number; whether the VM has it (VirtualBox
+offers COM1-COM4 and, depending on the chipset, NIC1-NIC8 or NIC1-NIC36) is
+checked against the VM.
 
 A host pipe is given by a short name; :func:`host_pipe_path` turns it into
 the path format of the host system, so two VMs that use the same name are
@@ -23,12 +27,10 @@ from typing import Sequence
 from pysnap.core.models import ComPortSetting, NicSetting
 from pysnap.errors import PySnapError
 
-PORT_COUNT = 4
-NIC_COUNT = 4
 PIPE_PREFIX = "pysnap-"
 WINDOWS_PIPE_ROOT = "\\\\.\\pipe\\"
 
-_KEY_PATTERN = re.compile(r"^(?P<kind>com|nic)(?P<number>[1-4])$")
+_KEY_PATTERN = re.compile(r"^(?P<kind>com|nic)(?P<number>[1-9][0-9]*)$")
 _PIPE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 
@@ -51,8 +53,8 @@ class ComPortRequest:
 class SetRequest:
     """Represent the changes requested by ``pysnap set``.
 
-    :param com_ports: Port numbers (1-4) mapped to the requested change.
-    :param nics: Adapter numbers (1-4) mapped to the requested setting.
+    :param com_ports: Port numbers mapped to the requested change.
+    :param nics: Adapter numbers mapped to the requested setting.
     """
 
     com_ports: dict[int, ComPortRequest]
@@ -78,7 +80,7 @@ def parse_set_options(options: Sequence[str]) -> SetRequest:
         match = _KEY_PATTERN.match(key.strip().lower())
         if not separator or match is None:
             raise PySnapError(
-                f'Invalid option "{option}"; use comN=VALUE or nicN=VALUE with N from 1 to 4.'
+                f'Invalid option "{option}"; use comN=VALUE or nicN=VALUE.'
             )
         number = int(match["number"])
         value = value.strip()

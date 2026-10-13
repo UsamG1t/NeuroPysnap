@@ -117,8 +117,9 @@ class NicSetting:
 class VMHardware:
     """Represent the serial ports and network adapters of one VM.
 
-    :param com_ports: Settings of COM1-COM4.
-    :param nics: Settings of NIC1-NIC4.
+    :param com_ports: Settings of every serial port the VM can have (COM1-COM4).
+    :param nics: Settings of every network adapter the VM can have; their
+        number depends on the chipset (8 for PIIX3, 36 for ICH9).
     """
 
     com_ports: tuple[ComPortSetting, ...]

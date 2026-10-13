@@ -31,10 +31,10 @@ class SettingsClient(FakeClient):
         self.hardware: dict[str, VMHardware] = {}
         self.extra_data: dict[str, dict[str, str]] = {}
 
-    def add_vm(self, name: str, *, state: str = "poweroff", com=(), nics=()) -> None:
+    def add_vm(self, name: str, *, state: str = "poweroff", com=(), nics=(), nic_count: int = 8) -> None:
         """Register a VM with the given COM ports and adapters."""
         com_ports = tuple(com) + (OFF,) * (4 - len(com))
-        adapters = tuple(nics) + (NO_NIC,) * (4 - len(nics))
+        adapters = tuple(nics) + (NO_NIC,) * (nic_count - len(nics))
         self.references[name] = VMReference(name=name, uuid=f"uuid-{name}")
         self.hardware[name] = VMHardware(com_ports=com_ports, nics=adapters)
         self.infos[name] = VMInfo(name=name, uuid=f"uuid-{name}", groups=("/Lab",), vm_state=state)
@@ -98,7 +98,9 @@ class ParseOptionsTests(unittest.TestCase):
     def test_rejects_invalid_options(self) -> None:
         """Explain unknown keys, repeated keys and bad values."""
         cases = {
-            "com5=auto": "comN=VALUE",
+            "com0=auto": "comN=VALUE",
+            "nic01=x": "comN=VALUE",
+            "com=auto": "comN=VALUE",
             "nic2": "comN=VALUE",
             "speed=1": "comN=VALUE",
             "com1=70000": "between 1 and 65535",
@@ -151,7 +153,24 @@ class ClientTests(unittest.TestCase):
         ))
         self.assertEqual(hardware.nics, (
             NicSetting("nat"), NicSetting("intnet", "left"), NO_NIC, NicSetting("bridged"),
-        ))
+        ) + (NO_NIC,) * 4)
+
+    def test_adapter_count_follows_the_chipset(self) -> None:
+        """Use the count VirtualBox reports for the chipset, or a known default."""
+        properties = 'name="first"\nchipset="ich9"\nnic1="nat"\nnic12="intnet"\nintnet12="far"\n'
+        runner = FakeRunner({
+            ("showvminfo", "first", "--machinereadable"): properties,
+            ("list", "systemproperties"): (
+                "Maximum PIIX3 Network Adapter count:   8\n"
+                "Maximum ICH9 Network Adapter count:    20\n"
+            ),
+        })
+        hardware = VBoxManageClient(runner=runner).get_vm_hardware("first")
+        self.assertEqual(len(hardware.nics), 20)
+        self.assertEqual(hardware.nics[11], NicSetting("intnet", "far"))
+
+        silent = FakeRunner({("showvminfo", "first", "--machinereadable"): properties})
+        self.assertEqual(len(VBoxManageClient(runner=silent).get_vm_hardware("first").nics), 36)
 
     def test_lists_tcp_ports_of_all_serial_ports(self) -> None:
         """Report TCP servers on any COM port in the VM information."""
@@ -282,6 +301,21 @@ class ServiceSettingsTests(unittest.TestCase):
         self.service.set_vm_settings("first", ["nic4=off"])
         self.assertEqual(self.client.extra_data["first"][SKU_KEY], "port2600")
 
+    def test_sku_uses_the_highest_tcp_port_without_com1(self) -> None:
+        """Take the highest remaining TCP port when COM1 is no TCP server."""
+        self.client.extra_data["first"] = {SKU_KEY: "port2326.left"}
+        self.service.set_vm_settings("first", ["com1=off", "com2=2700", "com3=2650", "nic2=left"])
+        self.assertEqual(self.client.extra_data["first"][SKU_KEY], "port2700.left")
+
+    def test_accepts_every_adapter_of_the_chipset(self) -> None:
+        """Allow NIC5 and above up to the chipset limit, refuse beyond it."""
+        result = self.service.set_vm_settings("first", ["nic8=far"])
+        self.assertEqual(result.hardware.nics[7], NicSetting("intnet", "far"))
+        with self.assertRaisesRegex(PySnapError, 'NIC9: virtual machine "first" offers NIC1-NIC8'):
+            self.service.set_vm_settings("first", ["nic9=far"])
+        with self.assertRaisesRegex(PySnapError, "COM5: VirtualBox offers COM1-COM4"):
+            self.service.set_vm_settings("first", ["com5=auto"])
+
     def test_leaves_vms_without_sku_alone(self) -> None:
         """Do not add a DMI SKU to ordinary VMs."""
         self.service.set_vm_settings("first", ["nic2=left"])
@@ -329,10 +363,22 @@ class SetCommandTests(unittest.TestCase):
         client = SettingsClient()
         client.add_vm("first")
         output, errors = io.StringIO(), io.StringIO()
-        code = run_cli(["set", "first", "com9=auto"], service=PySnapService(client=client),
+        code = run_cli(["set", "first", "speed=auto"], service=PySnapService(client=client),
                        stdout=output, stderr=errors)
         self.assertEqual(code, 1)
         self.assertIn("Error: Invalid option", errors.getvalue())
+
+    def test_lists_adapters_up_to_the_last_one_in_use(self) -> None:
+        """Show NIC1-NIC4 and further adapters only when one of them is used."""
+        client = SettingsClient()
+        client.add_vm("first", nics=[NicSetting("nat")] + [NO_NIC] * 4 + [NicSetting("intnet", "far")])
+        output = io.StringIO()
+        run_cli(["set", "first"], service=PySnapService(client=client), stdout=output, stderr=io.StringIO())
+        lines = output.getvalue().splitlines()
+        self.assertEqual(lines[-6:], [
+            "  NIC1  NAT", "  NIC2  off", "  NIC3  off", "  NIC4  off", "  NIC5  off",
+            '  NIC6  internal network "far"',
+        ])
 
 
 if __name__ == "__main__":

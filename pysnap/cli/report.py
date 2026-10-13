@@ -52,11 +52,24 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
     """
     # ``pysnap.cli.app`` imports this module to dispatch ``report``, so the
     # shared parser class is imported lazily to avoid an import cycle.
-    from pysnap.cli.app import CliArgumentParser
+    from pysnap.cli.app import CliArgumentParser, _examples
 
     parser = CliArgumentParser(
         prog="pysnap report",
-        description="Read session reports recorded by the report utility.",
+        description=(
+            "Read session reports (report.NN.HOST archives) recorded by the "
+            "report utility inside the lab VMs. Reports are read safely: nothing "
+            "is extracted to disk and nothing from a report reaches the terminal "
+            "as a raw control sequence."
+        ),
+        epilog=(
+            'Run "pysnap report SUBCOMMAND --help" for the arguments of a subcommand.\n\n'
+            + _examples(
+                "pysnap report text report.01.first",
+                "pysnap report check report.01.first lab01-first.check.toml",
+                "pysnap report compare reports/",
+            )
+        ),
         stdout=stdout,
         stderr=stderr,
     )
@@ -67,13 +80,21 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
         "text",
         help="Print the session text with highlighted commands.",
         description=(
-            "Print the text of a recorded session without timing. Commands "
-            "entered after a prompt are highlighted."
+            "Print the text of a recorded session without timing, as the student "
+            "saw it. The report prompt is highlighted and entered commands are "
+            "shown in bold; colors produced in the VM are kept. Text longer than "
+            "the terminal opens in a pager: arrows scroll in all directions, "
+            "PgUp/PgDn and Home/End jump, q quits."
+        ),
+        epilog=_examples(
+            "pysnap report text report.01.first",
+            "pysnap report text report.01.first --commands",
+            "pysnap report text report.01.first --color never --no-pager > first.txt",
         ),
         stdout=stdout,
         stderr=stderr,
     )
-    text.add_argument("report", help="Report file, for example report.01.first.")
+    text.add_argument("report", metavar="REPORT", help="Report file, for example report.01.first.")
     text.add_argument(
         "--commands",
         action="store_true",
@@ -83,7 +104,8 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
         "--color",
         choices=("auto", "always", "never"),
         default="auto",
-        help="Highlight output: auto (default) colors only a terminal.",
+        metavar="WHEN",
+        help="When to color: auto (default, only on a terminal), always or never.",
     )
     text.add_argument(
         "--no-pager",
@@ -100,10 +122,14 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
             "check file, also check the expected commands and output blocks "
             "and grade the report."
         ),
+        epilog=_examples(
+            "pysnap report check report.01.first",
+            "pysnap report check report.01.first lab01-first.check.toml",
+        ),
         stdout=stdout,
         stderr=stderr,
     )
-    check.add_argument("report", help="Report file, for example report.01.first.")
+    check.add_argument("report", metavar="REPORT", help="Report file, for example report.01.first.")
     check.add_argument(
         "check_file",
         nargs="?",
@@ -120,7 +146,12 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
             "same MAC addresses, start times, keyboard delays, random output "
             "values, CPU.txt or erroneous commands. Directories are searched "
             "recursively for report.NN.HOST files. Whether two reports come "
-            "from different students is up to the reader."
+            "from different students is up to the reader. Pairs with signals are "
+            "listed first with their signals, other pairs as OK."
+        ),
+        epilog=_examples(
+            "pysnap report compare reports/",
+            "pysnap report compare ivanov/report.01.first petrov/report.01.first",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -139,11 +170,17 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
             "its own connection. A name without / is looked up in the home "
             "directory of the console user."
         ),
+        epilog=_examples(
+            "pysnap report extract first report.01.first",
+            "pysnap report extract first /tmp/report.03.pc1 --output reports/pc1 --force",
+        ),
         stdout=stdout,
         stderr=stderr,
     )
-    extract.add_argument("vm", help="Virtual machine name.")
-    extract.add_argument("name", help="Report file in the VM, for example report.01.first.")
+    extract.add_argument("vm", metavar="VM", help="Name of the running virtual machine.")
+    extract.add_argument(
+        "name", metavar="NAME", help="Report file in the VM, for example report.01.first."
+    )
     extract.add_argument(
         "--output",
         metavar="PATH",
@@ -163,14 +200,19 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
             "+/- speed, n/p next or previous command, Home/End start or end, "
             "q quit; while paused Alt+Up/Down scroll the history."
         ),
+        epilog=_examples(
+            "pysnap report show report.01.first",
+            "pysnap report show report.01.first --speed 4 --max-delay 0.5",
+        ),
         stdout=stdout,
         stderr=stderr,
     )
-    show.add_argument("report", help="Report file, for example report.01.first.")
+    show.add_argument("report", metavar="REPORT", help="Report file, for example report.01.first.")
     show.add_argument(
         "--speed",
         type=float,
         default=1.0,
+        metavar="X",
         help="Initial speed: 0.25, 0.5, 1, 2, 4, 8 or 16 (default 1).",
     )
     show.add_argument(

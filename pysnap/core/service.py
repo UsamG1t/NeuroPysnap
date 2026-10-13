@@ -626,6 +626,17 @@ class PySnapService:
         current = self.client.get_vm_hardware(vm_name)
         if request.empty:
             return VMSettingsResult(vm_name, vm_info.vm_state, current)
+        for number in request.com_ports:
+            if number > len(current.com_ports):
+                raise PySnapError(
+                    f"COM{number}: VirtualBox offers COM1-COM{len(current.com_ports)}."
+                )
+        for number in request.nics:
+            if number > len(current.nics):
+                raise PySnapError(
+                    f'NIC{number}: virtual machine "{vm_name}" offers NIC1-NIC{len(current.nics)} '
+                    "with its chipset."
+                )
         if (vm_info.vm_state or "").lower() not in self.STOPPED_STATES:
             raise PySnapError(
                 f'Virtual machine "{vm_name}" must be stopped before its serial ports '
@@ -828,8 +839,9 @@ class PySnapService:
 
         The SKU is ``port<COM1 port>.<NIC2>.<NIC3>.<NIC4>`` with the internal
         network names; adapters without one leave an empty place and empty
-        places at the end are dropped. When COM1 is no TCP server, the port
-        part of the previous SKU is kept.
+        places at the end are dropped. When COM1 is no TCP server, the
+        highest TCP port of the other COM ports is used, and without any the
+        port part of the previous SKU is kept.
 
         :param vm_name: VM name.
         :param hardware: Settings after the change.
@@ -838,8 +850,15 @@ class PySnapService:
         if not previous:
             return
         com1 = hardware.com_ports[0]
+        tcp_ports = [
+            setting.port
+            for setting in hardware.com_ports
+            if setting.mode == "tcpserver" and setting.port is not None
+        ]
         if com1.mode == "tcpserver" and com1.port is not None:
             port_part = f"port{com1.port}"
+        elif tcp_ports:
+            port_part = f"port{max(tcp_ports)}"
         else:
             port_part = previous.split(".", 1)[0]
         names = [

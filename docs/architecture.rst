@@ -93,8 +93,10 @@ When needed, the selected TCP port must be available both in VirtualBox and on
 the host system.
 
 Automatic allocation counts the TCP servers of all four serial ports of all
-VMs as used. ``pysnap set`` reads ``COM1``-``COM4`` and ``NIC1``-``NIC4`` from
-``showvminfo``, validates every option and TCP port before changing anything,
+VMs as used. ``pysnap set`` reads ``COM1``-``COM4`` and every network adapter
+of the VM from ``showvminfo``; the adapter count of its chipset comes from
+``VBoxManage list systemproperties`` (8 for PIIX3 and 36 for ICH9 when it is
+not reported). It validates every option and TCP port before changing anything,
 and applies the result with one ``modifyvm`` call using the standard PC
 resources of each COM port. Host pipes are named by a short name that is
 mapped to the host's pipe path format.

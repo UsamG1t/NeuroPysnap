@@ -238,7 +238,9 @@ class VBoxManageClient:
     # deleted. A bounded timeout turns that hang into a reportable error.
     LIST_COMMAND_TIMEOUT = 15.0
     COM_COUNT = 4
-    NIC_COUNT = 4
+    # Network adapters per chipset when ``list systemproperties`` gives none.
+    DEFAULT_NIC_COUNTS = {"piix3": 8, "ich9": 36}
+    NIC_COUNT_PATTERN = re.compile(r"^Maximum (\w+) Network Adapter count:\s*(\d+)", re.MULTILINE)
     # Standard PC I/O base addresses and IRQs of COM1-COM4.
     COM_RESOURCES = {
         1: ("0x3F8", "4"),
@@ -253,6 +255,7 @@ class VBoxManageClient:
         :param runner: Command runner implementation.
         """
         self.runner = runner or SubprocessRunner()
+        self._nic_counts: dict[str, int] | None = None
 
     def list_vms(self) -> list[VMReference]:
         """List all registered VMs.
@@ -304,11 +307,12 @@ class VBoxManageClient:
         """Read the serial ports and network adapters of a VM.
 
         :param vm_name: VM name to inspect.
-        :returns: Settings of COM1-COM4 and NIC1-NIC4.
+        :returns: Settings of COM1-COM4 and of every network adapter the
+            chipset of the VM offers.
         """
         properties = self._get_vm_properties(vm_name)
         nics = []
-        for number in range(1, self.NIC_COUNT + 1):
+        for number in range(1, self._nic_count(properties.get("chipset", "")) + 1):
             attachment = (properties.get(f"nic{number}", "") or "none").strip().lower()
             network = properties.get(f"intnet{number}") if attachment == "intnet" else None
             nics.append(NicSetting(attachment=attachment, network=network or None))
@@ -323,8 +327,8 @@ class VBoxManageClient:
         """Change serial ports and network adapters with one ``modifyvm`` call.
 
         :param vm_name: VM name.
-        :param com_ports: Port numbers (1-4) mapped to their new settings.
-        :param nics: Adapter numbers (1-4) mapped to their new settings.
+        :param com_ports: Port numbers mapped to their new settings.
+        :param nics: Adapter numbers mapped to their new settings.
         """
         arguments: list[str] = ["modifyvm", vm_name]
         for number, setting in sorted(com_ports.items()):
@@ -628,6 +632,25 @@ class VBoxManageClient:
         return parse_machine_readable(
             self.runner.run(["showvminfo", vm_name, "--machinereadable"])
         )
+
+    def _nic_count(self, chipset: str) -> int:
+        """Return how many network adapters a chipset offers.
+
+        :param chipset: Chipset of the VM, such as ``piix3`` or ``ich9``.
+        :returns: Adapter count reported by VirtualBox, or a known default.
+        """
+        chipset = (chipset or "piix3").strip().lower()
+        if self._nic_counts is None:
+            try:
+                output = self.runner.run(
+                    ["list", "systemproperties"], timeout=self.LIST_COMMAND_TIMEOUT
+                )
+            except CommandExecutionError:
+                output = ""
+            self._nic_counts = {
+                name.lower(): int(count) for name, count in self.NIC_COUNT_PATTERN.findall(output)
+            }
+        return self._nic_counts.get(chipset) or self.DEFAULT_NIC_COUNTS.get(chipset, 8)
 
     def _parse_com_ports(self, properties: dict[str, str]) -> tuple[ComPortSetting, ...]:
         """Parse COM1-COM4 from machine-readable VM properties.

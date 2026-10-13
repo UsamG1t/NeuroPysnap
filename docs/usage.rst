@@ -6,11 +6,16 @@ PySnap exposes a single command line entry point named ``pysnap``.
 Help
 ----
 
-Running the command without arguments shows the built-in help:
+Running the command without arguments, or with ``--help``, lists the commands
+in groups with a one-line summary each. Every command has its own help with a
+description, its arguments and options, and examples:
 
 .. code-block:: text
 
-   pysnap
+   pysnap --help
+   pysnap clone --help
+   pysnap report --help
+   pysnap report check --help
 
 Open Bundled Documentation
 --------------------------
@@ -177,9 +182,11 @@ built-in terminal interface.
 Set Serial Ports and Network Adapters
 -------------------------------------
 
-The ``set`` command shows or changes the four serial (COM) ports and the four
-network adapters of a VM. Each option is ``KEY=VALUE``; ``N`` is ``1`` to
-``4``:
+The ``set`` command shows or changes the serial (COM) ports and the network
+adapters of a VM. Each option is ``KEY=VALUE``; ``N`` is any number the VM
+offers: VirtualBox has ``COM1``-``COM4`` and, depending on the chipset of the
+VM, ``NIC1``-``NIC8`` (PIIX3) or ``NIC1``-``NIC36`` (ICH9). The output lists
+``NIC1``-``NIC4`` and further adapters up to the last one in use.
 
 - ``comN=auto``: a TCP server on a free port (an existing TCP server keeps
   its port); ``comN=PORT`` uses the given port
@@ -219,8 +226,9 @@ platform.
 For clones of proto-settings base VMs, the DMI system SKU is rebuilt from the
 new ``COM1`` port and the internal networks of ``NIC2``-``NIC4``, for example
 ``port2326.left.right``. An adapter without an internal network leaves an
-empty place (``port2326..right``); when ``COM1`` is no TCP server, the port
-part of the previous SKU is kept.
+empty place (``port2326..right``). When ``COM1`` is no TCP server, the
+highest TCP port of the other COM ports is used; without any TCP port the
+port part of the previous SKU is kept.
 
 Connect to a Headless Virtual Machine
 -------------------------------------

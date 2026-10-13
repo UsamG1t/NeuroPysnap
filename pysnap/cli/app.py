@@ -6,6 +6,7 @@ import argparse
 import os
 from pathlib import Path
 import sys
+import textwrap
 from typing import Sequence, TextIO
 
 from pysnap.cli.formatters import (
@@ -17,6 +18,7 @@ from pysnap.cli.formatters import (
     format_vm_info,
     format_vm_settings,
 )
+from pysnap import __version__
 from pysnap.cli.report import run_report_command
 from pysnap.core.service import PySnapService
 from pysnap.docview import open_bundled_documentation
@@ -36,6 +38,89 @@ class ParserExit(Exception):
         super().__init__(status)
 
 
+class HelpFormatter(argparse.RawDescriptionHelpFormatter):
+    """Wrap help paragraphs and keep indented lines such as examples.
+
+    Descriptions and epilogs are split into blank-line separated blocks. A
+    block without indented lines is wrapped as one paragraph; a block with
+    indented lines (an example list or an option table) is kept as written.
+    """
+
+    def _fill_text(self, text: str, width: int, indent: str) -> str:
+        blocks = []
+        for block in textwrap.dedent(text).strip("\n").split("\n\n"):
+            lines = block.splitlines()
+            if any(line.startswith(" ") for line in lines):
+                blocks.append("\n".join(indent + line for line in lines))
+            else:
+                blocks.append(
+                    textwrap.fill(
+                        " ".join(line.strip() for line in lines),
+                        width,
+                        initial_indent=indent,
+                        subsequent_indent=indent,
+                    )
+                )
+        return "\n\n".join(blocks)
+
+
+# Command groups and one-line summaries shown by ``pysnap --help``.
+COMMAND_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
+    (
+        "Virtual machines",
+        (
+            ("list", "List VirtualBox groups and their virtual machines."),
+            ("show", "Show the group, serial TCP port and parent of a VM."),
+            ("import", "Import an OVA or OVF appliance."),
+            ("protosettings", "Register a base VM whose clones get lab settings."),
+            ("clone", "Create a linked clone with a serial port and networks."),
+            ("set", "Show or change the COM ports and network adapters of a VM."),
+            ("plug", "Give an existing VM a TCP serial port for connect."),
+            ("erase", "Delete VMs, with dependency checks for linked clones."),
+        ),
+    ),
+    (
+        "Running virtual machines",
+        (
+            ("connect", "Start a VM headless and attach to its serial console."),
+            ("monitor", "List VMs that are running, paused or changing state."),
+            ("pause", "Pause running VMs; they stay in memory."),
+            ("resume", "Resume paused VMs."),
+            ("stop", "Shut VMs down through the ACPI power button."),
+        ),
+    ),
+    (
+        "Session reports",
+        (("report", "Read, check, extract and compare student session reports."),),
+    ),
+    (
+        "Maintenance",
+        (
+            ("docs", "Open the bundled HTML documentation."),
+            ("full-clean", "Delete the VirtualBox machine and configuration directories."),
+            ("--integration-test", "Run the end-to-end check on a real VirtualBox."),
+        ),
+    ),
+)
+
+
+def _commands_epilog() -> str:
+    """Return the grouped command list of the root help."""
+    width = max(len(name) for _, commands in COMMAND_GROUPS for name, _ in commands)
+    lines = []
+    for title, commands in COMMAND_GROUPS:
+        lines.append(f"{title}:")
+        lines.extend(f"  {name:<{width}}  {summary}" for name, summary in commands)
+        lines.append("")
+    lines.append('Run "pysnap COMMAND --help" for the arguments and examples of a command.')
+    return "\n".join(lines)
+
+
+def _examples(*commands: str) -> str:
+    """Return an examples block for a command epilog."""
+    return "Examples:\n" + "\n".join(f"  {command}" for command in commands)
+
+
 class CliArgumentParser(argparse.ArgumentParser):
     """Route argparse output through caller-provided streams."""
 
@@ -53,6 +138,7 @@ class CliArgumentParser(argparse.ArgumentParser):
         """
         self.stdout = stdout
         self.stderr = stderr
+        kwargs.setdefault("formatter_class", HelpFormatter)
         super().__init__(*args, **kwargs)
 
     def _print_message(self, message: str, file: TextIO | None = None) -> None:
@@ -99,34 +185,20 @@ def build_root_parser(
     """
     parser = CliArgumentParser(
         prog="pysnap",
-        description="Manage VirtualBox appliance imports and linked clones.",
-        epilog=(
-            "Commands:\n"
-            "  pysnap list\n"
-            "  pysnap import IMAGE.ova|IMAGE.ovf [VMName]\n"
-            "  pysnap --integration-test IMAGE.ova|IMAGE.ovf\n"
-            "  pysnap protosettings BASE_VM\n"
-            "  pysnap show VM\n"
-            "  pysnap plug VM\n"
-            "  pysnap set VM [comN=auto|PORT|server:NAME|client:NAME|off] [nicN=NETWORK|nat|off] ...\n"
-            "  pysnap docs [--browser BROWSER]\n"
-            "  pysnap connect VM\n"
-            "  pysnap monitor\n"
-            "  pysnap stop [VM | --all]\n"
-            "  pysnap pause [VM | --all]\n"
-            "  pysnap resume [VM | --all]\n"
-            "  pysnap clone BASE_VM CLONE_VM [-p PORT] [INTNET1 [INTNET2 [INTNET3]]]\n"
-            "  pysnap erase [--clones-only] [--all | --group GROUP | VM]\n"
-            "  pysnap full-clean [--path DIRECTORY ...]\n"
-            "  pysnap report text REPORT [--commands] [--color WHEN] [--no-pager]\n"
-            "  pysnap report show REPORT [--speed X] [--max-delay SECONDS]\n"
-            "  pysnap report check REPORT [CHECK]\n"
-            "  pysnap report extract VM NAME [--output PATH] [--force]\n"
-            "  pysnap report compare PATH..."
+        usage="pysnap COMMAND [ARGUMENTS] | pysnap COMMAND --help",
+        description=(
+            "Manage VirtualBox appliance imports and linked clones for network "
+            "labs: import images, clone and configure virtual machines, attach "
+            "to their serial consoles and read the session reports recorded "
+            "inside them."
         ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=_commands_epilog(),
         stdout=stdout,
         stderr=stderr,
+    )
+    parser.add_argument(
+        "-v", "--version", action="version", version=f"pysnap {__version__}",
+        help="show the PySnap version and exit",
     )
     return parser
 
@@ -162,7 +234,7 @@ def run_cli(
         command = arguments[0]
         if command == "--integration-test":
             return _run_integration_test(arguments[1:], app_service, output, error_output)
-        if command in {"-h", "--help"}:
+        if command in {"-h", "--help", "-v", "--version"}:
             root_parser.parse_args([command])
             return 0
         if command == "list":
@@ -230,7 +302,18 @@ def _run_list(
     :param stderr: Error stream.
     :returns: Process exit code.
     """
-    parser = CliArgumentParser(prog="pysnap list", stdout=stdout, stderr=stderr)
+    parser = CliArgumentParser(
+        prog="pysnap list",
+        description=(
+            "List the VirtualBox groups and the virtual machines in each group. "
+            "VMs without a group are listed under /Others."
+        ),
+        epilog=_examples(
+            "pysnap list",
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
     parser.parse_args(list(arguments))
     try:
         groups = service.list_groups()
@@ -259,8 +342,19 @@ def _run_show(
     :param stderr: Error stream.
     :returns: Process exit code.
     """
-    parser = CliArgumentParser(prog="pysnap show", stdout=stdout, stderr=stderr)
-    parser.add_argument("vm", help="Virtual machine name.")
+    parser = CliArgumentParser(
+        prog="pysnap show",
+        description=(
+            "Show the name, group, serial TCP port (COM1) and, for linked "
+            "clones, the parent of a virtual machine."
+        ),
+        epilog=_examples(
+            "pysnap show first",
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    parser.add_argument("vm", metavar="VM", help="Name of the virtual machine.")
     namespace = parser.parse_args(list(arguments))
     print(format_vm_info(service.show_vm(namespace.vm)), file=stdout)
     return 0
@@ -280,8 +374,22 @@ def _run_protosettings(
     :param stderr: Error stream.
     :returns: Process exit code.
     """
-    parser = CliArgumentParser(prog="pysnap protosettings", stdout=stdout, stderr=stderr)
-    parser.add_argument("vm", help="Base virtual machine name.")
+    parser = CliArgumentParser(
+        prog="pysnap protosettings",
+        description=(
+            "Register a base VM whose linked clones get lab settings: NIC1 "
+            "stays on NAT, the internal networks of pysnap clone go to "
+            "NIC2-NIC4, and the clone name, serial port and networks are "
+            "written into its DMI system information. The list of such base VMs "
+            "is kept in ~/.ptotosettings."
+        ),
+        epilog=_examples(
+            "pysnap protosettings protocols-jeos-20251218-x86_64",
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    parser.add_argument("vm", metavar="BASE_VM", help="Name of the base virtual machine.")
     namespace = parser.parse_args(list(arguments))
     configured = service.register_proto_settings_vm(namespace.vm)
     print(f"Registered proto-settings VM: {namespace.vm}", file=stdout)
@@ -307,12 +415,26 @@ def _run_import(
     :param stderr: Error stream.
     :returns: Process exit code.
     """
-    parser = CliArgumentParser(prog="pysnap import", stdout=stdout, stderr=stderr)
-    parser.add_argument("image", help="Path to the OVA or OVF appliance.")
+    parser = CliArgumentParser(
+        prog="pysnap import",
+        description=(
+            "Import an OVA or OVF appliance into VirtualBox. The imported VMs "
+            "keep the group of the appliance or go to /Others. Nothing is "
+            "created when a VM with the same name already exists."
+        ),
+        epilog=_examples(
+            "pysnap import image.ova",
+            "pysnap import image.ova RenamedVM",
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    parser.add_argument("image", metavar="IMAGE", help="Path to the .ova or .ovf appliance.")
     parser.add_argument(
         "vm_name",
         nargs="?",
-        help="Optional name for the imported VM when the appliance contains one VM.",
+        metavar="VM_NAME",
+        help="New name of the imported VM; only for appliances with one VM.",
     )
     namespace = parser.parse_args(list(arguments))
     progress_bar = ImportProgressBar(stream=stdout)
@@ -342,8 +464,22 @@ def _run_plug(
     :param stderr: Error stream.
     :returns: Process exit code.
     """
-    parser = CliArgumentParser(prog="pysnap plug", stdout=stdout, stderr=stderr)
-    parser.add_argument("vm", help="Virtual machine name.")
+    parser = CliArgumentParser(
+        prog="pysnap plug",
+        description=(
+            "Prepare an existing VM for pysnap connect: configure COM1 (UART1) "
+            "as a TCP server on a free port. A VM whose COM1 already is a TCP "
+            "server is left unchanged; otherwise the VM must be stopped. Use "
+            "pysnap set for other ports and adapters."
+        ),
+        epilog=_examples(
+            "pysnap plug MyVM",
+            "pysnap connect MyVM",
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    parser.add_argument("vm", metavar="VM", help="Name of the virtual machine.")
     namespace = parser.parse_args(list(arguments))
     vm_info = service.plug_vm(namespace.vm)
     print(format_vm_info(vm_info), file=stdout)
@@ -367,28 +503,38 @@ def _run_set(
     parser = CliArgumentParser(
         prog="pysnap set",
         description=(
-            "Show or change the serial ports and network adapters of a stopped VM. "
-            "Without options the current settings are shown."
+            "Show or change the serial (COM) ports and network adapters of a VM: "
+            "COM1-COM4, and NIC1-NIC8 or NIC1-NIC36 depending on the chipset of the "
+            "VM. Without options the current settings are shown. "
+            "Changes need a stopped VM; all options are checked first and then "
+            "applied together, so an invalid option changes nothing. Removing a "
+            "TCP server prints a warning: pysnap connect uses COM1."
         ),
         epilog=(
-            "Options:\n"
-            "  comN=auto        TCP server on a free port (N is 1-4)\n"
+            "Options (N is the port or adapter number):\n"
+            "  comN=auto        TCP server on a free port (keeps an existing one)\n"
             "  comN=PORT        TCP server on the given port\n"
             "  comN=server:NAME host pipe NAME, this VM creates it\n"
             "  comN=client:NAME host pipe NAME, this VM connects to it\n"
             "  comN=off         no serial port\n"
-            "  nicN=NETWORK     internal network NETWORK (N is 1-4)\n"
+            "  nicN=NETWORK     internal network NETWORK\n"
             "  nicN=nat         NAT\n"
             "  nicN=off         no network adapter\n"
             "\n"
-            "Example: pysnap set first nic2=left nic3=right com2=server:link"
+            + _examples(
+                "pysnap set first",
+                "pysnap set first nic2=left nic3=right com2=server:link",
+                "pysnap set second nic2=left com2=client:link",
+                "pysnap set first com1=2330 nic4=off",
+            )
         ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
         stdout=stdout,
         stderr=stderr,
     )
-    parser.add_argument("vm", help="Virtual machine name.")
-    parser.add_argument("options", nargs="*", metavar="OPTION", help="comN=VALUE or nicN=VALUE.")
+    parser.add_argument("vm", metavar="VM", help="Name of the virtual machine.")
+    parser.add_argument(
+        "options", nargs="*", metavar="OPTION", help="comN=VALUE or nicN=VALUE, see below."
+    )
     namespace = parser.parse_args(list(arguments))
     result = service.set_vm_settings(namespace.vm, namespace.options)
     for warning in result.warnings:
@@ -411,19 +557,36 @@ def _run_clone(
     :param stderr: Error stream.
     :returns: Process exit code.
     """
-    parser = CliArgumentParser(prog="pysnap clone", stdout=stdout, stderr=stderr)
-    parser.add_argument("base_vm", help="Base virtual machine name.")
-    parser.add_argument("clone_vm", help="Linked clone name.")
+    parser = CliArgumentParser(
+        prog="pysnap clone",
+        description=(
+            "Create a linked clone of a base VM in the same group. The clone "
+            "gets COM1 as a TCP server and up to three internal networks: on "
+            "NIC1-NIC3 for ordinary base VMs (other adapters are switched off) "
+            "or on NIC2-NIC4 for proto-settings base VMs, where NIC1 stays on "
+            "NAT. A snapshot of the base VM is taken when it has none."
+        ),
+        epilog=_examples(
+            "pysnap clone base first",
+            "pysnap clone base first -p 2330 left right",
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    parser.add_argument("base_vm", metavar="BASE_VM", help="Name of the VM to clone.")
+    parser.add_argument("clone_vm", metavar="CLONE_VM", help="Name of the new linked clone.")
     parser.add_argument(
         "-p",
         "--port",
         type=int,
-        help="TCP port assigned to UART1. If omitted, the next free port is used.",
+        metavar="PORT",
+        help="TCP port of COM1 (UART1); default: the next free port.",
     )
     parser.add_argument(
         "networks",
         nargs="*",
-        help="Up to three internal network names.",
+        metavar="NETWORK",
+        help="Internal network names in adapter order, at most three.",
     )
     # ``pysnap clone BASE CLONE -p PORT NET...`` places an optional between
     # positional groups. Plain ``parse_args`` supports this only from the
@@ -456,8 +619,24 @@ def _run_connect(
     :param stderr: Error stream.
     :returns: Process exit code.
     """
-    parser = CliArgumentParser(prog="pysnap connect", stdout=stdout, stderr=stderr)
-    parser.add_argument("vm", help="Virtual machine name.")
+    parser = CliArgumentParser(
+        prog="pysnap connect",
+        description=(
+            "Start a VM in headless mode when needed and attach the PySnap "
+            "terminal to its serial console (COM1). Ctrl-Q detaches without "
+            "stopping the VM, Ctrl-L redraws, Alt-Up/Down scroll the local "
+            "history line by line and Alt-Left/Right jump to its start or back "
+            "to the live output, Ctrl-Shift-C copies text selected with the "
+            "mouse. A paused VM can be attached too: keys wait until pysnap "
+            "resume."
+        ),
+        epilog=_examples(
+            "pysnap connect first",
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    parser.add_argument("vm", metavar="VM", help="Name of the virtual machine.")
     namespace = parser.parse_args(list(arguments))
     session = TerminalSession(service=service)
     return session.run(namespace.vm)
@@ -475,10 +654,23 @@ def _run_docs(
     :param stderr: Error stream.
     :returns: Process exit code.
     """
-    parser = CliArgumentParser(prog="pysnap docs", stdout=stdout, stderr=stderr)
+    parser = CliArgumentParser(
+        prog="pysnap docs",
+        description=(
+            "Open the HTML documentation bundled with PySnap in a web browser "
+            "(firefox unless --browser names another one)."
+        ),
+        epilog=_examples(
+            "pysnap docs",
+            "pysnap docs --browser chromium",
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
     parser.add_argument(
         "--browser",
-        help="Browser executable used to open the bundled documentation.",
+        metavar="BROWSER",
+        help="Browser executable to use; default: firefox.",
     )
     namespace = parser.parse_args(list(arguments))
     open_bundled_documentation(browser=namespace.browser)
@@ -499,7 +691,20 @@ def _run_monitor(
     :param stderr: Error stream.
     :returns: Process exit code.
     """
-    parser = CliArgumentParser(prog="pysnap monitor", stdout=stdout, stderr=stderr)
+    parser = CliArgumentParser(
+        prog="pysnap monitor",
+        description=(
+            "List the virtual machines that are not stopped, with their state, "
+            "serial TCP port and group. States: Working (a pysnap connect "
+            "session is attached), Active (running without a session), Paused, "
+            "Stopping, Changing and Error."
+        ),
+        epilog=_examples(
+            "pysnap monitor",
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
     parser.parse_args(list(arguments))
     print(format_monitor_records(service.list_monitored_vms()), file=stdout)
     return 0
@@ -519,9 +724,22 @@ def _run_stop(
     :param stderr: Error stream.
     :returns: Process exit code.
     """
-    parser = CliArgumentParser(prog="pysnap stop", stdout=stdout, stderr=stderr)
-    parser.add_argument("vm", nargs="?", help="Virtual machine name to stop.")
-    parser.add_argument("--all", action="store_true", help="Stop all running VMs.")
+    parser = CliArgumentParser(
+        prog="pysnap stop",
+        description=(
+            "Shut a VM down through the ACPI power button and wait until it "
+            "stops. A paused VM is resumed first, because a paused guest "
+            "ignores the power button. Give either a VM name or --all."
+        ),
+        epilog=_examples(
+            "pysnap stop first",
+            "pysnap stop --all",
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    parser.add_argument("vm", nargs="?", metavar="VM", help="Name of the virtual machine to stop.")
+    parser.add_argument("--all", action="store_true", help="Stop all running and paused VMs.")
     namespace = parser.parse_args(list(arguments))
 
     if sum(bool(value) for value in (namespace.all, namespace.vm)) != 1:
@@ -560,14 +778,21 @@ def _run_pause_resume(
     parser = CliArgumentParser(
         prog=f"pysnap {command}",
         description=(
-            "Pause a running VM; it stays in memory until pysnap resume."
+            "Pause a running VM. It stays in memory and is shown as Paused in "
+            "pysnap monitor until pysnap resume; nothing is written to disk. An "
+            "attached pysnap connect session stays open and holds keys back. "
+            "Give either a VM name or --all."
             if pausing
-            else "Resume a paused VM."
+            else "Resume a paused VM; an attached pysnap connect session takes "
+            "keys again. Give either a VM name or --all."
         ),
+        epilog=_examples(f"pysnap {command} first", f"pysnap {command} --all"),
         stdout=stdout,
         stderr=stderr,
     )
-    parser.add_argument("vm", nargs="?", help=f"Virtual machine name to {command}.")
+    parser.add_argument(
+        "vm", nargs="?", metavar="VM", help=f"Name of the virtual machine to {command}."
+    )
     parser.add_argument(
         "--all",
         action="store_true",
@@ -606,14 +831,31 @@ def _run_erase(
     :param stderr: Error stream.
     :returns: Process exit code.
     """
-    parser = CliArgumentParser(prog="pysnap erase", stdout=stdout, stderr=stderr)
-    parser.add_argument("vm", nargs="?", help="Virtual machine name to remove.")
-    parser.add_argument("--all", action="store_true", help="Remove all registered VMs.")
-    parser.add_argument("--group", help="Remove all VMs from the specified group.")
+    parser = CliArgumentParser(
+        prog="pysnap erase",
+        description=(
+            "Unregister virtual machines and delete their files. A base VM is "
+            "not deleted while linked clones outside the selection depend on "
+            "it; clones are deleted before their base VMs. Give exactly one of "
+            "a VM name, --all or --group."
+        ),
+        epilog=_examples(
+            "pysnap erase first",
+            "pysnap erase --group /Lab",
+            "pysnap erase --clones-only --all",
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    parser.add_argument("vm", nargs="?", metavar="VM", help="Name of the virtual machine to delete.")
+    parser.add_argument("--all", action="store_true", help="Delete all registered VMs.")
+    parser.add_argument(
+        "--group", metavar="GROUP", help="Delete all VMs of a group, for example /Lab."
+    )
     parser.add_argument(
         "--clones-only",
         action="store_true",
-        help="Restrict the operation to VMs created as PySnap linked clones.",
+        help="Delete only linked clones made by pysnap clone and keep base VMs.",
     )
     namespace = parser.parse_args(list(arguments))
 
@@ -702,9 +944,12 @@ def _run_full_clean(
     parser = CliArgumentParser(
         prog="pysnap full-clean",
         description=(
-            "Permanently delete the VirtualBox machine and configuration "
-            "directories. Stop VirtualBox and all VMs before running this."
+            "Permanently delete the VirtualBox machine directory (~/VirtualBox "
+            "VMs) and the VirtualBox configuration directory of this system "
+            "(VBOX_USER_HOME overrides it). Two confirmations are asked first. "
+            "Stop VirtualBox and all VMs before running this."
         ),
+        epilog=_examples("pysnap full-clean", "pysnap full-clean --path /data/vms"),
         stdout=stdout,
         stderr=stderr,
     )
@@ -768,10 +1013,17 @@ def _run_integration_test(
     """
     parser = CliArgumentParser(
         prog="pysnap --integration-test",
+        description=(
+            "Run the end-to-end check on a real VirtualBox: import the appliance, "
+            "create three linked clones in a triangle of internal networks, start "
+            "and attach to them, check pysnap monitor and delete everything "
+            "created."
+        ),
+        epilog=_examples("pysnap --integration-test image.ova"),
         stdout=stdout,
         stderr=stderr,
     )
-    parser.add_argument("image", help="Path to the OVA or OVF appliance.")
+    parser.add_argument("image", metavar="IMAGE", help="Path to the .ova or .ovf appliance.")
     namespace = parser.parse_args(list(arguments))
     result = service.run_integration_test(str(Path(namespace.image).expanduser()))
     print(format_integration_test_result(result), file=stdout)
