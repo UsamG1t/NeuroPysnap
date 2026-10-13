@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pysnap.core.service &#8212; PySnap 2.0.0 documentation</title>
+    <title>pysnap.core.service &#8212; PySnap 2.1.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
-    <script src="../../../_static/documentation_options.js?v=51b770b3"></script>
+    <script src="../../../_static/documentation_options.js?v=20623aea"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -48,12 +48,16 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.config.protosettings</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProtoSettingsStore</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.appliance</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_appliance_vm_names</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ComPortSetting</span><span class="p">,</span>
     <span class="n">ImportCandidate</span><span class="p">,</span>
     <span class="n">IntegrationTestResult</span><span class="p">,</span>
     <span class="n">VMGroup</span><span class="p">,</span>
+    <span class="n">VMHardware</span><span class="p">,</span>
     <span class="n">VMInfo</span><span class="p">,</span>
     <span class="n">VMMonitorRecord</span><span class="p">,</span>
+    <span class="n">VMSettingsResult</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.settings</span><span class="w"> </span><span class="kn">import</span> <span class="n">ComPortRequest</span><span class="p">,</span> <span class="n">com_setting_from_request</span><span class="p">,</span> <span class="n">parse_set_options</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.errors</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">CommandExecutionError</span><span class="p">,</span>
     <span class="n">PySnapError</span><span class="p">,</span>
@@ -91,6 +95,7 @@
     <span class="n">DEFAULT_SERIAL_TCP_PORT</span> <span class="o">=</span> <span class="mi">1024</span>
     <span class="n">DEFAULT_START_TIMEOUT</span> <span class="o">=</span> <span class="mf">30.0</span>
     <span class="n">DEFAULT_STOP_TIMEOUT</span> <span class="o">=</span> <span class="mf">60.0</span>
+    <span class="n">DEFAULT_PAUSE_TIMEOUT</span> <span class="o">=</span> <span class="mf">30.0</span>
     <span class="n">DEFAULT_INTEGRATION_STOP_TIMEOUT</span> <span class="o">=</span> <span class="mf">180.0</span>
     <span class="n">STOPPED_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"poweroff"</span><span class="p">,</span> <span class="s2">"saved"</span><span class="p">,</span> <span class="s2">"aborted"</span><span class="p">}</span>
     <span class="n">STOPPING_STATES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"stopping"</span><span class="p">}</span>
@@ -418,7 +423,7 @@
         <span class="k">if</span> <span class="n">raw_state</span> <span class="o">==</span> <span class="s2">"running"</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">vm_info</span>
         <span class="k">if</span> <span class="n">raw_state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">PAUSED_STATES</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" is paused.'</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">vm_info</span>
         <span class="k">if</span> <span class="n">raw_state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ERROR_STATES</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" is in an error state: </span><span class="si">{</span><span class="n">raw_state</span><span class="si">}</span><span class="s1">.'</span>
@@ -460,6 +465,10 @@
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" is changing state; try again later.'</span>
             <span class="p">)</span>
+        <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">"Paused"</span><span class="p">:</span>
+            <span class="c1"># A paused guest cannot handle the ACPI power button.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_resume_vm_and_wait</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>
+            <span class="n">display_state</span> <span class="o">=</span> <span class="s2">"Active"</span>
         <span class="k">if</span> <span class="n">display_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"Working"</span><span class="p">,</span> <span class="s2">"Active"</span><span class="p">}:</span>
             <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" cannot be stopped from state </span><span class="si">{</span><span class="n">display_state</span><span class="si">}</span><span class="s1">.'</span>
@@ -482,13 +491,154 @@
 <span class="sd">        :param timeout: Optional per-VM timeout in seconds.</span>
 <span class="sd">        :returns: Names of VMs that received a stop request and stopped.</span>
 <span class="sd">        """</span>
-        <span class="n">stoppable_names</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_monitored_vms</span><span class="p">()</span>
+        <span class="n">paused_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">record</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span> <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">display_state</span> <span class="o">==</span> <span class="s2">"Paused"</span><span class="p">]</span>
+        <span class="n">resume_failures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_parallel_vm_actions</span><span class="p">(</span>
+            <span class="n">paused_names</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">vm_name</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resume_vm_and_wait</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">resume_failures</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                <span class="s2">"Unable to resume paused VMs before stopping them: "</span>
+                <span class="o">+</span> <span class="s2">"; "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">message</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">resume_failures</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+            <span class="p">)</span>
+        <span class="n">stoppable_names</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">record</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span> <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">display_state</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"Working"</span><span class="p">,</span> <span class="s2">"Active"</span><span class="p">}]</span>
+            <span class="o">+</span> <span class="n">paused_names</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_runtime_vm_names</span><span class="p">(</span><span class="n">stoppable_names</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PySnapService.pause_runtime_vm">
+<a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.pause_runtime_vm">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pause_runtime_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Pause one running VM; it stays in memory until it is resumed.</span>
+
+<span class="sd">        :param vm_name: VM name.</span>
+<span class="sd">        :param timeout: Optional timeout in seconds.</span>
+<span class="sd">        :raises PySnapError: If the VM is not running.</span>
+<span class="sd">        """</span>
+        <span class="n">display_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_monitor_state_label</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">display_state</span> <span class="o">==</span> <span class="s2">"Paused"</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" is already paused.'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">display_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"Working"</span><span class="p">,</span> <span class="s2">"Active"</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" cannot be paused from state </span><span class="si">{</span><span class="n">display_state</span><span class="si">}</span><span class="s1">.'</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">pause_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_wait_for_vm_state</span><span class="p">(</span>
+            <span class="n">vm_name</span><span class="o">=</span><span class="n">vm_name</span><span class="p">,</span>
+            <span class="n">acceptable_states</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">PAUSED_STATES</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_PAUSE_TIMEOUT</span><span class="p">,</span>
+            <span class="n">action_description</span><span class="o">=</span><span class="s2">"pause"</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PySnapService.resume_runtime_vm">
+<a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.resume_runtime_vm">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">resume_runtime_vm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Resume one paused VM.</span>
+
+<span class="sd">        :param vm_name: VM name.</span>
+<span class="sd">        :param timeout: Optional timeout in seconds.</span>
+<span class="sd">        :raises PySnapError: If the VM is not paused.</span>
+<span class="sd">        """</span>
+        <span class="n">display_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_monitor_state_label</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">display_state</span> <span class="o">!=</span> <span class="s2">"Paused"</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" is not paused (</span><span class="si">{</span><span class="n">display_state</span><span class="si">}</span><span class="s1">).'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_resume_vm_and_wait</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PySnapService.pause_all_runtime_vms">
+<a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.pause_all_runtime_vms">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pause_all_runtime_vms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Pause all running VMs.</span>
+
+<span class="sd">        :param timeout: Optional per-VM timeout in seconds.</span>
+<span class="sd">        :returns: Names of the paused VMs.</span>
+<span class="sd">        :raises PySnapError: If one or more VMs cannot be paused.</span>
+<span class="sd">        """</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="p">[</span>
             <span class="n">record</span><span class="o">.</span><span class="n">name</span>
             <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_monitored_vms</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">display_state</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"Working"</span><span class="p">,</span> <span class="s2">"Active"</span><span class="p">}</span>
         <span class="p">]</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_runtime_vm_names</span><span class="p">(</span><span class="n">stoppable_names</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_change_vm_states</span><span class="p">(</span>
+            <span class="n">names</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">pause_vm</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">PAUSED_STATES</span><span class="p">,</span>
+            <span class="n">timeout</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_PAUSE_TIMEOUT</span><span class="p">,</span>
+            <span class="s2">"pause"</span><span class="p">,</span>
+        <span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="PySnapService.resume_all_runtime_vms">
+<a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.resume_all_runtime_vms">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">resume_all_runtime_vms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Resume all paused VMs.</span>
+
+<span class="sd">        :param timeout: Optional per-VM timeout in seconds.</span>
+<span class="sd">        :returns: Names of the resumed VMs.</span>
+<span class="sd">        :raises PySnapError: If one or more VMs cannot be resumed.</span>
+<span class="sd">        """</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_monitored_vms</span><span class="p">()</span> <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">display_state</span> <span class="o">==</span> <span class="s2">"Paused"</span>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_change_vm_states</span><span class="p">(</span>
+            <span class="n">names</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">resume_vm</span><span class="p">,</span>
+            <span class="p">{</span><span class="s2">"running"</span><span class="p">},</span>
+            <span class="n">timeout</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_PAUSE_TIMEOUT</span><span class="p">,</span>
+            <span class="s2">"resume"</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resume_vm_and_wait</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Resume a paused VM and wait until it runs."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">resume_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_wait_for_vm_state</span><span class="p">(</span>
+            <span class="n">vm_name</span><span class="o">=</span><span class="n">vm_name</span><span class="p">,</span>
+            <span class="n">acceptable_states</span><span class="o">=</span><span class="p">{</span><span class="s2">"running"</span><span class="p">},</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_PAUSE_TIMEOUT</span><span class="p">,</span>
+            <span class="n">action_description</span><span class="o">=</span><span class="s2">"resume"</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_change_vm_states</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">vm_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">request</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">acceptable_states</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">action</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Request a state change for several VMs in parallel and wait for it.</span>
+
+<span class="sd">        :param vm_names: VM names.</span>
+<span class="sd">        :param request: Client call that requests the change.</span>
+<span class="sd">        :param acceptable_states: States that complete the change.</span>
+<span class="sd">        :param timeout: Per-VM timeout in seconds.</span>
+<span class="sd">        :param action: Verb used in messages, such as ``"pause"``.</span>
+<span class="sd">        :returns: Sorted names of the changed VMs.</span>
+<span class="sd">        :raises PySnapError: If one or more VMs did not change.</span>
+<span class="sd">        """</span>
+        <span class="n">failures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_parallel_vm_actions</span><span class="p">(</span><span class="n">vm_names</span><span class="p">,</span> <span class="n">request</span><span class="p">)</span>
+        <span class="n">requested</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">vm_names</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">failures</span><span class="p">]</span>
+        <span class="n">failures</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_run_parallel_vm_actions</span><span class="p">(</span>
+                <span class="n">requested</span><span class="p">,</span>
+                <span class="k">lambda</span> <span class="n">vm_name</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait_for_vm_state</span><span class="p">(</span>
+                    <span class="n">vm_name</span><span class="o">=</span><span class="n">vm_name</span><span class="p">,</span>
+                    <span class="n">acceptable_states</span><span class="o">=</span><span class="n">acceptable_states</span><span class="p">,</span>
+                    <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
+                    <span class="n">action_description</span><span class="o">=</span><span class="n">action</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">failures</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Unable to </span><span class="si">{</span><span class="n">action</span><span class="si">}</span><span class="s2"> all requested VMs: "</span>
+                <span class="o">+</span> <span class="s2">"; "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">message</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">failures</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">vm_names</span><span class="p">)</span>
 
 <div class="viewcode-block" id="PySnapService.show_vm">
 <a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.show_vm">[docs]</a>
@@ -536,6 +686,60 @@
         <span class="n">serial_port</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_allocate_serial_port</span><span class="p">(</span><span class="n">require_host_availability</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">configure_serial_port</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">serial_port</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_info</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PySnapService.set_vm_settings">
+<a class="viewcode-back" href="../../../api/pysnap.core.html#pysnap.core.service.PySnapService.set_vm_settings">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_vm_settings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">VMSettingsResult</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Change the serial ports and network adapters of a stopped VM.</span>
+
+<span class="sd">        Without options the current settings are returned unchanged. All</span>
+<span class="sd">        options are validated before one ``modifyvm`` call applies them. For</span>
+<span class="sd">        proto-settings clones the DMI system SKU is rebuilt from the new COM1</span>
+<span class="sd">        port and the internal networks of NIC2-NIC4.</span>
+
+<span class="sd">        :param vm_name: VM name.</span>
+<span class="sd">        :param options: ``comN=VALUE`` and ``nicN=VALUE`` options.</span>
+<span class="sd">        :returns: Settings after the change and warnings.</span>
+<span class="sd">        :raises PySnapError: For invalid options, a VM that is not stopped or</span>
+<span class="sd">            TCP ports in use.</span>
+<span class="sd">        """</span>
+        <span class="n">request</span> <span class="o">=</span> <span class="n">parse_set_options</span><span class="p">(</span><span class="n">options</span><span class="p">)</span>
+        <span class="n">vm_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_require_vm</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_hardware</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">VMSettingsResult</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span><span class="p">,</span> <span class="n">current</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">number</span> <span class="ow">in</span> <span class="n">request</span><span class="o">.</span><span class="n">com_ports</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">number</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">current</span><span class="o">.</span><span class="n">com_ports</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"COM</span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s2">: VirtualBox offers COM1-COM</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">current</span><span class="o">.</span><span class="n">com_ports</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
+        <span class="k">for</span> <span class="n">number</span> <span class="ow">in</span> <span class="n">request</span><span class="o">.</span><span class="n">nics</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">number</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">current</span><span class="o">.</span><span class="n">nics</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">'NIC</span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s1">: virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" offers NIC1-NIC</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">current</span><span class="o">.</span><span class="n">nics</span><span class="p">)</span><span class="si">}</span><span class="s1"> '</span>
+                    <span class="s2">"with its chipset."</span>
+                <span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">STOPPED_STATES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" must be stopped before its serial ports '</span>
+                <span class="sa">f</span><span class="s2">"and network adapters can be changed; run pysnap stop </span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+
+        <span class="n">com_settings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_com_requests</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">current</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">com_ports</span><span class="p">)</span>
+        <span class="n">warnings</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">number</span><span class="p">,</span> <span class="n">setting</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">com_settings</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="n">before</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">com_ports</span><span class="p">[</span><span class="n">number</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">before</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">"tcpserver"</span> <span class="ow">and</span> <span class="n">setting</span><span class="o">.</span><span class="n">mode</span> <span class="o">!=</span> <span class="s2">"tcpserver"</span><span class="p">:</span>
+                <span class="n">note</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"COM</span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s2"> no longer serves TCP port </span><span class="si">{</span><span class="n">before</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">"</span>
+                <span class="k">if</span> <span class="n">number</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">note</span> <span class="o">+=</span> <span class="s2">"; pysnap connect uses COM1 and cannot reach this VM"</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">note</span> <span class="o">+</span> <span class="s2">"."</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">apply_vm_hardware</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">com_settings</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">nics</span><span class="p">)</span>
+        <span class="n">updated</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_vm_hardware</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_proto_system_sku</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">updated</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">VMSettingsResult</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">vm_info</span><span class="o">.</span><span class="n">vm_state</span><span class="p">,</span> <span class="n">updated</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">warnings</span><span class="p">))</span></div>
 
 
 <div class="viewcode-block" id="PySnapService.clone_vm">
@@ -620,22 +824,26 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">proto_settings_store</span><span class="o">.</span><span class="n">add_vm_name</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span></div>
 
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_allocate_serial_port</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">require_host_availability</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Allocate the next TCP port for automatic ``UART1`` configuration.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_allocate_serial_port</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">require_host_availability</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">reserved</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(),</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Allocate the next TCP port for an automatic serial TCP server.</span>
 
 <span class="sd">        The automatic sequence starts at ``1024`` when no existing VM currently</span>
-<span class="sd">        exposes a TCP-backed serial port.</span>
+<span class="sd">        exposes a TCP-backed serial port. Ports of all serial ports of all VMs</span>
+<span class="sd">        count as used.</span>
 
 <span class="sd">        :param require_host_availability: Whether the chosen TCP port must also</span>
 <span class="sd">            be available on the host system.</span>
+<span class="sd">        :param reserved: Further ports that must not be chosen.</span>
 <span class="sd">        :returns: The next TCP port to assign.</span>
 <span class="sd">        :raises PySnapError: If the TCP port range is exhausted.</span>
 <span class="sd">        """</span>
-        <span class="n">used_ports</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">info</span><span class="o">.</span><span class="n">serial_port</span>
-            <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_vm_infos</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">serial_port</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-        <span class="p">}</span>
+        <span class="n">used_ports</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">reserved</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_vm_infos</span><span class="p">():</span>
+            <span class="n">used_ports</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_vm_tcp_ports</span><span class="p">(</span><span class="n">info</span><span class="p">))</span>
         <span class="n">next_port</span> <span class="o">=</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">used_ports</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">used_ports</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_SERIAL_TCP_PORT</span>
         <span class="k">while</span> <span class="n">next_port</span> <span class="o">&lt;=</span> <span class="mi">65535</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">next_port</span> <span class="ow">in</span> <span class="n">used_ports</span><span class="p">:</span>
@@ -646,6 +854,119 @@
                 <span class="k">continue</span>
             <span class="k">return</span> <span class="n">next_port</span>
         <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="s2">"No free serial TCP ports are available."</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_com_requests</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">current</span><span class="p">:</span> <span class="n">VMHardware</span><span class="p">,</span>
+        <span class="n">requests</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">ComPortRequest</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">ComPortSetting</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Turn requested serial ports into settings with checked TCP ports.</span>
+
+<span class="sd">        ``auto`` keeps the TCP port of a port that already is a TCP server.</span>
+
+<span class="sd">        :param vm_name: VM name.</span>
+<span class="sd">        :param current: Current settings of the VM.</span>
+<span class="sd">        :param requests: Requested changes by port number.</span>
+<span class="sd">        :returns: New settings by port number.</span>
+<span class="sd">        :raises PySnapError: When a TCP port is used by another VM, by another</span>
+<span class="sd">            port of this VM or on the host.</span>
+<span class="sd">        """</span>
+        <span class="n">other_ports</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_vm_infos</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="n">vm_name</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">port</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vm_tcp_ports</span><span class="p">(</span><span class="n">info</span><span class="p">):</span>
+                    <span class="n">other_ports</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">port</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">own_ports</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">setting</span><span class="o">.</span><span class="n">port</span>
+            <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="n">current</span><span class="o">.</span><span class="n">com_ports</span>
+            <span class="k">if</span> <span class="n">setting</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">"tcpserver"</span> <span class="ow">and</span> <span class="n">setting</span><span class="o">.</span><span class="n">port</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">}</span>
+        <span class="n">taken</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">setting</span><span class="o">.</span><span class="n">port</span>
+            <span class="k">for</span> <span class="n">number</span><span class="p">,</span> <span class="n">setting</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">current</span><span class="o">.</span><span class="n">com_ports</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">number</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">requests</span> <span class="ow">and</span> <span class="n">setting</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">"tcpserver"</span> <span class="ow">and</span> <span class="n">setting</span><span class="o">.</span><span class="n">port</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">}</span>
+
+        <span class="n">resolved</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">ComPortSetting</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">number</span><span class="p">,</span> <span class="n">request</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">requests</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">mode</span> <span class="o">!=</span> <span class="s2">"tcpserver"</span> <span class="ow">or</span> <span class="n">request</span><span class="o">.</span><span class="n">port</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">port</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">port</span>
+            <span class="k">if</span> <span class="n">port</span> <span class="ow">in</span> <span class="n">other_ports</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">'COM</span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s1">: TCP port </span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s1"> is already used by virtual machine '</span>
+                    <span class="sa">f</span><span class="s1">'"</span><span class="si">{</span><span class="n">other_ports</span><span class="p">[</span><span class="n">port</span><span class="p">]</span><span class="si">}</span><span class="s1">".'</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">port</span> <span class="ow">in</span> <span class="n">taken</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"COM</span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s2">: TCP port </span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2"> is already used by another COM port of this VM."</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">port</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">own_ports</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_host_tcp_port_available</span><span class="p">(</span><span class="n">port</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"COM</span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s2">: TCP port </span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2"> is busy on this computer."</span><span class="p">)</span>
+            <span class="n">taken</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">port</span><span class="p">)</span>
+            <span class="n">resolved</span><span class="p">[</span><span class="n">number</span><span class="p">]</span> <span class="o">=</span> <span class="n">com_setting_from_request</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">port</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">number</span><span class="p">,</span> <span class="n">request</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">requests</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">number</span> <span class="ow">in</span> <span class="n">resolved</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">port</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">"tcpserver"</span><span class="p">:</span>
+                <span class="n">before</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">com_ports</span><span class="p">[</span><span class="n">number</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">before</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">"tcpserver"</span> <span class="ow">and</span> <span class="n">before</span><span class="o">.</span><span class="n">port</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">before</span><span class="o">.</span><span class="n">port</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">taken</span><span class="p">:</span>
+                    <span class="n">port</span> <span class="o">=</span> <span class="n">before</span><span class="o">.</span><span class="n">port</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">port</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_allocate_serial_port</span><span class="p">(</span>
+                        <span class="n">require_host_availability</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">reserved</span><span class="o">=</span><span class="n">taken</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">other_ports</span><span class="p">),</span>
+                    <span class="p">)</span>
+                <span class="n">taken</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">port</span><span class="p">)</span>
+            <span class="n">resolved</span><span class="p">[</span><span class="n">number</span><span class="p">]</span> <span class="o">=</span> <span class="n">com_setting_from_request</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">port</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">resolved</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_update_proto_system_sku</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">hardware</span><span class="p">:</span> <span class="n">VMHardware</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Rebuild the DMI system SKU of a proto-settings clone.</span>
+
+<span class="sd">        The SKU is ``port&lt;COM1 port&gt;.&lt;NIC2&gt;.&lt;NIC3&gt;.&lt;NIC4&gt;`` with the internal</span>
+<span class="sd">        network names; adapters without one leave an empty place and empty</span>
+<span class="sd">        places at the end are dropped. When COM1 is no TCP server, the</span>
+<span class="sd">        highest TCP port of the other COM ports is used, and without any the</span>
+<span class="sd">        port part of the previous SKU is kept.</span>
+
+<span class="sd">        :param vm_name: VM name.</span>
+<span class="sd">        :param hardware: Settings after the change.</span>
+<span class="sd">        """</span>
+        <span class="n">previous</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">get_metadata</span><span class="p">(</span><span class="n">vm_name</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">VBoxManageClient</span><span class="o">.</span><span class="n">DMI_SYSTEM_SKU_KEY</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">previous</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">com1</span> <span class="o">=</span> <span class="n">hardware</span><span class="o">.</span><span class="n">com_ports</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">tcp_ports</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">setting</span><span class="o">.</span><span class="n">port</span>
+            <span class="k">for</span> <span class="n">setting</span> <span class="ow">in</span> <span class="n">hardware</span><span class="o">.</span><span class="n">com_ports</span>
+            <span class="k">if</span> <span class="n">setting</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">"tcpserver"</span> <span class="ow">and</span> <span class="n">setting</span><span class="o">.</span><span class="n">port</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">com1</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">"tcpserver"</span> <span class="ow">and</span> <span class="n">com1</span><span class="o">.</span><span class="n">port</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">port_part</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"port</span><span class="si">{</span><span class="n">com1</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">"</span>
+        <span class="k">elif</span> <span class="n">tcp_ports</span><span class="p">:</span>
+            <span class="n">port_part</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"port</span><span class="si">{</span><span class="nb">max</span><span class="p">(</span><span class="n">tcp_ports</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">port_part</span> <span class="o">=</span> <span class="n">previous</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"."</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">nic</span><span class="o">.</span><span class="n">network</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span> <span class="k">if</span> <span class="n">nic</span><span class="o">.</span><span class="n">attachment</span> <span class="o">==</span> <span class="s2">"intnet"</span> <span class="k">else</span> <span class="s2">""</span>
+            <span class="k">for</span> <span class="n">nic</span> <span class="ow">in</span> <span class="n">hardware</span><span class="o">.</span><span class="n">nics</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span>
+        <span class="p">]</span>
+        <span class="k">while</span> <span class="n">names</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">names</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">names</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="n">system_sku</span> <span class="o">=</span> <span class="s2">"."</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">port_part</span><span class="p">,</span> <span class="o">*</span><span class="n">names</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">system_sku</span> <span class="o">!=</span> <span class="n">previous</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">set_dmi_system_sku</span><span class="p">(</span><span class="n">vm_name</span><span class="p">,</span> <span class="n">system_sku</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_vm_tcp_ports</span><span class="p">(</span><span class="n">info</span><span class="p">:</span> <span class="n">VMInfo</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Return the TCP ports served by the serial ports of a VM."""</span>
+        <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">serial_tcp_ports</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">info</span><span class="o">.</span><span class="n">serial_tcp_ports</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">info</span><span class="o">.</span><span class="n">serial_port</span><span class="p">,)</span> <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">serial_port</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_cleanup_integration_vms</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>

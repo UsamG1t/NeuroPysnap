@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Index &#8212; PySnap 2.0.0 documentation</title>
+    <title>Index &#8212; PySnap 2.1.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
-    <script src="_static/documentation_options.js?v=51b770b3"></script>
+    <script src="_static/documentation_options.js?v=20623aea"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="#" />
@@ -68,13 +68,17 @@
 </li>
       <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.TerminalSelection.anchor_column">anchor_column (pysnap.terminal.session.TerminalSelection attribute)</a>
 </li>
+      <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.TerminalSelection.anchor_row">anchor_row (pysnap.terminal.session.TerminalSelection attribute)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.TerminalSelection.anchor_row">anchor_row (pysnap.terminal.session.TerminalSelection attribute)</a>
+      <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.apply_vm_hardware">apply_vm_hardware() (pysnap.vbox.client.VBoxManageClient method)</a>
 </li>
       <li><a href="api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.as_formatted_text">as_formatted_text() (pysnap.terminal.emulator.TerminalEmulator method)</a>
 </li>
       <li><a href="api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRecord.attached_at">attached_at (pysnap.runtime.sessions.SessionRecord attribute)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.models.NicSetting.attachment">attachment (pysnap.core.models.NicSetting attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -164,18 +168,30 @@
         <li><a href="api/pysnap.report.html#pysnap.report.stats.ReportStats.columns">(pysnap.report.stats.ReportStats attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.COM_COUNT">COM_COUNT (pysnap.vbox.client.VBoxManageClient attribute)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.models.VMHardware.com_ports">com_ports (pysnap.core.models.VMHardware attribute)</a>
+
+      <ul>
+        <li><a href="api/pysnap.core.html#pysnap.core.settings.SetRequest.com_ports">(pysnap.core.settings.SetRequest attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.COM_RESOURCES">COM_RESOURCES (pysnap.vbox.client.VBoxManageClient attribute)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.settings.com_setting_from_request">com_setting_from_request() (in module pysnap.core.settings)</a>
+</li>
       <li><a href="api/pysnap.report.html#pysnap.report.matcher.ItemResult.command">command (pysnap.report.matcher.ItemResult attribute)</a>
 
       <ul>
         <li><a href="api/pysnap.report.html#pysnap.report.stats.PasteEvent.command">(pysnap.report.stats.PasteEvent attribute)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.report.html#pysnap.report.checkfile.CommandCheck">CommandCheck (class in pysnap.report.checkfile)</a>
 </li>
       <li><a href="api/pysnap.html#pysnap.errors.CommandExecutionError">CommandExecutionError</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.report.html#pysnap.report.models.CommandRecord">CommandRecord (class in pysnap.report.models)</a>
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.checkfile.CheckSpec.commands">commands (pysnap.report.checkfile.CheckSpec attribute)</a>
@@ -199,6 +215,10 @@
       <li><a href="api/pysnap.report.html#pysnap.report.compare.CompareSignal">CompareSignal (class in pysnap.report.compare)</a>
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.checkfile.compile_pattern">compile_pattern() (in module pysnap.report.checkfile)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.settings.ComPortRequest">ComPortRequest (class in pysnap.core.settings)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.models.ComPortSetting">ComPortSetting (class in pysnap.core.models)</a>
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.stats.compute_stats">compute_stats() (in module pysnap.report.stats)</a>
 </li>
@@ -250,6 +270,10 @@
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.DEFAULT_INTEGRATION_STOP_TIMEOUT">DEFAULT_INTEGRATION_STOP_TIMEOUT (pysnap.core.service.PySnapService attribute)</a>
 </li>
+      <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.DEFAULT_NIC_COUNTS">DEFAULT_NIC_COUNTS (pysnap.vbox.client.VBoxManageClient attribute)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.DEFAULT_PAUSE_TIMEOUT">DEFAULT_PAUSE_TIMEOUT (pysnap.core.service.PySnapService attribute)</a>
+</li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.DEFAULT_SERIAL_TCP_PORT">DEFAULT_SERIAL_TCP_PORT (pysnap.core.service.PySnapService attribute)</a>
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.DEFAULT_START_TIMEOUT">DEFAULT_START_TIMEOUT (pysnap.core.service.PySnapService attribute)</a>
@@ -270,6 +294,8 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/pysnap.core.html#pysnap.core.models.ComPortSetting.detail">detail (pysnap.core.models.ComPortSetting attribute)</a>
+</li>
       <li><a href="api/pysnap.report.html#pysnap.report.models.Recording.diagnostics">diagnostics (pysnap.report.models.Recording attribute)</a>
 
       <ul>
@@ -307,6 +333,8 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.report.html#pysnap.report.matcher.CheckResult.earned_weight">earned_weight (pysnap.report.matcher.CheckResult attribute)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.settings.SetRequest.empty">empty (pysnap.core.settings.SetRequest property)</a>
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.models.SerialPortConfiguration.enabled">enabled (pysnap.core.models.SerialPortConfiguration attribute)</a>
 </li>
@@ -388,10 +416,10 @@
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.models.CommandRecord.first_event">first_event (pysnap.report.models.CommandRecord attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.report.html#pysnap.report.stats.CommandStats.foreign_prompt">foreign_prompt (pysnap.report.stats.CommandStats attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.cli.html#pysnap.cli.report.format_check_result">format_check_result() (in module pysnap.cli.report)</a>
 </li>
       <li><a href="api/pysnap.cli.html#pysnap.cli.report.format_command_list">format_command_list() (in module pysnap.cli.report)</a>
@@ -414,6 +442,8 @@
 </li>
       <li><a href="api/pysnap.cli.html#pysnap.cli.formatters.format_vm_info">format_vm_info() (in module pysnap.cli.formatters)</a>
 </li>
+      <li><a href="api/pysnap.cli.html#pysnap.cli.formatters.format_vm_settings">format_vm_settings() (in module pysnap.cli.formatters)</a>
+</li>
       <li><a href="api/pysnap.report.html#pysnap.report.stats.CommandStats.from_history">from_history (pysnap.report.stats.CommandStats attribute)</a>
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.full_clean">full_clean() (pysnap.core.service.PySnapService method)</a>
@@ -433,6 +463,8 @@
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.get_monitor_state_label">get_monitor_state_label() (pysnap.core.service.PySnapService method)</a>
 </li>
       <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.get_serial_port_configuration">get_serial_port_configuration() (pysnap.vbox.client.VBoxManageClient method)</a>
+</li>
+      <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.get_vm_hardware">get_vm_hardware() (pysnap.vbox.client.VBoxManageClient method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -456,7 +488,11 @@
 <h2 id="H">H</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/pysnap.core.html#pysnap.core.models.VMSettingsResult.hardware">hardware (pysnap.core.models.VMSettingsResult attribute)</a>
+</li>
       <li><a href="api/pysnap.report.html#pysnap.report.models.Recording.headers">headers (pysnap.report.models.Recording attribute)</a>
+</li>
+      <li><a href="api/pysnap.cli.html#pysnap.cli.app.HelpFormatter">HelpFormatter (class in pysnap.cli.app)</a>
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.highlight.highlight_transcript">highlight_transcript() (in module pysnap.report.highlight)</a>
 </li>
@@ -468,6 +504,10 @@
         <li><a href="api/pysnap.report.html#pysnap.report.models.ReportName.host">(pysnap.report.models.ReportName attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api/pysnap.core.html#pysnap.core.settings.host_pipe_name">host_pipe_name() (in module pysnap.core.settings)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.settings.host_pipe_path">host_pipe_path() (in module pysnap.core.settings)</a>
+</li>
       <li><a href="api/pysnap.report.html#pysnap.report.stats.ReportStats.hypervisor">hypervisor (pysnap.report.stats.ReportStats attribute)</a>
 </li>
   </ul></td>
@@ -648,8 +688,14 @@
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.checkfile.OutputCheck.min_count">min_count (pysnap.report.checkfile.OutputCheck attribute)</a>
 </li>
-      <li><a href="api/pysnap.core.html#pysnap.core.models.SerialPortConfiguration.mode">mode (pysnap.core.models.SerialPortConfiguration attribute)</a>
+      <li><a href="api/pysnap.core.html#pysnap.core.models.ComPortSetting.mode">mode (pysnap.core.models.ComPortSetting attribute)</a>
+
+      <ul>
+        <li><a href="api/pysnap.core.html#pysnap.core.models.SerialPortConfiguration.mode">(pysnap.core.models.SerialPortConfiguration attribute)</a>
 </li>
+        <li><a href="api/pysnap.core.html#pysnap.core.settings.ComPortRequest.mode">(pysnap.core.settings.ComPortRequest attribute)</a>
+</li>
+      </ul></li>
       <li>
     module
 
@@ -675,6 +721,8 @@
         <li><a href="api/pysnap.core.html#module-pysnap.core.models">pysnap.core.models</a>
 </li>
         <li><a href="api/pysnap.core.html#module-pysnap.core.service">pysnap.core.service</a>
+</li>
+        <li><a href="api/pysnap.core.html#module-pysnap.core.settings">pysnap.core.settings</a>
 </li>
         <li><a href="api/pysnap.html#module-pysnap.docview">pysnap.docview</a>
 </li>
@@ -767,11 +815,23 @@
       </ul></li>
       <li><a href="api/pysnap.report.html#pysnap.report.checkfile.Pattern.names">names (pysnap.report.checkfile.Pattern property)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/pysnap.core.html#pysnap.core.models.NicSetting.network">network (pysnap.core.models.NicSetting attribute)</a>
+</li>
       <li><a href="api/pysnap.report.html#pysnap.report.player.PlaybackController.next_command">next_command() (pysnap.report.player.PlaybackController method)</a>
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.player.ReplayPlayer.next_command_time">next_command_time() (pysnap.report.player.ReplayPlayer method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.NIC_COUNT_PATTERN">NIC_COUNT_PATTERN (pysnap.vbox.client.VBoxManageClient attribute)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.models.VMHardware.nics">nics (pysnap.core.models.VMHardware attribute)</a>
+
+      <ul>
+        <li><a href="api/pysnap.core.html#pysnap.core.settings.SetRequest.nics">(pysnap.core.settings.SetRequest attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/pysnap.core.html#pysnap.core.models.NicSetting">NicSetting (class in pysnap.core.models)</a>
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.normalize_group_name">normalize_group_name() (in module pysnap.core.service)</a>
 </li>
@@ -793,6 +853,8 @@
 <h2 id="O">O</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.PauseTracker.observe">observe() (pysnap.terminal.session.PauseTracker method)</a>
+</li>
       <li><a href="api/pysnap.report.html#pysnap.report.checkfile.OutputCheck.of">of (pysnap.report.checkfile.OutputCheck attribute)</a>
 </li>
       <li><a href="api/pysnap.html#pysnap.docview.open_bundled_documentation">open_bundled_documentation() (in module pysnap.docview)</a>
@@ -857,6 +919,8 @@
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.render.parse_resize">parse_resize() (in module pysnap.report.render)</a>
 </li>
+      <li><a href="api/pysnap.core.html#pysnap.core.settings.parse_set_options">parse_set_options() (in module pysnap.core.settings)</a>
+</li>
       <li><a href="api/pysnap.vbox.html#pysnap.vbox.parsers.parse_snapshot_names">parse_snapshot_names() (in module pysnap.vbox.parsers)</a>
 </li>
       <li><a href="api/pysnap.cli.html#pysnap.cli.app.ParserExit">ParserExit</a>
@@ -869,8 +933,12 @@
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.stats.ReportStats.pastes">pastes (pysnap.report.stats.ReportStats attribute)</a>
 </li>
-      <li><a href="api/pysnap.report.html#pysnap.report.compare.ReportFingerprint.path">path (pysnap.report.compare.ReportFingerprint attribute)</a>
+      <li><a href="api/pysnap.core.html#pysnap.core.models.ComPortSetting.path">path (pysnap.core.models.ComPortSetting attribute)</a>
+
+      <ul>
+        <li><a href="api/pysnap.report.html#pysnap.report.compare.ReportFingerprint.path">(pysnap.report.compare.ReportFingerprint attribute)</a>
 </li>
+      </ul></li>
       <li><a href="api/pysnap.report.html#pysnap.report.checkfile.Pattern">Pattern (class in pysnap.report.checkfile)</a>
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.checkfile.CommandCheck.pattern">pattern (pysnap.report.checkfile.CommandCheck attribute)</a>
@@ -881,19 +949,29 @@
       </ul></li>
       <li><a href="api/pysnap.report.html#pysnap.report.stats.CommandStats.pause">pause (pysnap.report.stats.CommandStats attribute)</a>
 </li>
+      <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.pause_all_runtime_vms">pause_all_runtime_vms() (pysnap.core.service.PySnapService method)</a>
+</li>
       <li><a href="api/pysnap.report.html#pysnap.report.stats.ReportStats.pause_max">pause_max (pysnap.report.stats.ReportStats attribute)</a>
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.stats.ReportStats.pause_median">pause_median (pysnap.report.stats.ReportStats attribute)</a>
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.stats.ReportStats.pause_min">pause_min (pysnap.report.stats.ReportStats attribute)</a>
 </li>
+      <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.pause_runtime_vm">pause_runtime_vm() (pysnap.core.service.PySnapService method)</a>
+</li>
+      <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.pause_vm">pause_vm() (pysnap.vbox.client.VBoxManageClient method)</a>
+</li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.PAUSED_STATES">PAUSED_STATES (pysnap.core.service.PySnapService attribute)</a>
+</li>
+      <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.PauseTracker">PauseTracker (class in pysnap.terminal.session)</a>
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.matcher.CheckResult.percent">percent (pysnap.report.matcher.CheckResult attribute)</a>
 </li>
       <li><a href="api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRecord.pid">pid (pysnap.runtime.sessions.SessionRecord attribute)</a>
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.compare.ReportFingerprint.ping_times">ping_times (pysnap.report.compare.ReportFingerprint attribute)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.settings.ComPortRequest.pipe_name">pipe_name (pysnap.core.settings.ComPortRequest attribute)</a>
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.player.PlaybackController">PlaybackController (class in pysnap.report.player)</a>
 </li>
@@ -909,8 +987,14 @@
         <li><a href="api/pysnap.report.html#pysnap.report.matcher.ItemResult.points">(pysnap.report.matcher.ItemResult attribute)</a>
 </li>
       </ul></li>
-      <li><a href="api/pysnap.core.html#pysnap.core.models.SerialPortConfiguration.port">port (pysnap.core.models.SerialPortConfiguration attribute)</a>
+      <li><a href="api/pysnap.core.html#pysnap.core.models.ComPortSetting.port">port (pysnap.core.models.ComPortSetting attribute)</a>
+
+      <ul>
+        <li><a href="api/pysnap.core.html#pysnap.core.models.SerialPortConfiguration.port">(pysnap.core.models.SerialPortConfiguration attribute)</a>
 </li>
+        <li><a href="api/pysnap.core.html#pysnap.core.settings.ComPortRequest.port">(pysnap.core.settings.ComPortRequest attribute)</a>
+</li>
+      </ul></li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.prepare_vm_connection">prepare_vm_connection() (pysnap.core.service.PySnapService method)</a>
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.player.PlaybackController.previous_command">previous_command() (pysnap.report.player.PlaybackController method)</a>
@@ -971,6 +1055,8 @@
         <li><a href="api/pysnap.config.html#module-pysnap.config">module</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     pysnap.config.protosettings
 
@@ -978,8 +1064,6 @@
         <li><a href="api/pysnap.config.html#module-pysnap.config.protosettings">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     pysnap.core
 
@@ -1006,6 +1090,13 @@
 
       <ul>
         <li><a href="api/pysnap.core.html#module-pysnap.core.service">module</a>
+</li>
+      </ul></li>
+      <li>
+    pysnap.core.settings
+
+      <ul>
+        <li><a href="api/pysnap.core.html#module-pysnap.core.settings">module</a>
 </li>
       </ul></li>
       <li>
@@ -1262,15 +1353,21 @@
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.compare.CompareResult.reports">reports (pysnap.report.compare.CompareResult attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.report.html#pysnap.report.stats.ReportStats">ReportStats (class in pysnap.report.stats)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/pysnap.report.html#pysnap.report.control.request_transfer">request_transfer() (in module pysnap.report.control)</a>
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.models.ImportCandidate.requires_eula_accept">requires_eula_accept (pysnap.core.models.ImportCandidate attribute)</a>
 </li>
       <li><a href="api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.resize">resize() (pysnap.terminal.emulator.TerminalEmulator method)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.resume_all_runtime_vms">resume_all_runtime_vms() (pysnap.core.service.PySnapService method)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.resume_runtime_vm">resume_runtime_vm() (pysnap.core.service.PySnapService method)</a>
+</li>
+      <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.resume_vm">resume_vm() (pysnap.vbox.client.VBoxManageClient method)</a>
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.models.CellStyle.reverse">reverse (pysnap.report.models.CellStyle attribute)</a>
 </li>
@@ -1360,6 +1457,8 @@
         <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.SessionStatus.serial_port">(pysnap.terminal.session.SessionStatus attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api/pysnap.core.html#pysnap.core.models.VMInfo.serial_tcp_ports">serial_tcp_ports (pysnap.core.models.VMInfo attribute)</a>
+</li>
       <li><a href="api/pysnap.core.html#pysnap.core.models.SerialPortConfiguration">SerialPortConfiguration (class in pysnap.core.models)</a>
 </li>
       <li><a href="api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRecord">SessionRecord (class in pysnap.runtime.sessions)</a>
@@ -1368,16 +1467,22 @@
 </li>
       <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.SessionStatus">SessionStatus (class in pysnap.terminal.session)</a>
 </li>
+      <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.set_dmi_system_sku">set_dmi_system_sku() (pysnap.vbox.client.VBoxManageClient method)</a>
+</li>
       <li><a href="api/pysnap.report.html#pysnap.report.viewer.PagerState.set_height">set_height() (pysnap.report.viewer.PagerState method)</a>
 </li>
       <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.VBoxManageClient.set_metadata">set_metadata() (pysnap.vbox.client.VBoxManageClient method)</a>
 </li>
-      <li><a href="api/pysnap.report.html#pysnap.report.viewer.PagerState.set_width">set_width() (pysnap.report.viewer.PagerState method)</a>
+      <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.set_vm_settings">set_vm_settings() (pysnap.core.service.PySnapService method)</a>
 </li>
-      <li><a href="api/pysnap.report.html#pysnap.report.extract.ExtractResult.sha256">sha256 (pysnap.report.extract.ExtractResult attribute)</a>
+      <li><a href="api/pysnap.report.html#pysnap.report.viewer.PagerState.set_width">set_width() (pysnap.report.viewer.PagerState method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/pysnap.core.html#pysnap.core.settings.SetRequest">SetRequest (class in pysnap.core.settings)</a>
+</li>
+      <li><a href="api/pysnap.report.html#pysnap.report.extract.ExtractResult.sha256">sha256 (pysnap.report.extract.ExtractResult attribute)</a>
+</li>
       <li><a href="api/pysnap.core.html#pysnap.core.service.PySnapService.show_vm">show_vm() (pysnap.core.service.PySnapService method)</a>
 </li>
       <li><a href="api/pysnap.report.html#pysnap.report.compare.PairResult.signals">signals (pysnap.report.compare.PairResult attribute)</a>
@@ -1567,6 +1672,8 @@
       <li><a href="api/pysnap.core.html#pysnap.core.models.ImportCandidate.vm_name">vm_name (pysnap.core.models.ImportCandidate attribute)</a>
 
       <ul>
+        <li><a href="api/pysnap.core.html#pysnap.core.models.VMSettingsResult.vm_name">(pysnap.core.models.VMSettingsResult attribute)</a>
+</li>
         <li><a href="api/pysnap.report.html#pysnap.report.extract.ExtractResult.vm_name">(pysnap.report.extract.ExtractResult attribute)</a>
 </li>
         <li><a href="api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRecord.vm_name">(pysnap.runtime.sessions.SessionRecord attribute)</a>
@@ -1579,6 +1686,8 @@
       <li><a href="api/pysnap.core.html#pysnap.core.models.VMInfo.vm_state">vm_state (pysnap.core.models.VMInfo attribute)</a>
 
       <ul>
+        <li><a href="api/pysnap.core.html#pysnap.core.models.VMSettingsResult.vm_state">(pysnap.core.models.VMSettingsResult attribute)</a>
+</li>
         <li><a href="api/pysnap.terminal.html#pysnap.terminal.session.SessionStatus.vm_state">(pysnap.terminal.session.SessionStatus attribute)</a>
 </li>
       </ul></li>
@@ -1588,6 +1697,8 @@
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.models.VMGroup">VMGroup (class in pysnap.core.models)</a>
 </li>
+      <li><a href="api/pysnap.core.html#pysnap.core.models.VMHardware">VMHardware (class in pysnap.core.models)</a>
+</li>
       <li><a href="api/pysnap.core.html#pysnap.core.models.VMInfo">VMInfo (class in pysnap.core.models)</a>
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.models.VMMonitorRecord">VMMonitorRecord (class in pysnap.core.models)</a>
@@ -1595,6 +1706,8 @@
       <li><a href="api/pysnap.html#pysnap.errors.VMNotFoundError">VMNotFoundError</a>
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.models.VMReference">VMReference (class in pysnap.core.models)</a>
+</li>
+      <li><a href="api/pysnap.core.html#pysnap.core.models.VMSettingsResult">VMSettingsResult (class in pysnap.core.models)</a>
 </li>
       <li><a href="api/pysnap.core.html#pysnap.core.models.ImportCandidate.vsys_index">vsys_index (pysnap.core.models.ImportCandidate attribute)</a>
 </li>
@@ -1604,9 +1717,11 @@
 <h2 id="W">W</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/pysnap.report.html#pysnap.report.compare.CompareResult.warnings">warnings (pysnap.report.compare.CompareResult attribute)</a>
+      <li><a href="api/pysnap.core.html#pysnap.core.models.VMSettingsResult.warnings">warnings (pysnap.core.models.VMSettingsResult attribute)</a>
 
       <ul>
+        <li><a href="api/pysnap.report.html#pysnap.report.compare.CompareResult.warnings">(pysnap.report.compare.CompareResult attribute)</a>
+</li>
         <li><a href="api/pysnap.report.html#pysnap.report.matcher.CheckResult.warnings">(pysnap.report.matcher.CheckResult attribute)</a>
 </li>
         <li><a href="api/pysnap.report.html#pysnap.report.stats.ReportStats.warnings">(pysnap.report.stats.ReportStats attribute)</a>
@@ -1614,10 +1729,10 @@
       </ul></li>
       <li><a href="api/pysnap.cli.html#pysnap.cli.formatters.ImportProgressBar.width">width (pysnap.cli.formatters.ImportProgressBar attribute)</a>
 </li>
-      <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.SubprocessRunner.WINDOWS_DEFAULT_EXECUTABLES">WINDOWS_DEFAULT_EXECUTABLES (pysnap.vbox.client.SubprocessRunner attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.SubprocessRunner.WINDOWS_DEFAULT_EXECUTABLES">WINDOWS_DEFAULT_EXECUTABLES (pysnap.vbox.client.SubprocessRunner attribute)</a>
+</li>
       <li><a href="api/pysnap.runtime.html#pysnap.runtime.sessions.SessionRegistry.WINDOWS_ERROR_ACCESS_DENIED">WINDOWS_ERROR_ACCESS_DENIED (pysnap.runtime.sessions.SessionRegistry attribute)</a>
 </li>
       <li><a href="api/pysnap.vbox.html#pysnap.vbox.client.SubprocessRunner.WINDOWS_INSTALL_DIRECTORY_ENV_VARS">WINDOWS_INSTALL_DIRECTORY_ENV_VARS (pysnap.vbox.client.SubprocessRunner attribute)</a>

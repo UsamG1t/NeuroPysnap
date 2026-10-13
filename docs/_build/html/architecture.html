@@ -5,12 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Architecture &#8212; PySnap 2.0.0 documentation</title>
+    <title>Architecture &#8212; PySnap 2.1.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
-    <script src="_static/documentation_options.js?v=51b770b3"></script>
+    <script src="_static/documentation_options.js?v=20623aea"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -120,6 +120,14 @@ VMs. It only rewrites <code class="docutils literal notranslate"><span class="pr
 is not already occupied by another mode such as <code class="docutils literal notranslate"><span class="pre">tcpclient</span></code> or <code class="docutils literal notranslate"><span class="pre">file</span></code>.
 When needed, the selected TCP port must be available both in VirtualBox and on
 the host system.</p>
+<p>Automatic allocation counts the TCP servers of all four serial ports of all
+VMs as used. <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">set</span></code> reads <code class="docutils literal notranslate"><span class="pre">COM1</span></code>-<code class="docutils literal notranslate"><span class="pre">COM4</span></code> and every network adapter
+of the VM from <code class="docutils literal notranslate"><span class="pre">showvminfo</span></code>; the adapter count of its chipset comes from
+<code class="docutils literal notranslate"><span class="pre">VBoxManage</span> <span class="pre">list</span> <span class="pre">systemproperties</span></code> (8 for PIIX3 and 36 for ICH9 when it is
+not reported). It validates every option and TCP port before changing anything,
+and applies the result with one <code class="docutils literal notranslate"><span class="pre">modifyvm</span></code> call using the standard PC
+resources of each COM port. Host pipes are named by a short name that is
+mapped to the host’s pipe path format.</p>
 <p>During <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code>, PySnap continuously tracks the outer terminal size
 and resizes the local emulator to the current visible guest area. Because raw
 serial TCP does not offer a PTY-style <code class="docutils literal notranslate"><span class="pre">SIGWINCH</span></code> path into the guest, PySnap
@@ -158,6 +166,10 @@ PySnap writes additional DMI settings through <code class="docutils literal notr
 <li><p><code class="docutils literal notranslate"><span class="pre">Paused</span></code> for paused VMs</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">Error</span></code> for explicit error-like VirtualBox states</p></li>
 </ul>
+<p>A <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code> session ends on every label except <code class="docutils literal notranslate"><span class="pre">Working</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Active</span></code> and <code class="docutils literal notranslate"><span class="pre">Paused</span></code>. <code class="docutils literal notranslate"><span class="pre">PauseTracker</span></code> follows pause and resume: while
+paused, keys are not forwarded, and a session that started on a paused VM
+wakes the console after the resume only when no guest output arrived yet.</p>
 </section>
 <section id="host-cleanup-strategy">
 <h2>Host Cleanup Strategy<a class="headerlink" href="#host-cleanup-strategy" title="Link to this heading">¶</a></h2>

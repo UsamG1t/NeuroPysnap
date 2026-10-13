@@ -5,12 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>pysnap.terminal package &#8212; PySnap 2.0.0 documentation</title>
+    <title>pysnap.terminal package &#8212; PySnap 2.1.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
-    <script src="../_static/documentation_options.js?v=51b770b3"></script>
+    <script src="../_static/documentation_options.js?v=20623aea"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -330,6 +330,38 @@ replies to xterm-compatible size queries that guest-side tools may emit.</p>
 <dt class="sig sig-object py" id="pysnap.terminal.session.SessionStatus.message">
 <span class="sig-name descname"><span class="pre">message</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Connecting...'</span></span><a class="headerlink" href="#pysnap.terminal.session.SessionStatus.message" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.terminal.session.PauseTracker">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.terminal.session.</span></span><span class="sig-name descname"><span class="pre">PauseTracker</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">paused</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/session.html#PauseTracker"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.session.PauseTracker" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Follow pause and resume of the attached VM.</p>
+<p>The session stays open while the VM is paused: keys are held back and the
+status bar says so. Any state other than running or paused ends it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>paused</strong> (<em>bool</em>)</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.session.PauseTracker.observe">
+<span class="sig-name descname"><span class="pre">observe</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/session.html#PauseTracker.observe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.session.PauseTracker.observe" title="Link to this definition">¶</a></dt>
+<dd><p>Record the current monitor state.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>state</strong> (<em>str</em>) – Monitor label such as <code class="docutils literal notranslate"><span class="pre">&quot;Working&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;Paused&quot;</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">&quot;paused&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;resumed&quot;</span></code> on a change, <code class="docutils literal notranslate"><span class="pre">&quot;exit&quot;</span></code> when
+the session must end, otherwise <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str | None</p>
+</dd>
+</dl>
+</dd></dl>
 
 </dd></dl>
 

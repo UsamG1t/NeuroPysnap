@@ -5,12 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>pysnap.core package &#8212; PySnap 2.0.0 documentation</title>
+    <title>pysnap.core package &#8212; PySnap 2.1.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
-    <script src="../_static/documentation_options.js?v=51b770b3"></script>
+    <script src="../_static/documentation_options.js?v=20623aea"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -162,7 +162,7 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="pysnap.core.models.VMInfo">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.models.</span></span><span class="sig-name descname"><span class="pre">VMInfo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uuid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">serial_port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vm_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parent_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">managed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/models.html#VMInfo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.models.VMInfo" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.models.</span></span><span class="sig-name descname"><span class="pre">VMInfo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uuid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">serial_port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vm_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parent_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">managed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">serial_tcp_ports</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">()</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/models.html#VMInfo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.models.VMInfo" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Represent the VM information required by the CLI.</p>
 <dl class="field-list simple">
@@ -176,6 +176,7 @@
 <li><p><strong>parent_name</strong> (<em>str</em><em> | </em><em>None</em>)</p></li>
 <li><p><strong>managed</strong> (<em>bool</em>)</p></li>
 <li><p><strong>metadata</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>str</em><em>]</em>)</p></li>
+<li><p><strong>serial_tcp_ports</strong> (<em>tuple</em><em>[</em><em>int</em><em>, </em><em>...</em><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -217,6 +218,11 @@
 <dl class="py attribute">
 <dt class="sig sig-object py" id="pysnap.core.models.VMInfo.metadata">
 <span class="sig-name descname"><span class="pre">metadata</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#pysnap.core.models.VMInfo.metadata" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.VMInfo.serial_tcp_ports">
+<span class="sig-name descname"><span class="pre">serial_tcp_ports</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">()</span></span><a class="headerlink" href="#pysnap.core.models.VMInfo.serial_tcp_ports" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py property">
@@ -331,6 +337,133 @@
 
 </dd></dl>
 
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.core.models.ComPortSetting">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.models.</span></span><span class="sig-name descname"><span class="pre">ComPortSetting</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mode</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">detail</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/models.html#ComPortSetting"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.models.ComPortSetting" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Represent the configuration of one serial (COM) port.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mode</strong> (<em>str</em>) – <code class="docutils literal notranslate"><span class="pre">&quot;off&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;tcpserver&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;server&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;client&quot;</span></code>
+(host pipe), or another raw VirtualBox mode such as <code class="docutils literal notranslate"><span class="pre">&quot;file&quot;</span></code>.</p></li>
+<li><p><strong>port</strong> (<em>int</em><em> | </em><em>None</em>) – TCP port of a <code class="docutils literal notranslate"><span class="pre">tcpserver</span></code> port.</p></li>
+<li><p><strong>path</strong> (<em>str</em><em> | </em><em>None</em>) – Host pipe path of a <code class="docutils literal notranslate"><span class="pre">server</span></code> or <code class="docutils literal notranslate"><span class="pre">client</span></code> port.</p></li>
+<li><p><strong>detail</strong> (<em>str</em><em> | </em><em>None</em>) – Raw VirtualBox value of other modes.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.ComPortSetting.mode">
+<span class="sig-name descname"><span class="pre">mode</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#pysnap.core.models.ComPortSetting.mode" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.ComPortSetting.port">
+<span class="sig-name descname"><span class="pre">port</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#pysnap.core.models.ComPortSetting.port" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.ComPortSetting.path">
+<span class="sig-name descname"><span class="pre">path</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#pysnap.core.models.ComPortSetting.path" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.ComPortSetting.detail">
+<span class="sig-name descname"><span class="pre">detail</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#pysnap.core.models.ComPortSetting.detail" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.core.models.NicSetting">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.models.</span></span><span class="sig-name descname"><span class="pre">NicSetting</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attachment</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">network</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/models.html#NicSetting"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.models.NicSetting" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Represent the attachment of one network adapter.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>attachment</strong> (<em>str</em>) – <code class="docutils literal notranslate"><span class="pre">&quot;none&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;nat&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;intnet&quot;</span></code>, or another raw
+VirtualBox attachment such as <code class="docutils literal notranslate"><span class="pre">&quot;bridged&quot;</span></code>.</p></li>
+<li><p><strong>network</strong> (<em>str</em><em> | </em><em>None</em>) – Internal network name of an <code class="docutils literal notranslate"><span class="pre">intnet</span></code> adapter.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.NicSetting.attachment">
+<span class="sig-name descname"><span class="pre">attachment</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#pysnap.core.models.NicSetting.attachment" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.NicSetting.network">
+<span class="sig-name descname"><span class="pre">network</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#pysnap.core.models.NicSetting.network" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.core.models.VMHardware">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.models.</span></span><span class="sig-name descname"><span class="pre">VMHardware</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">com_ports</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nics</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/models.html#VMHardware"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.models.VMHardware" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Represent the serial ports and network adapters of one VM.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>com_ports</strong> (<em>tuple</em><em>[</em><a class="reference internal" href="#pysnap.core.models.ComPortSetting" title="pysnap.core.models.ComPortSetting"><em>ComPortSetting</em></a><em>, </em><em>...</em><em>]</em>) – Settings of every serial port the VM can have (COM1-COM4).</p></li>
+<li><p><strong>nics</strong> (<em>tuple</em><em>[</em><a class="reference internal" href="#pysnap.core.models.NicSetting" title="pysnap.core.models.NicSetting"><em>NicSetting</em></a><em>, </em><em>...</em><em>]</em>) – Settings of every network adapter the VM can have; their
+number depends on the chipset (8 for PIIX3, 36 for ICH9).</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.VMHardware.com_ports">
+<span class="sig-name descname"><span class="pre">com_ports</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#pysnap.core.models.ComPortSetting" title="pysnap.core.models.ComPortSetting"><span class="pre">ComPortSetting</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#pysnap.core.models.VMHardware.com_ports" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.VMHardware.nics">
+<span class="sig-name descname"><span class="pre">nics</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#pysnap.core.models.NicSetting" title="pysnap.core.models.NicSetting"><span class="pre">NicSetting</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#pysnap.core.models.VMHardware.nics" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.core.models.VMSettingsResult">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.models.</span></span><span class="sig-name descname"><span class="pre">VMSettingsResult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vm_state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hardware</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warnings</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">()</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/models.html#VMSettingsResult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.models.VMSettingsResult" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Represent the outcome of <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">set</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vm_name</strong> (<em>str</em>) – VM name.</p></li>
+<li><p><strong>vm_state</strong> (<em>str</em><em> | </em><em>None</em>) – Raw VirtualBox state.</p></li>
+<li><p><strong>hardware</strong> (<a class="reference internal" href="#pysnap.core.models.VMHardware" title="pysnap.core.models.VMHardware"><em>VMHardware</em></a>) – Serial ports and network adapters after the change.</p></li>
+<li><p><strong>warnings</strong> (<em>tuple</em><em>[</em><em>str</em><em>, </em><em>...</em><em>]</em>) – Notes about removed TCP servers and similar effects.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.VMSettingsResult.vm_name">
+<span class="sig-name descname"><span class="pre">vm_name</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#pysnap.core.models.VMSettingsResult.vm_name" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.VMSettingsResult.vm_state">
+<span class="sig-name descname"><span class="pre">vm_state</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#pysnap.core.models.VMSettingsResult.vm_state" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.VMSettingsResult.hardware">
+<span class="sig-name descname"><span class="pre">hardware</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#pysnap.core.models.VMHardware" title="pysnap.core.models.VMHardware"><span class="pre">VMHardware</span></a></span><a class="headerlink" href="#pysnap.core.models.VMSettingsResult.hardware" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.models.VMSettingsResult.warnings">
+<span class="sig-name descname"><span class="pre">warnings</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">()</span></span><a class="headerlink" href="#pysnap.core.models.VMSettingsResult.warnings" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </section>
 <section id="module-pysnap.core.service">
 <span id="pysnap-core-service-module"></span><h2>pysnap.core.service module<a class="headerlink" href="#module-pysnap.core.service" title="Link to this heading">¶</a></h2>
@@ -385,6 +518,11 @@
 <dl class="py attribute">
 <dt class="sig sig-object py" id="pysnap.core.service.PySnapService.DEFAULT_STOP_TIMEOUT">
 <span class="sig-name descname"><span class="pre">DEFAULT_STOP_TIMEOUT</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">60.0</span></span><a class="headerlink" href="#pysnap.core.service.PySnapService.DEFAULT_STOP_TIMEOUT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.DEFAULT_PAUSE_TIMEOUT">
+<span class="sig-name descname"><span class="pre">DEFAULT_PAUSE_TIMEOUT</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">30.0</span></span><a class="headerlink" href="#pysnap.core.service.PySnapService.DEFAULT_PAUSE_TIMEOUT" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -569,6 +707,86 @@ second clone headlessly, and removes all created VMs one by one.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.pause_runtime_vm">
+<span class="sig-name descname"><span class="pre">pause_runtime_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService.pause_runtime_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService.pause_runtime_vm" title="Link to this definition">¶</a></dt>
+<dd><p>Pause one running VM; it stays in memory until it is resumed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vm_name</strong> (<em>str</em>) – VM name.</p></li>
+<li><p><strong>timeout</strong> (<em>float</em><em> | </em><em>None</em>) – Optional timeout in seconds.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="pysnap.html#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><strong>PySnapError</strong></a> – If the VM is not running.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.resume_runtime_vm">
+<span class="sig-name descname"><span class="pre">resume_runtime_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService.resume_runtime_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService.resume_runtime_vm" title="Link to this definition">¶</a></dt>
+<dd><p>Resume one paused VM.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vm_name</strong> (<em>str</em>) – VM name.</p></li>
+<li><p><strong>timeout</strong> (<em>float</em><em> | </em><em>None</em>) – Optional timeout in seconds.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="pysnap.html#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><strong>PySnapError</strong></a> – If the VM is not paused.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.pause_all_runtime_vms">
+<span class="sig-name descname"><span class="pre">pause_all_runtime_vms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService.pause_all_runtime_vms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService.pause_all_runtime_vms" title="Link to this definition">¶</a></dt>
+<dd><p>Pause all running VMs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>timeout</strong> (<em>float</em><em> | </em><em>None</em>) – Optional per-VM timeout in seconds.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Names of the paused VMs.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="pysnap.html#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><strong>PySnapError</strong></a> – If one or more VMs cannot be paused.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.resume_all_runtime_vms">
+<span class="sig-name descname"><span class="pre">resume_all_runtime_vms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService.resume_all_runtime_vms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService.resume_all_runtime_vms" title="Link to this definition">¶</a></dt>
+<dd><p>Resume all paused VMs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>timeout</strong> (<em>float</em><em> | </em><em>None</em>) – Optional per-VM timeout in seconds.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Names of the resumed VMs.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="pysnap.html#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><strong>PySnapError</strong></a> – If one or more VMs cannot be resumed.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="pysnap.core.service.PySnapService.show_vm">
 <span class="sig-name descname"><span class="pre">show_vm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService.show_vm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService.show_vm" title="Link to this definition">¶</a></dt>
 <dd><p>Return details for a single VM.</p>
@@ -607,6 +825,34 @@ same <code class="docutils literal notranslate"><span class="pre">UART1</span></
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="#pysnap.core.models.VMInfo" title="pysnap.core.models.VMInfo"><em>VMInfo</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.core.service.PySnapService.set_vm_settings">
+<span class="sig-name descname"><span class="pre">set_vm_settings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/service.html#PySnapService.set_vm_settings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.service.PySnapService.set_vm_settings" title="Link to this definition">¶</a></dt>
+<dd><p>Change the serial ports and network adapters of a stopped VM.</p>
+<p>Without options the current settings are returned unchanged. All
+options are validated before one <code class="docutils literal notranslate"><span class="pre">modifyvm</span></code> call applies them. For
+proto-settings clones the DMI system SKU is rebuilt from the new COM1
+port and the internal networks of NIC2-NIC4.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vm_name</strong> (<em>str</em>) – VM name.</p></li>
+<li><p><strong>options</strong> (<em>Sequence</em><em>[</em><em>str</em><em>]</em>) – <code class="docutils literal notranslate"><span class="pre">comN=VALUE</span></code> and <code class="docutils literal notranslate"><span class="pre">nicN=VALUE</span></code> options.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Settings after the change and warnings.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="pysnap.html#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><strong>PySnapError</strong></a> – For invalid options, a VM that is not stopped or
+TCP ports in use.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#pysnap.core.models.VMSettingsResult" title="pysnap.core.models.VMSettingsResult"><em>VMSettingsResult</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -771,6 +1017,163 @@ selection still depend on the selected clones.</p>
 </dl>
 </dd></dl>
 
+</dd></dl>
+
+</section>
+<section id="module-pysnap.core.settings">
+<span id="pysnap-core-settings-module"></span><h2>pysnap.core.settings module<a class="headerlink" href="#module-pysnap.core.settings" title="Link to this heading">¶</a></h2>
+<p>Parse <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">set</span></code> options for serial ports and network adapters.</p>
+<p>Each option is <code class="docutils literal notranslate"><span class="pre">KEY=VALUE</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">comN</span></code>: <code class="docutils literal notranslate"><span class="pre">auto</span></code> or a TCP port number for a TCP server, <code class="docutils literal notranslate"><span class="pre">server:NAME</span></code>
+or <code class="docutils literal notranslate"><span class="pre">client:NAME</span></code> for a host pipe between VMs, or <code class="docutils literal notranslate"><span class="pre">off</span></code>;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nicN</span></code>: an internal network name, <code class="docutils literal notranslate"><span class="pre">nat</span></code> or <code class="docutils literal notranslate"><span class="pre">off</span></code>.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">N</span></code> is any port or adapter number; whether the VM has it (VirtualBox
+offers COM1-COM4 and, depending on the chipset, NIC1-NIC8 or NIC1-NIC36) is
+checked against the VM.</p>
+<p>A host pipe is given by a short name; <a class="reference internal" href="#pysnap.core.settings.host_pipe_path" title="pysnap.core.settings.host_pipe_path"><code class="xref py py-func docutils literal notranslate"><span class="pre">host_pipe_path()</span></code></a> turns it into
+the path format of the host system, so two VMs that use the same name are
+connected on any platform.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.core.settings.ComPortRequest">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.settings.</span></span><span class="sig-name descname"><span class="pre">ComPortRequest</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mode</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipe_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/settings.html#ComPortRequest"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.settings.ComPortRequest" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Represent a requested serial port change.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mode</strong> (<em>str</em>) – <code class="docutils literal notranslate"><span class="pre">&quot;off&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;tcpserver&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;server&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;client&quot;</span></code>.</p></li>
+<li><p><strong>port</strong> (<em>int</em><em> | </em><em>None</em>) – Requested TCP port; <code class="docutils literal notranslate"><span class="pre">None</span></code> with <code class="docutils literal notranslate"><span class="pre">tcpserver</span></code> means
+<code class="docutils literal notranslate"><span class="pre">auto</span></code>.</p></li>
+<li><p><strong>pipe_name</strong> (<em>str</em><em> | </em><em>None</em>) – Short host pipe name of <code class="docutils literal notranslate"><span class="pre">server</span></code> and <code class="docutils literal notranslate"><span class="pre">client</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.settings.ComPortRequest.mode">
+<span class="sig-name descname"><span class="pre">mode</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#pysnap.core.settings.ComPortRequest.mode" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.settings.ComPortRequest.port">
+<span class="sig-name descname"><span class="pre">port</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#pysnap.core.settings.ComPortRequest.port" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.settings.ComPortRequest.pipe_name">
+<span class="sig-name descname"><span class="pre">pipe_name</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#pysnap.core.settings.ComPortRequest.pipe_name" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.core.settings.SetRequest">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.core.settings.</span></span><span class="sig-name descname"><span class="pre">SetRequest</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">com_ports</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nics</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/settings.html#SetRequest"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.settings.SetRequest" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Represent the changes requested by <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">set</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>com_ports</strong> (<em>dict</em><em>[</em><em>int</em><em>, </em><a class="reference internal" href="#pysnap.core.settings.ComPortRequest" title="pysnap.core.settings.ComPortRequest"><em>ComPortRequest</em></a><em>]</em>) – Port numbers mapped to the requested change.</p></li>
+<li><p><strong>nics</strong> (<em>dict</em><em>[</em><em>int</em><em>, </em><a class="reference internal" href="#pysnap.core.models.NicSetting" title="pysnap.core.models.NicSetting"><em>NicSetting</em></a><em>]</em>) – Adapter numbers mapped to the requested setting.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.settings.SetRequest.com_ports">
+<span class="sig-name descname"><span class="pre">com_ports</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#pysnap.core.settings.ComPortRequest" title="pysnap.core.settings.ComPortRequest"><span class="pre">ComPortRequest</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#pysnap.core.settings.SetRequest.com_ports" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.core.settings.SetRequest.nics">
+<span class="sig-name descname"><span class="pre">nics</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#pysnap.core.models.NicSetting" title="pysnap.core.models.NicSetting"><span class="pre">NicSetting</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#pysnap.core.settings.SetRequest.nics" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="pysnap.core.settings.SetRequest.empty">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">empty</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="reference internal" href="../_modules/pysnap/core/settings.html#SetRequest.empty"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.settings.SetRequest.empty" title="Link to this definition">¶</a></dt>
+<dd><p>Return whether no change was requested.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.core.settings.parse_set_options">
+<span class="sig-prename descclassname"><span class="pre">pysnap.core.settings.</span></span><span class="sig-name descname"><span class="pre">parse_set_options</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/settings.html#parse_set_options"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.settings.parse_set_options" title="Link to this definition">¶</a></dt>
+<dd><p>Parse <code class="docutils literal notranslate"><span class="pre">KEY=VALUE</span></code> options.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>options</strong> (<em>Sequence</em><em>[</em><em>str</em><em>]</em>) – Command line options.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Requested changes.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="pysnap.html#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><strong>PySnapError</strong></a> – For unknown keys, repeated keys and invalid values.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#pysnap.core.settings.SetRequest" title="pysnap.core.settings.SetRequest"><em>SetRequest</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.core.settings.host_pipe_path">
+<span class="sig-prename descclassname"><span class="pre">pysnap.core.settings.</span></span><span class="sig-name descname"><span class="pre">host_pipe_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">windows</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/settings.html#host_pipe_path"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.settings.host_pipe_path" title="Link to this definition">¶</a></dt>
+<dd><p>Return the host pipe path for a short pipe name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<em>str</em>) – Short pipe name.</p></li>
+<li><p><strong>windows</strong> (<em>bool</em><em> | </em><em>None</em>) – Override the host system check, for tests.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">\\.\pipe\pysnap-NAME</span></code> on Windows, otherwise a socket path
+<code class="docutils literal notranslate"><span class="pre">pysnap-NAME</span></code> in the temporary directory.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.core.settings.host_pipe_name">
+<span class="sig-prename descclassname"><span class="pre">pysnap.core.settings.</span></span><span class="sig-name descname"><span class="pre">host_pipe_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/settings.html#host_pipe_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.settings.host_pipe_name" title="Link to this definition">¶</a></dt>
+<dd><p>Return the short name of a pipe path created by PySnap.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> (<em>str</em>) – Host pipe path.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Short name, or <code class="docutils literal notranslate"><span class="pre">None</span></code> for other paths.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.core.settings.com_setting_from_request">
+<span class="sig-prename descclassname"><span class="pre">pysnap.core.settings.</span></span><span class="sig-name descname"><span class="pre">com_setting_from_request</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/core/settings.html#com_setting_from_request"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.core.settings.com_setting_from_request" title="Link to this definition">¶</a></dt>
+<dd><p>Return the resulting port setting of a request.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>request</strong> (<a class="reference internal" href="#pysnap.core.settings.ComPortRequest" title="pysnap.core.settings.ComPortRequest"><em>ComPortRequest</em></a>) – Requested change.</p></li>
+<li><p><strong>port</strong> (<em>int</em><em> | </em><em>None</em>) – Resolved TCP port of a <code class="docutils literal notranslate"><span class="pre">tcpserver</span></code> request.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Port setting.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#pysnap.core.models.ComPortSetting" title="pysnap.core.models.ComPortSetting"><em>ComPortSetting</em></a></p>
+</dd>
+</dl>
 </dd></dl>
 
 </section>
