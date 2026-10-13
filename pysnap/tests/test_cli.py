@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import re
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -620,6 +621,77 @@ class CliTests(unittest.TestCase):
         self.assertTrue(service.stop_all_requested)
         self.assertIn("Stopped virtual machines: base-vm, clone-vm", stdout.getvalue())
         self.assertEqual("", stderr.getvalue())
+
+
+
+class HelpTests(unittest.TestCase):
+    """Verify the root command list and the help of every command."""
+
+    def _help(self, *arguments: str) -> tuple[int, str]:
+        stdout = io.StringIO()
+        code = run_cli([*arguments, "--help"], service=FakeService(), stdout=stdout, stderr=io.StringIO())
+        return code, stdout.getvalue()
+
+    def test_root_help_lists_every_command_once(self) -> None:
+        """Show grouped commands with summaries and point to command help."""
+        from pysnap.cli.app import COMMAND_GROUPS
+
+        code, text = self._help()
+        self.assertEqual(code, 0)
+        names = [name for _, commands in COMMAND_GROUPS for name, _ in commands]
+        self.assertEqual(len(names), len(set(names)))
+        for name in names:
+            self.assertRegex(text, rf"\n  {re.escape(name)} +\S")
+        self.assertIn('Run "pysnap COMMAND --help"', text)
+        self.assertNotIn("pysnap report text REPORT", text)
+
+    def test_root_help_lists_every_dispatched_command(self) -> None:
+        """Keep the root list in line with the commands run_cli dispatches."""
+        import inspect
+
+        from pysnap.cli import app
+
+        source = inspect.getsource(app.run_cli)
+        dispatched = set(re.findall(r'command == "([\w-]+)"', source))
+        for group in re.findall(r"command in \{([^}]*)\}", source):
+            dispatched.update(re.findall(r'"([\w-]+)"', group))
+        dispatched -= {"-h", "--help", "-v", "--version"}
+        listed = {name for _, commands in app.COMMAND_GROUPS for name, _ in commands}
+        self.assertIn("pause", dispatched)
+        self.assertEqual(dispatched, listed)
+
+    def test_every_command_has_a_detailed_help(self) -> None:
+        """Describe each command with its arguments and examples."""
+        from pysnap.cli.app import COMMAND_GROUPS
+
+        commands = [name for _, group in COMMAND_GROUPS for name, _ in group]
+        reports = [("report", sub) for sub in ("text", "show", "check", "extract", "compare")]
+        for arguments in [(name,) for name in commands] + reports:
+            with self.subTest(command=" ".join(arguments)):
+                code, text = self._help(*arguments)
+                self.assertEqual(code, 0)
+                self.assertTrue(text.startswith(f"usage: pysnap {' '.join(arguments)}"), text[:80])
+                description = text.split("\n\n")[1]
+                self.assertGreater(len(description), 40)
+                self.assertIn("Examples:\n  pysnap ", text)
+
+    def test_version_flag(self) -> None:
+        """Print the package version with -v and --version."""
+        from pysnap import __version__
+
+        for flag in ("-v", "--version"):
+            with self.subTest(flag=flag):
+                stdout = io.StringIO()
+                code = run_cli([flag], service=FakeService(), stdout=stdout, stderr=io.StringIO())
+                self.assertEqual((code, stdout.getvalue()), (0, f"pysnap {__version__}\n"))
+        self.assertIn("-v, --version", self._help()[1])
+
+    def test_unknown_command_points_to_help(self) -> None:
+        """Explain an unknown command."""
+        stderr = io.StringIO()
+        code = run_cli(["frobnicate"], service=FakeService(), stdout=io.StringIO(), stderr=stderr)
+        self.assertEqual(code, 2)
+        self.assertIn("pysnap --help", stderr.getvalue())
 
 
 if __name__ == "__main__":

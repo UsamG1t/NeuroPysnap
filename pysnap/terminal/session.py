@@ -38,6 +38,45 @@ class SessionStatus:
     message: str = "Connecting..."
 
 
+class PauseTracker:
+    """Follow pause and resume of the attached VM.
+
+    The session stays open while the VM is paused: keys are held back and the
+    status bar says so. Any state other than running or paused ends it.
+    """
+
+    def __init__(self, paused: bool = False) -> None:
+        """Initialize the tracker.
+
+        :param paused: Whether the VM was paused when the session started.
+        """
+        self.paused = paused
+
+    def observe(self, state: str) -> str | None:
+        """Record the current monitor state.
+
+        :param state: Monitor label such as ``"Working"`` or ``"Paused"``.
+        :returns: ``"paused"`` or ``"resumed"`` on a change, ``"exit"`` when
+            the session must end, otherwise ``None``.
+        """
+        if state == "Paused":
+            if self.paused:
+                return None
+            self.paused = True
+            return "paused"
+        if state in {"Working", "Active"}:
+            if not self.paused:
+                return None
+            self.paused = False
+            return "resumed"
+        return "exit"
+
+
+PAUSED_MESSAGE = "VM is paused; keys wait for pysnap resume. Ctrl-Q detaches."
+# A paused VM may not accept the serial connection; do not wait long for it.
+PAUSED_CONNECT_TIMEOUT = 3.0
+
+
 @dataclass
 class TerminalSelection:
     """Visible terminal selection tracked in local screen coordinates."""
@@ -258,28 +297,43 @@ class TerminalSession:
         vm_info = self.service.prepare_vm_connection(vm_name)
         if vm_info.serial_port is None:
             raise PySnapError(f'Virtual machine "{vm_name}" does not expose a serial TCP port.')
+        paused = (vm_info.vm_state or "").lower() == "paused"
         try:
-            asyncio.run(self._run_async(vm_info.name, vm_info.serial_port))
+            asyncio.run(self._run_async(vm_info.name, vm_info.serial_port, paused=paused))
         except (KeyboardInterrupt, asyncio.CancelledError):
             return 0
         return 0
 
-    async def _run_async(self, vm_name: str, serial_port: int) -> None:
+    async def _run_async(self, vm_name: str, serial_port: int, paused: bool = False) -> None:
         """Run the asynchronous terminal session.
 
         :param vm_name: Virtual machine name.
         :param serial_port: Serial TCP port.
+        :param paused: Whether the VM is paused; the console is then woken
+            only after it is resumed.
         """
-        reader, writer = await open_serial_connection("localhost", serial_port)
+        if paused:
+            try:
+                reader, writer = await open_serial_connection(
+                    "localhost", serial_port, timeout=PAUSED_CONNECT_TIMEOUT
+                )
+            except PySnapError:
+                raise PySnapError(
+                    f'Virtual machine "{vm_name}" is paused and its serial port does not '
+                    f"accept connections; run pysnap resume {vm_name}."
+                ) from None
+        else:
+            reader, writer = await open_serial_connection("localhost", serial_port)
         columns, rows = shutil.get_terminal_size(fallback=(80, 24))
         emulator = TerminalEmulator(*_terminal_content_size(columns=columns, rows=rows))
         query_responder = TerminalQueryResponder()
         status = SessionStatus(
             vm_name=vm_name,
-            vm_state="Working",
+            vm_state="Paused" if paused else "Working",
             serial_port=serial_port,
             message="Connected. Waking serial console...",
         )
+        pause_tracker = PauseTracker(paused)
         stop_event = asyncio.Event()
         received_output = asyncio.Event()
         selection_tracker = SelectionTracker(emulator)
@@ -288,8 +342,11 @@ class TerminalSession:
         transfer: dict[str, QueueConsole | None] = {"console": None}
         transfer_output = bytearray()
 
-        await _wake_serial_console(writer)
-        status.message = "Connected. Ctrl-Q detaches."
+        if paused:
+            status.message = PAUSED_MESSAGE
+        else:
+            await _wake_serial_console(writer)
+            status.message = "Connected. Ctrl-Q detaches."
 
         def begin_selection(x: int, y: int) -> None:
             selection_tracker.begin(x, y)
@@ -405,7 +462,7 @@ class TerminalSession:
             """
             captured_text = selection_tracker.take_captured_text()
             if captured_text is None:
-                if transfer["console"] is not None:
+                if transfer["console"] is not None or pause_tracker.paused:
                     return
                 writer.write(b"\x03")
                 return
@@ -423,6 +480,10 @@ class TerminalSession:
             selection_tracker.clear()
             if transfer["console"] is not None:
                 status.message = "Report transfer in progress; keys are paused."
+                event.app.invalidate()
+                return
+            if pause_tracker.paused:
+                status.message = PAUSED_MESSAGE
                 event.app.invalidate()
                 return
             key_press = event.key_sequence[-1]
@@ -522,13 +583,21 @@ class TerminalSession:
                     await asyncio.sleep(0.5)
                     current_state = self.service.get_monitor_state_label(vm_name)
                     status.vm_state = current_state
-                    if current_state != "Working":
+                    change = pause_tracker.observe(current_state)
+                    if change == "exit":
                         status.message = f"VM state changed to {current_state}."
-                    app.invalidate()
-                    if current_state not in {"Working", "Active"}:
+                        app.invalidate()
                         stop_event.set()
                         _safe_exit_application(app)
                         return
+                    if change == "paused":
+                        status.message = PAUSED_MESSAGE
+                    elif change == "resumed":
+                        status.message = "VM resumed. Ctrl-Q detaches."
+                        if not received_output.is_set():
+                            # Connected while paused: the screen is still empty.
+                            await _wake_serial_console(writer)
+                    app.invalidate()
             except Exception as error:
                 status.vm_state = "Changing"
                 status.message = f"Watcher error: {error}"
@@ -539,7 +608,7 @@ class TerminalSession:
             try:
                 await asyncio.wait_for(received_output.wait(), timeout=2.0)
             except asyncio.TimeoutError:
-                if stop_event.is_set():
+                if stop_event.is_set() or pause_tracker.paused:
                     return
                 status.message = "Connected. Press Enter if the guest stays silent."
                 app.invalidate()

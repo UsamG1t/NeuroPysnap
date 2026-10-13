@@ -6,11 +6,16 @@ PySnap exposes a single command line entry point named ``pysnap``.
 Help
 ----
 
-Running the command without arguments shows the built-in help:
+Running the command without arguments, or with ``--help``, lists the commands
+in groups with a one-line summary each. Every command has its own help with a
+description, its arguments and options, and examples:
 
 .. code-block:: text
 
-   pysnap
+   pysnap --help
+   pysnap clone --help
+   pysnap report --help
+   pysnap report check --help
 
 Open Bundled Documentation
 --------------------------
@@ -174,6 +179,57 @@ built-in terminal interface.
    Graphviz example diagrams are rendered automatically when the ``dot``
    executable is available on the documentation build host.
 
+Set Serial Ports and Network Adapters
+-------------------------------------
+
+The ``set`` command shows or changes the serial (COM) ports and the network
+adapters of a VM. Each option is ``KEY=VALUE``; ``N`` is any number the VM
+offers: VirtualBox has ``COM1``-``COM4`` and, depending on the chipset of the
+VM, ``NIC1``-``NIC8`` (PIIX3) or ``NIC1``-``NIC36`` (ICH9). The output lists
+``NIC1``-``NIC4`` and further adapters up to the last one in use.
+
+- ``comN=auto``: a TCP server on a free port (an existing TCP server keeps
+  its port); ``comN=PORT`` uses the given port
+- ``comN=server:NAME`` and ``comN=client:NAME``: a host pipe between two VMs,
+  created by the VM with ``server`` and joined by the VM with ``client``
+- ``comN=off``: no serial port
+- ``nicN=NETWORK``: the internal network ``NETWORK``
+- ``nicN=nat``: NAT; ``nicN=off``: no network adapter
+
+.. code-block:: text
+
+   pysnap set first  nic2=left nic3=right com2=server:link
+   pysnap set second nic2=left com2=client:link
+   pysnap set first
+   first (poweroff)
+     COM1  TCP server, port 2326
+     COM2  pipe server, creates "link" (/tmp/pysnap-link)
+     COM3  off
+     COM4  off
+     NIC1  NAT
+     NIC2  internal network "left"
+     NIC3  internal network "right"
+     NIC4  off
+
+Without options the current settings are printed. Changes require a stopped
+VM; all options are checked first and then applied together, so an invalid
+option changes nothing. PySnap checks that a TCP port is not used by another
+VM, by another COM port of the same VM or on the host. Removing a TCP server
+prints a warning; ``pysnap connect`` uses ``COM1`` and cannot reach a VM
+without it.
+
+A pipe name is short; PySnap turns it into the path format of the host
+(``\\.\pipe\pysnap-NAME`` on Windows, a ``pysnap-NAME`` socket in the
+temporary directory elsewhere), so the same name connects two VMs on any
+platform.
+
+For clones of proto-settings base VMs, the DMI system SKU is rebuilt from the
+new ``COM1`` port and the internal networks of ``NIC2``-``NIC4``, for example
+``port2326.left.right``. An adapter without an internal network leaves an
+empty place (``port2326..right``). When ``COM1`` is no TCP server, the
+highest TCP port of the other COM ports is used; without any TCP port the
+port part of the previous SKU is kept.
+
 Connect to a Headless Virtual Machine
 -------------------------------------
 
@@ -222,6 +278,15 @@ for ``VBoxManage`` when the command is not exported in ``PATH``.
 
    pysnap connect MyVM
 
+A paused VM can be attached too: the status line shows ``Paused``, keys are
+held back and nothing is sent to the guest until ``pysnap resume``. Then the
+keys work again, and when the guest has not printed anything yet PySnap sends
+the usual waking newline. When a VM is paused during a session, the session
+stays open in the same way, so ``Ctrl-Q`` on a paused VM and a new
+``connect`` lead to the same state. If the paused VM does not accept the
+serial connection within three seconds, ``connect`` fails with a hint to run
+``pysnap resume``.
+
 Monitor Active Virtual Machines
 -------------------------------
 
@@ -254,10 +319,29 @@ shutdown modes is used.
 When a VM stops, any active ``pysnap connect`` session attached to it finishes
 automatically because the VM state changes and the serial connection is closed.
 
+A paused guest cannot handle the ACPI power button, so ``stop`` resumes a
+paused VM first; ``stop --all`` also stops paused VMs.
+
 .. code-block:: text
 
    pysnap stop MyVM
    pysnap stop --all
+
+Pause and Resume Virtual Machines
+---------------------------------
+
+``pause`` freezes a running VM through ``VBoxManage controlvm <VM> pause``; it
+stays in memory and shows up as ``Paused`` in ``pysnap monitor``. ``resume``
+continues it. With ``--all`` the commands act on every running or every paused
+VM. This is not ``savestate``: nothing is written to disk and the VM does not
+stop.
+
+.. code-block:: text
+
+   pysnap pause MyVM
+   pysnap resume MyVM
+   pysnap pause --all
+   pysnap resume --all
 
 Create a Linked Clone
 ---------------------

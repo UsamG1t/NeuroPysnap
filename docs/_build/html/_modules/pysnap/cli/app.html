@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pysnap.cli.app &#8212; PySnap 2.0.0 documentation</title>
+    <title>pysnap.cli.app &#8212; PySnap 2.1.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
-    <script src="../../../_static/documentation_options.js?v=51b770b3"></script>
+    <script src="../../../_static/documentation_options.js?v=20623aea"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -40,6 +40,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">textwrap</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">TextIO</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.cli.formatters</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -49,7 +50,9 @@
     <span class="n">format_integration_test_result</span><span class="p">,</span>
     <span class="n">format_monitor_records</span><span class="p">,</span>
     <span class="n">format_vm_info</span><span class="p">,</span>
+    <span class="n">format_vm_settings</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap</span><span class="w"> </span><span class="kn">import</span> <span class="n">__version__</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.cli.report</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_report_command</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.core.service</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapService</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.docview</span><span class="w"> </span><span class="kn">import</span> <span class="n">open_bundled_documentation</span>
@@ -72,6 +75,92 @@
 
 
 
+<div class="viewcode-block" id="HelpFormatter">
+<a class="viewcode-back" href="../../../api/pysnap.cli.html#pysnap.cli.app.HelpFormatter">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">HelpFormatter</span><span class="p">(</span><span class="n">argparse</span><span class="o">.</span><span class="n">RawDescriptionHelpFormatter</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Wrap help paragraphs and keep indented lines such as examples.</span>
+
+<span class="sd">    Descriptions and epilogs are split into blank-line separated blocks. A</span>
+<span class="sd">    block without indented lines is wrapped as one paragraph; a block with</span>
+<span class="sd">    indented lines (an example list or an option table) is kept as written.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_fill_text</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">width</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">indent</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">blocks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">textwrap</span><span class="o">.</span><span class="n">dedent</span><span class="p">(</span><span class="n">text</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"</span><span class="se">\n\n</span><span class="s2">"</span><span class="p">):</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">" "</span><span class="p">)</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">):</span>
+                <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">indent</span> <span class="o">+</span> <span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">textwrap</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span>
+                        <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">),</span>
+                        <span class="n">width</span><span class="p">,</span>
+                        <span class="n">initial_indent</span><span class="o">=</span><span class="n">indent</span><span class="p">,</span>
+                        <span class="n">subsequent_indent</span><span class="o">=</span><span class="n">indent</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="s2">"</span><span class="se">\n\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">blocks</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># Command groups and one-line summaries shown by ``pysnap --help``.</span>
+<span class="n">COMMAND_GROUPS</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="o">...</span><span class="p">]],</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="p">(</span>
+        <span class="s2">"Virtual machines"</span><span class="p">,</span>
+        <span class="p">(</span>
+            <span class="p">(</span><span class="s2">"list"</span><span class="p">,</span> <span class="s2">"List VirtualBox groups and their virtual machines."</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"show"</span><span class="p">,</span> <span class="s2">"Show the group, serial TCP port and parent of a VM."</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"import"</span><span class="p">,</span> <span class="s2">"Import an OVA or OVF appliance."</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"protosettings"</span><span class="p">,</span> <span class="s2">"Register a base VM whose clones get lab settings."</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"clone"</span><span class="p">,</span> <span class="s2">"Create a linked clone with a serial port and networks."</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"set"</span><span class="p">,</span> <span class="s2">"Show or change the COM ports and network adapters of a VM."</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"plug"</span><span class="p">,</span> <span class="s2">"Give an existing VM a TCP serial port for connect."</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"erase"</span><span class="p">,</span> <span class="s2">"Delete VMs, with dependency checks for linked clones."</span><span class="p">),</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="s2">"Running virtual machines"</span><span class="p">,</span>
+        <span class="p">(</span>
+            <span class="p">(</span><span class="s2">"connect"</span><span class="p">,</span> <span class="s2">"Start a VM headless and attach to its serial console."</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"monitor"</span><span class="p">,</span> <span class="s2">"List VMs that are running, paused or changing state."</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"pause"</span><span class="p">,</span> <span class="s2">"Pause running VMs; they stay in memory."</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"resume"</span><span class="p">,</span> <span class="s2">"Resume paused VMs."</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"stop"</span><span class="p">,</span> <span class="s2">"Shut VMs down through the ACPI power button."</span><span class="p">),</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="s2">"Session reports"</span><span class="p">,</span>
+        <span class="p">((</span><span class="s2">"report"</span><span class="p">,</span> <span class="s2">"Read, check, extract and compare student session reports."</span><span class="p">),),</span>
+    <span class="p">),</span>
+    <span class="p">(</span>
+        <span class="s2">"Maintenance"</span><span class="p">,</span>
+        <span class="p">(</span>
+            <span class="p">(</span><span class="s2">"docs"</span><span class="p">,</span> <span class="s2">"Open the bundled HTML documentation."</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"full-clean"</span><span class="p">,</span> <span class="s2">"Delete the VirtualBox machine and configuration directories."</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"--integration-test"</span><span class="p">,</span> <span class="s2">"Run the end-to-end check on a real VirtualBox."</span><span class="p">),</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_commands_epilog</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return the grouped command list of the root help."""</span>
+    <span class="n">width</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">commands</span> <span class="ow">in</span> <span class="n">COMMAND_GROUPS</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">commands</span><span class="p">)</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">title</span><span class="p">,</span> <span class="n">commands</span> <span class="ow">in</span> <span class="n">COMMAND_GROUPS</span><span class="p">:</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2">:"</span><span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">&lt;</span><span class="si">{</span><span class="n">width</span><span class="si">}}</span><span class="s2">  </span><span class="si">{</span><span class="n">summary</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">summary</span> <span class="ow">in</span> <span class="n">commands</span><span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">'Run "pysnap COMMAND --help" for the arguments and examples of a command.'</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_examples</span><span class="p">(</span><span class="o">*</span><span class="n">commands</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return an examples block for a command epilog."""</span>
+    <span class="k">return</span> <span class="s2">"Examples:</span><span class="se">\n</span><span class="s2">"</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">commands</span><span class="p">)</span>
+
+
 <div class="viewcode-block" id="CliArgumentParser">
 <a class="viewcode-back" href="../../../api/pysnap.cli.html#pysnap.cli.app.CliArgumentParser">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">CliArgumentParser</span><span class="p">(</span><span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">):</span>
@@ -91,6 +180,7 @@
 <span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="n">stdout</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stderr</span> <span class="o">=</span> <span class="n">stderr</span>
+        <span class="n">kwargs</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"formatter_class"</span><span class="p">,</span> <span class="n">HelpFormatter</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_print_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="n">TextIO</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -143,31 +233,20 @@
 <span class="sd">    """</span>
     <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
         <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap"</span><span class="p">,</span>
-        <span class="n">description</span><span class="o">=</span><span class="s2">"Manage VirtualBox appliance imports and linked clones."</span><span class="p">,</span>
-        <span class="n">epilog</span><span class="o">=</span><span class="p">(</span>
-            <span class="s2">"Commands:</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap list</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap import IMAGE.ova|IMAGE.ovf [VMName]</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap --integration-test IMAGE.ova|IMAGE.ovf</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap protosettings BASE_VM</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap show VM</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap plug VM</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap docs [--browser BROWSER]</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap connect VM</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap monitor</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap stop [VM | --all]</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap clone BASE_VM CLONE_VM [-p PORT] [INTNET1 [INTNET2 [INTNET3]]]</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap erase [--clones-only] [--all | --group GROUP | VM]</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap full-clean [--path DIRECTORY ...]</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap report text REPORT [--commands] [--color WHEN] [--no-pager]</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap report show REPORT [--speed X] [--max-delay SECONDS]</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap report check REPORT [CHECK]</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap report extract VM NAME [--output PATH] [--force]</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="s2">"  pysnap report compare PATH..."</span>
+        <span class="n">usage</span><span class="o">=</span><span class="s2">"pysnap COMMAND [ARGUMENTS] | pysnap COMMAND --help"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Manage VirtualBox appliance imports and linked clones for network "</span>
+            <span class="s2">"labs: import images, clone and configure virtual machines, attach "</span>
+            <span class="s2">"to their serial consoles and read the session reports recorded "</span>
+            <span class="s2">"inside them."</span>
         <span class="p">),</span>
-        <span class="n">formatter_class</span><span class="o">=</span><span class="n">argparse</span><span class="o">.</span><span class="n">RawDescriptionHelpFormatter</span><span class="p">,</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_commands_epilog</span><span class="p">(),</span>
         <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
         <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"-v"</span><span class="p">,</span> <span class="s2">"--version"</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">"version"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="sa">f</span><span class="s2">"pysnap </span><span class="si">{</span><span class="n">__version__</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"show the PySnap version and exit"</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">parser</span></div>
 
@@ -206,7 +285,7 @@
         <span class="n">command</span> <span class="o">=</span> <span class="n">arguments</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"--integration-test"</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_run_integration_test</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">command</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"-h"</span><span class="p">,</span> <span class="s2">"--help"</span><span class="p">}:</span>
+        <span class="k">if</span> <span class="n">command</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"-h"</span><span class="p">,</span> <span class="s2">"--help"</span><span class="p">,</span> <span class="s2">"-v"</span><span class="p">,</span> <span class="s2">"--version"</span><span class="p">}:</span>
             <span class="n">root_parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="n">command</span><span class="p">])</span>
             <span class="k">return</span> <span class="mi">0</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"list"</span><span class="p">:</span>
@@ -223,6 +302,8 @@
             <span class="k">return</span> <span class="n">_run_show</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"plug"</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_run_plug</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"set"</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_run_set</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"docs"</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_run_docs</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"connect"</span><span class="p">:</span>
@@ -231,6 +312,8 @@
             <span class="k">return</span> <span class="n">_run_monitor</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"stop"</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_run_stop</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">command</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"pause"</span><span class="p">,</span> <span class="s2">"resume"</span><span class="p">}:</span>
+            <span class="k">return</span> <span class="n">_run_pause_resume</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"clone"</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_run_clone</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"erase"</span><span class="p">:</span>
@@ -274,7 +357,18 @@
 <span class="sd">    :param stderr: Error stream.</span>
 <span class="sd">    :returns: Process exit code.</span>
 <span class="sd">    """</span>
-    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap list"</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap list"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"List the VirtualBox groups and the virtual machines in each group. "</span>
+            <span class="s2">"VMs without a group are listed under /Others."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap list"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">groups</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">list_groups</span><span class="p">()</span>
@@ -303,8 +397,19 @@
 <span class="sd">    :param stderr: Error stream.</span>
 <span class="sd">    :returns: Process exit code.</span>
 <span class="sd">    """</span>
-    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap show"</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Virtual machine name."</span><span class="p">)</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap show"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Show the name, group, serial TCP port (COM1) and, for linked "</span>
+            <span class="s2">"clones, the parent of a virtual machine."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap show first"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"VM"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Name of the virtual machine."</span><span class="p">)</span>
     <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">format_vm_info</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">show_vm</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">)),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
     <span class="k">return</span> <span class="mi">0</span>
@@ -324,8 +429,22 @@
 <span class="sd">    :param stderr: Error stream.</span>
 <span class="sd">    :returns: Process exit code.</span>
 <span class="sd">    """</span>
-    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap protosettings"</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Base virtual machine name."</span><span class="p">)</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap protosettings"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Register a base VM whose linked clones get lab settings: NIC1 "</span>
+            <span class="s2">"stays on NAT, the internal networks of pysnap clone go to "</span>
+            <span class="s2">"NIC2-NIC4, and the clone name, serial port and networks are "</span>
+            <span class="s2">"written into its DMI system information. The list of such base VMs "</span>
+            <span class="s2">"is kept in ~/.ptotosettings."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap protosettings protocols-jeos-20251218-x86_64"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"BASE_VM"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Name of the base virtual machine."</span><span class="p">)</span>
     <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
     <span class="n">configured</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">register_proto_settings_vm</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Registered proto-settings VM: </span><span class="si">{</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
@@ -351,12 +470,26 @@
 <span class="sd">    :param stderr: Error stream.</span>
 <span class="sd">    :returns: Process exit code.</span>
 <span class="sd">    """</span>
-    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap import"</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"image"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Path to the OVA or OVF appliance."</span><span class="p">)</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap import"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Import an OVA or OVF appliance into VirtualBox. The imported VMs "</span>
+            <span class="s2">"keep the group of the appliance or go to /Others. Nothing is "</span>
+            <span class="s2">"created when a VM with the same name already exists."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap import image.ova"</span><span class="p">,</span>
+            <span class="s2">"pysnap import image.ova RenamedVM"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"image"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"IMAGE"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Path to the .ova or .ovf appliance."</span><span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
         <span class="s2">"vm_name"</span><span class="p">,</span>
         <span class="n">nargs</span><span class="o">=</span><span class="s2">"?"</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">"Optional name for the imported VM when the appliance contains one VM."</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">"VM_NAME"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"New name of the imported VM; only for appliances with one VM."</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
     <span class="n">progress_bar</span> <span class="o">=</span> <span class="n">ImportProgressBar</span><span class="p">(</span><span class="n">stream</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
@@ -386,11 +519,82 @@
 <span class="sd">    :param stderr: Error stream.</span>
 <span class="sd">    :returns: Process exit code.</span>
 <span class="sd">    """</span>
-    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap plug"</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Virtual machine name."</span><span class="p">)</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap plug"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Prepare an existing VM for pysnap connect: configure COM1 (UART1) "</span>
+            <span class="s2">"as a TCP server on a free port. A VM whose COM1 already is a TCP "</span>
+            <span class="s2">"server is left unchanged; otherwise the VM must be stopped. Use "</span>
+            <span class="s2">"pysnap set for other ports and adapters."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap plug MyVM"</span><span class="p">,</span>
+            <span class="s2">"pysnap connect MyVM"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"VM"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Name of the virtual machine."</span><span class="p">)</span>
     <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
     <span class="n">vm_info</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">plug_vm</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">format_vm_info</span><span class="p">(</span><span class="n">vm_info</span><span class="p">),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_set</span><span class="p">(</span>
+    <span class="n">arguments</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">service</span><span class="p">:</span> <span class="n">PySnapService</span><span class="p">,</span>
+    <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+    <span class="n">stderr</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Run the ``set`` subcommand.</span>
+
+<span class="sd">    :param arguments: Subcommand arguments.</span>
+<span class="sd">    :param service: Application service.</span>
+<span class="sd">    :param stdout: Output stream.</span>
+<span class="sd">    :param stderr: Error stream.</span>
+<span class="sd">    :returns: Process exit code.</span>
+<span class="sd">    """</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap set"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Show or change the serial (COM) ports and network adapters of a VM: "</span>
+            <span class="s2">"COM1-COM4, and NIC1-NIC8 or NIC1-NIC36 depending on the chipset of the "</span>
+            <span class="s2">"VM. Without options the current settings are shown. "</span>
+            <span class="s2">"Changes need a stopped VM; all options are checked first and then "</span>
+            <span class="s2">"applied together, so an invalid option changes nothing. Removing a "</span>
+            <span class="s2">"TCP server prints a warning: pysnap connect uses COM1."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Options (N is the port or adapter number):</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  comN=auto        TCP server on a free port (keeps an existing one)</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  comN=PORT        TCP server on the given port</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  comN=server:NAME host pipe NAME, this VM creates it</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  comN=client:NAME host pipe NAME, this VM connects to it</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  comN=off         no serial port</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  nicN=NETWORK     internal network NETWORK</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  nicN=nat         NAT</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  nicN=off         no network adapter</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="o">+</span> <span class="n">_examples</span><span class="p">(</span>
+                <span class="s2">"pysnap set first"</span><span class="p">,</span>
+                <span class="s2">"pysnap set first nic2=left nic3=right com2=server:link"</span><span class="p">,</span>
+                <span class="s2">"pysnap set second nic2=left com2=client:link"</span><span class="p">,</span>
+                <span class="s2">"pysnap set first com1=2330 nic4=off"</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"VM"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Name of the virtual machine."</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"options"</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">"*"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"OPTION"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"comN=VALUE or nicN=VALUE, see below."</span>
+    <span class="p">)</span>
+    <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">set_vm_settings</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">,</span> <span class="n">namespace</span><span class="o">.</span><span class="n">options</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">warning</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">warnings</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: </span><span class="si">{</span><span class="n">warning</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">format_vm_settings</span><span class="p">(</span><span class="n">result</span><span class="p">),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
     <span class="k">return</span> <span class="mi">0</span>
 
 
@@ -408,19 +612,36 @@
 <span class="sd">    :param stderr: Error stream.</span>
 <span class="sd">    :returns: Process exit code.</span>
 <span class="sd">    """</span>
-    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap clone"</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"base_vm"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Base virtual machine name."</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"clone_vm"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Linked clone name."</span><span class="p">)</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap clone"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Create a linked clone of a base VM in the same group. The clone "</span>
+            <span class="s2">"gets COM1 as a TCP server and up to three internal networks: on "</span>
+            <span class="s2">"NIC1-NIC3 for ordinary base VMs (other adapters are switched off) "</span>
+            <span class="s2">"or on NIC2-NIC4 for proto-settings base VMs, where NIC1 stays on "</span>
+            <span class="s2">"NAT. A snapshot of the base VM is taken when it has none."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap clone base first"</span><span class="p">,</span>
+            <span class="s2">"pysnap clone base first -p 2330 left right"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"base_vm"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"BASE_VM"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Name of the VM to clone."</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"clone_vm"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"CLONE_VM"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Name of the new linked clone."</span><span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
         <span class="s2">"-p"</span><span class="p">,</span>
         <span class="s2">"--port"</span><span class="p">,</span>
         <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">"TCP port assigned to UART1. If omitted, the next free port is used."</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">"PORT"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"TCP port of COM1 (UART1); default: the next free port."</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
         <span class="s2">"networks"</span><span class="p">,</span>
         <span class="n">nargs</span><span class="o">=</span><span class="s2">"*"</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">"Up to three internal network names."</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">"NETWORK"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Internal network names in adapter order, at most three."</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="c1"># ``pysnap clone BASE CLONE -p PORT NET...`` places an optional between</span>
     <span class="c1"># positional groups. Plain ``parse_args`` supports this only from the</span>
@@ -453,8 +674,24 @@
 <span class="sd">    :param stderr: Error stream.</span>
 <span class="sd">    :returns: Process exit code.</span>
 <span class="sd">    """</span>
-    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap connect"</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Virtual machine name."</span><span class="p">)</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap connect"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Start a VM in headless mode when needed and attach the PySnap "</span>
+            <span class="s2">"terminal to its serial console (COM1). Ctrl-Q detaches without "</span>
+            <span class="s2">"stopping the VM, Ctrl-L redraws, Alt-Up/Down scroll the local "</span>
+            <span class="s2">"history line by line and Alt-Left/Right jump to its start or back "</span>
+            <span class="s2">"to the live output, Ctrl-Shift-C copies text selected with the "</span>
+            <span class="s2">"mouse. A paused VM can be attached too: keys wait until pysnap "</span>
+            <span class="s2">"resume."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap connect first"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"VM"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Name of the virtual machine."</span><span class="p">)</span>
     <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
     <span class="n">session</span> <span class="o">=</span> <span class="n">TerminalSession</span><span class="p">(</span><span class="n">service</span><span class="o">=</span><span class="n">service</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">session</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">)</span>
@@ -472,10 +709,23 @@
 <span class="sd">    :param stderr: Error stream.</span>
 <span class="sd">    :returns: Process exit code.</span>
 <span class="sd">    """</span>
-    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap docs"</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap docs"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Open the HTML documentation bundled with PySnap in a web browser "</span>
+            <span class="s2">"(firefox unless --browser names another one)."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap docs"</span><span class="p">,</span>
+            <span class="s2">"pysnap docs --browser chromium"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
         <span class="s2">"--browser"</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">"Browser executable used to open the bundled documentation."</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">"BROWSER"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Browser executable to use; default: firefox."</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
     <span class="n">open_bundled_documentation</span><span class="p">(</span><span class="n">browser</span><span class="o">=</span><span class="n">namespace</span><span class="o">.</span><span class="n">browser</span><span class="p">)</span>
@@ -496,7 +746,20 @@
 <span class="sd">    :param stderr: Error stream.</span>
 <span class="sd">    :returns: Process exit code.</span>
 <span class="sd">    """</span>
-    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap monitor"</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap monitor"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"List the virtual machines that are not stopped, with their state, "</span>
+            <span class="s2">"serial TCP port and group. States: Working (a pysnap connect "</span>
+            <span class="s2">"session is attached), Active (running without a session), Paused, "</span>
+            <span class="s2">"Stopping, Changing and Error."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap monitor"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">format_monitor_records</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">list_monitored_vms</span><span class="p">()),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
     <span class="k">return</span> <span class="mi">0</span>
@@ -516,9 +779,22 @@
 <span class="sd">    :param stderr: Error stream.</span>
 <span class="sd">    :returns: Process exit code.</span>
 <span class="sd">    """</span>
-    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap stop"</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">"?"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Virtual machine name to stop."</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--all"</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Stop all running VMs."</span><span class="p">)</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap stop"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Shut a VM down through the ACPI power button and wait until it "</span>
+            <span class="s2">"stops. A paused VM is resumed first, because a paused guest "</span>
+            <span class="s2">"ignores the power button. Give either a VM name or --all."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap stop first"</span><span class="p">,</span>
+            <span class="s2">"pysnap stop --all"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">"?"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"VM"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Name of the virtual machine to stop."</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--all"</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Stop all running and paused VMs."</span><span class="p">)</span>
     <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
 
     <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">all</span><span class="p">,</span> <span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">))</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
@@ -537,6 +813,65 @@
     <span class="k">return</span> <span class="mi">0</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_pause_resume</span><span class="p">(</span>
+    <span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">arguments</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">service</span><span class="p">:</span> <span class="n">PySnapService</span><span class="p">,</span>
+    <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+    <span class="n">stderr</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Run the ``pause`` or ``resume`` command.</span>
+
+<span class="sd">    :param command: ``"pause"`` or ``"resume"``.</span>
+<span class="sd">    :param arguments: Subcommand arguments.</span>
+<span class="sd">    :param service: Application service.</span>
+<span class="sd">    :param stdout: Output stream.</span>
+<span class="sd">    :param stderr: Error stream.</span>
+<span class="sd">    :returns: Process exit code.</span>
+<span class="sd">    """</span>
+    <span class="n">pausing</span> <span class="o">=</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"pause"</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="sa">f</span><span class="s2">"pysnap </span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Pause a running VM. It stays in memory and is shown as Paused in "</span>
+            <span class="s2">"pysnap monitor until pysnap resume; nothing is written to disk. An "</span>
+            <span class="s2">"attached pysnap connect session stays open and holds keys back. "</span>
+            <span class="s2">"Give either a VM name or --all."</span>
+            <span class="k">if</span> <span class="n">pausing</span>
+            <span class="k">else</span> <span class="s2">"Resume a paused VM; an attached pysnap connect session takes "</span>
+            <span class="s2">"keys again. Give either a VM name or --all."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span><span class="sa">f</span><span class="s2">"pysnap </span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s2"> first"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"pysnap </span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s2"> --all"</span><span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"vm"</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">"?"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"VM"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Name of the virtual machine to </span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s2">."</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--all"</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Pause all running VMs."</span> <span class="k">if</span> <span class="n">pausing</span> <span class="k">else</span> <span class="s2">"Resume all paused VMs."</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">all</span><span class="p">,</span> <span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">))</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">'exactly one of "--all" or "VM" must be provided'</span><span class="p">)</span>
+
+    <span class="n">label</span> <span class="o">=</span> <span class="s2">"Paused"</span> <span class="k">if</span> <span class="n">pausing</span> <span class="k">else</span> <span class="s2">"Resumed"</span>
+    <span class="k">if</span> <span class="n">namespace</span><span class="o">.</span><span class="n">all</span><span class="p">:</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">pause_all_runtime_vms</span><span class="p">()</span> <span class="k">if</span> <span class="n">pausing</span> <span class="k">else</span> <span class="n">service</span><span class="o">.</span><span class="n">resume_all_runtime_vms</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2"> virtual machines: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">names</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">names</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'none'</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">0</span>
+
+    <span class="k">if</span> <span class="n">pausing</span><span class="p">:</span>
+        <span class="n">service</span><span class="o">.</span><span class="n">pause_runtime_vm</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">service</span><span class="o">.</span><span class="n">resume_runtime_vm</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2"> virtual machine: </span><span class="si">{</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_run_erase</span><span class="p">(</span>
     <span class="n">arguments</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">PySnapService</span><span class="p">,</span>
@@ -551,14 +886,31 @@
 <span class="sd">    :param stderr: Error stream.</span>
 <span class="sd">    :returns: Process exit code.</span>
 <span class="sd">    """</span>
-    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap erase"</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">"?"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Virtual machine name to remove."</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--all"</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Remove all registered VMs."</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--group"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Remove all VMs from the specified group."</span><span class="p">)</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap erase"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Unregister virtual machines and delete their files. A base VM is "</span>
+            <span class="s2">"not deleted while linked clones outside the selection depend on "</span>
+            <span class="s2">"it; clones are deleted before their base VMs. Give exactly one of "</span>
+            <span class="s2">"a VM name, --all or --group."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap erase first"</span><span class="p">,</span>
+            <span class="s2">"pysnap erase --group /Lab"</span><span class="p">,</span>
+            <span class="s2">"pysnap erase --clones-only --all"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">"?"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"VM"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Name of the virtual machine to delete."</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--all"</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Delete all registered VMs."</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--group"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"GROUP"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Delete all VMs of a group, for example /Lab."</span>
+    <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
         <span class="s2">"--clones-only"</span><span class="p">,</span>
         <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">"Restrict the operation to VMs created as PySnap linked clones."</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Delete only linked clones made by pysnap clone and keep base VMs."</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
 
@@ -647,9 +999,12 @@
     <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
         <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap full-clean"</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-            <span class="s2">"Permanently delete the VirtualBox machine and configuration "</span>
-            <span class="s2">"directories. Stop VirtualBox and all VMs before running this."</span>
+            <span class="s2">"Permanently delete the VirtualBox machine directory (~/VirtualBox "</span>
+            <span class="s2">"VMs) and the VirtualBox configuration directory of this system "</span>
+            <span class="s2">"(VBOX_USER_HOME overrides it). Two confirmations are asked first. "</span>
+            <span class="s2">"Stop VirtualBox and all VMs before running this."</span>
         <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span><span class="s2">"pysnap full-clean"</span><span class="p">,</span> <span class="s2">"pysnap full-clean --path /data/vms"</span><span class="p">),</span>
         <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
         <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
     <span class="p">)</span>
@@ -713,10 +1068,17 @@
 <span class="sd">    """</span>
     <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
         <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap --integration-test"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Run the end-to-end check on a real VirtualBox: import the appliance, "</span>
+            <span class="s2">"create three linked clones in a triangle of internal networks, start "</span>
+            <span class="s2">"and attach to them, check pysnap monitor and delete everything "</span>
+            <span class="s2">"created."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span><span class="s2">"pysnap --integration-test image.ova"</span><span class="p">),</span>
         <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
         <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"image"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Path to the OVA or OVF appliance."</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"image"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"IMAGE"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Path to the .ova or .ovf appliance."</span><span class="p">)</span>
     <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
     <span class="n">result</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">run_integration_test</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">image</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()))</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">format_integration_test_result</span><span class="p">(</span><span class="n">result</span><span class="p">),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>

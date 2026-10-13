@@ -1,6 +1,6 @@
 # PySnap
 
-PySnap 2.0.0 is a Python 3.11+ command line package for importing VirtualBox OVA/OVF
+PySnap 2.1.0 is a Python 3.11+ command line package for importing VirtualBox OVA/OVF
 appliances, creating linked clones, configuring internal networks, starting
 virtual machines in headless mode, attaching to them through a built-in serial
 terminal, and removing virtual machines with dependency checks.
@@ -19,6 +19,8 @@ terminal, and removing virtual machines with dependency checks.
 - Plug a stopped VM into the PySnap connection model by assigning a safe
   `UART1 tcpserver` port.
 - Allocate the next available serial TCP port automatically when `-p` is omitted.
+- Show or change the COM ports and network adapters of a stopped VM with
+  `pysnap set`: TCP servers, host pipes between VMs, internal networks, NAT.
 - Start virtual machines in headless mode and attach to them through a
   cross-platform Python terminal interface.
 - Track outer-terminal resize events during ``connect`` sessions and answer
@@ -28,6 +30,8 @@ terminal, and removing virtual machines with dependency checks.
 - Open the bundled HTML documentation directly from the installed package.
 - Monitor active and changing virtual machines with compact runtime states.
 - Stop one running VM or all running VMs through `acpipowerbutton`.
+- Pause and resume one VM or all VMs; `connect` stays attached to a paused VM
+  with keys held back until it is resumed.
 - Discover `VBoxManage` automatically on macOS through the standard
   `/Applications/VirtualBox.app/...` bundle path when needed.
 - Delete one VM, a group of VMs, or all registered VMs with dependency checks,
@@ -48,6 +52,9 @@ terminal, and removing virtual machines with dependency checks.
 
 ## Command Summary
 
+`pysnap --help` lists the commands; `pysnap COMMAND --help` describes one
+command with its arguments, options and examples.
+
 ```text
 pysnap
 pysnap list
@@ -57,9 +64,12 @@ pysnap protosettings BASE_VM
 pysnap docs [--browser BROWSER]
 pysnap show <VM>
 pysnap plug <VM>
+pysnap set <VM> [comN=auto|PORT|server:NAME|client:NAME|off] [nicN=NETWORK|nat|off] ...
 pysnap connect <VM>
 pysnap monitor
 pysnap stop [<VM> | --all]
+pysnap pause [<VM> | --all]
+pysnap resume [<VM> | --all]
 pysnap clone <BaseVM> <CloneVM> [-p PORT] [<int1-net> [<int2-net> [<int3-net>]]]
 pysnap erase [--clones-only] [--all | --group GROUP | <VM>]
 pysnap full-clean [--path DIRECTORY ...]
@@ -136,6 +146,13 @@ Group: /Lab
 Serial port: 2345
 ```
 
+Connect two stopped clones through internal networks and a COM2 host pipe:
+
+```bash
+pysnap set first nic2=left com2=server:link
+pysnap set second nic2=left com2=client:link
+```
+
 Monitor running or changing VMs in a compact form:
 
 ```bash
@@ -156,6 +173,13 @@ Stop a single machine or all running machines:
 ```bash
 pysnap stop srv
 pysnap stop --all
+```
+
+Pause a VM and continue it later; it stays in memory meanwhile:
+
+```bash
+pysnap pause srv
+pysnap resume srv
 ```
 
 Delete only linked clones, keeping the imported base VMs. PySnap recognizes

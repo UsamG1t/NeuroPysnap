@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pysnap.cli.report &#8212; PySnap 2.0.0 documentation</title>
+    <title>pysnap.cli.report &#8212; PySnap 2.1.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
-    <script src="../../../_static/documentation_options.js?v=51b770b3"></script>
+    <script src="../../../_static/documentation_options.js?v=20623aea"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -88,11 +88,24 @@
 <span class="sd">    """</span>
     <span class="c1"># ``pysnap.cli.app`` imports this module to dispatch ``report``, so the</span>
     <span class="c1"># shared parser class is imported lazily to avoid an import cycle.</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.cli.app</span><span class="w"> </span><span class="kn">import</span> <span class="n">CliArgumentParser</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.cli.app</span><span class="w"> </span><span class="kn">import</span> <span class="n">CliArgumentParser</span><span class="p">,</span> <span class="n">_examples</span>
 
     <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
         <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap report"</span><span class="p">,</span>
-        <span class="n">description</span><span class="o">=</span><span class="s2">"Read session reports recorded by the report utility."</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Read session reports (report.NN.HOST archives) recorded by the "</span>
+            <span class="s2">"report utility inside the lab VMs. Reports are read safely: nothing "</span>
+            <span class="s2">"is extracted to disk and nothing from a report reaches the terminal "</span>
+            <span class="s2">"as a raw control sequence."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="p">(</span>
+            <span class="s1">'Run "pysnap report SUBCOMMAND --help" for the arguments of a subcommand.</span><span class="se">\n\n</span><span class="s1">'</span>
+            <span class="o">+</span> <span class="n">_examples</span><span class="p">(</span>
+                <span class="s2">"pysnap report text report.01.first"</span><span class="p">,</span>
+                <span class="s2">"pysnap report check report.01.first lab01-first.check.toml"</span><span class="p">,</span>
+                <span class="s2">"pysnap report compare reports/"</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">),</span>
         <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
         <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
     <span class="p">)</span>
@@ -103,13 +116,21 @@
         <span class="s2">"text"</span><span class="p">,</span>
         <span class="n">help</span><span class="o">=</span><span class="s2">"Print the session text with highlighted commands."</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-            <span class="s2">"Print the text of a recorded session without timing. Commands "</span>
-            <span class="s2">"entered after a prompt are highlighted."</span>
+            <span class="s2">"Print the text of a recorded session without timing, as the student "</span>
+            <span class="s2">"saw it. The report prompt is highlighted and entered commands are "</span>
+            <span class="s2">"shown in bold; colors produced in the VM are kept. Text longer than "</span>
+            <span class="s2">"the terminal opens in a pager: arrows scroll in all directions, "</span>
+            <span class="s2">"PgUp/PgDn and Home/End jump, q quits."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap report text report.01.first"</span><span class="p">,</span>
+            <span class="s2">"pysnap report text report.01.first --commands"</span><span class="p">,</span>
+            <span class="s2">"pysnap report text report.01.first --color never --no-pager &gt; first.txt"</span><span class="p">,</span>
         <span class="p">),</span>
         <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
         <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">text</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"report"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Report file, for example report.01.first."</span><span class="p">)</span>
+    <span class="n">text</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"report"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"REPORT"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Report file, for example report.01.first."</span><span class="p">)</span>
     <span class="n">text</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
         <span class="s2">"--commands"</span><span class="p">,</span>
         <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span>
@@ -119,7 +140,8 @@
         <span class="s2">"--color"</span><span class="p">,</span>
         <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="s2">"auto"</span><span class="p">,</span> <span class="s2">"always"</span><span class="p">,</span> <span class="s2">"never"</span><span class="p">),</span>
         <span class="n">default</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">"Highlight output: auto (default) colors only a terminal."</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">"WHEN"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"When to color: auto (default, only on a terminal), always or never."</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">text</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
         <span class="s2">"--no-pager"</span><span class="p">,</span>
@@ -136,10 +158,14 @@
             <span class="s2">"check file, also check the expected commands and output blocks "</span>
             <span class="s2">"and grade the report."</span>
         <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap report check report.01.first"</span><span class="p">,</span>
+            <span class="s2">"pysnap report check report.01.first lab01-first.check.toml"</span><span class="p">,</span>
+        <span class="p">),</span>
         <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
         <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">check</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"report"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Report file, for example report.01.first."</span><span class="p">)</span>
+    <span class="n">check</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"report"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"REPORT"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Report file, for example report.01.first."</span><span class="p">)</span>
     <span class="n">check</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
         <span class="s2">"check_file"</span><span class="p">,</span>
         <span class="n">nargs</span><span class="o">=</span><span class="s2">"?"</span><span class="p">,</span>
@@ -156,7 +182,12 @@
             <span class="s2">"same MAC addresses, start times, keyboard delays, random output "</span>
             <span class="s2">"values, CPU.txt or erroneous commands. Directories are searched "</span>
             <span class="s2">"recursively for report.NN.HOST files. Whether two reports come "</span>
-            <span class="s2">"from different students is up to the reader."</span>
+            <span class="s2">"from different students is up to the reader. Pairs with signals are "</span>
+            <span class="s2">"listed first with their signals, other pairs as OK."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap report compare reports/"</span><span class="p">,</span>
+            <span class="s2">"pysnap report compare ivanov/report.01.first petrov/report.01.first"</span><span class="p">,</span>
         <span class="p">),</span>
         <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
         <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
@@ -175,11 +206,17 @@
             <span class="s2">"its own connection. A name without / is looked up in the home "</span>
             <span class="s2">"directory of the console user."</span>
         <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap report extract first report.01.first"</span><span class="p">,</span>
+            <span class="s2">"pysnap report extract first /tmp/report.03.pc1 --output reports/pc1 --force"</span><span class="p">,</span>
+        <span class="p">),</span>
         <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
         <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">extract</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Virtual machine name."</span><span class="p">)</span>
-    <span class="n">extract</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"name"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Report file in the VM, for example report.01.first."</span><span class="p">)</span>
+    <span class="n">extract</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"VM"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Name of the running virtual machine."</span><span class="p">)</span>
+    <span class="n">extract</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"name"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"NAME"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Report file in the VM, for example report.01.first."</span>
+    <span class="p">)</span>
     <span class="n">extract</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
         <span class="s2">"--output"</span><span class="p">,</span>
         <span class="n">metavar</span><span class="o">=</span><span class="s2">"PATH"</span><span class="p">,</span>
@@ -199,14 +236,19 @@
             <span class="s2">"+/- speed, n/p next or previous command, Home/End start or end, "</span>
             <span class="s2">"q quit; while paused Alt+Up/Down scroll the history."</span>
         <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap report show report.01.first"</span><span class="p">,</span>
+            <span class="s2">"pysnap report show report.01.first --speed 4 --max-delay 0.5"</span><span class="p">,</span>
+        <span class="p">),</span>
         <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
         <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">show</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"report"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Report file, for example report.01.first."</span><span class="p">)</span>
+    <span class="n">show</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"report"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"REPORT"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Report file, for example report.01.first."</span><span class="p">)</span>
     <span class="n">show</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
         <span class="s2">"--speed"</span><span class="p">,</span>
         <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
         <span class="n">default</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">"X"</span><span class="p">,</span>
         <span class="n">help</span><span class="o">=</span><span class="s2">"Initial speed: 0.25, 0.5, 1, 2, 4, 8 or 16 (default 1)."</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">show</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
