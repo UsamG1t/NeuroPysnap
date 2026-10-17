@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import os
 import shutil
 import sys
-from typing import Callable
+from typing import Awaitable, Callable
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.application.current import get_app
@@ -21,6 +21,9 @@ from pysnap.core.service import PySnapService
 from pysnap.errors import PySnapError
 from pysnap.report.control import ControlServer
 from pysnap.report.extract import ExtractError, QueueConsole, run_transfer
+from pysnap.ssh import client as ssh_client
+from pysnap.ssh.client import SshTarget
+from pysnap.ssh.keys import SshKeyStore
 from pysnap.terminal.clipboard import copy_text_to_host_clipboard
 from pysnap.terminal.emulator import TerminalEmulator
 from pysnap.terminal.keymap import key_press_to_bytes
@@ -34,7 +37,7 @@ class SessionStatus:
 
     vm_name: str
     vm_state: str = "Changing"
-    serial_port: int | None = None
+    port_label: str = ""
     message: str = "Connecting..."
 
 
@@ -70,6 +73,71 @@ class PauseTracker:
             self.paused = False
             return "resumed"
         return "exit"
+
+
+@dataclass
+class SessionTransport:
+    """How a terminal session reaches the guest.
+
+    :param name: ``"Serial"`` or ``"ssh"``, used in messages.
+    :param label: Status bar label such as ``UART1:2326`` or ``ssh:2400``.
+    :param port: Host port, recorded in the session registry.
+    :param serial: Whether this is the COM1 console: it is woken with Enter,
+        may be attached while paused and serves ``report extract`` through
+        the control channel.
+    :param opener: Coroutine that connects for a terminal of the given
+        columns and rows and returns a reader, a writer and an optional
+        coroutine that cleans up afterwards.
+    """
+
+    name: str
+    label: str
+    port: int
+    serial: bool
+    opener: Callable[[int, int], Awaitable[tuple[asyncio.StreamReader, asyncio.StreamWriter, Callable[[], Awaitable[None]] | None]]]
+
+    @classmethod
+    def for_serial(cls, serial_port: int, *, timeout: float | None = None) -> "SessionTransport":
+        """Return the transport for the COM1 TCP server.
+
+        :param serial_port: Host TCP port of COM1.
+        :param timeout: Connection timeout; the transport default without.
+        :returns: Serial transport.
+        """
+        async def opener(columns: int, rows: int):
+            if timeout is None:
+                reader, writer = await open_serial_connection("localhost", serial_port)
+            else:
+                reader, writer = await open_serial_connection("localhost", serial_port, timeout=timeout)
+            return reader, writer, None
+
+        return cls("Serial", f"UART1:{serial_port}", serial_port, True, opener)
+
+    @classmethod
+    def for_ssh(cls, target: SshTarget, store: SshKeyStore) -> "SessionTransport":
+        """Return the transport for an ssh login shell.
+
+        :param target: ssh connection target.
+        :param store: PySnap key store.
+        :returns: ssh transport.
+        """
+        async def opener(columns: int, rows: int):
+            reader, writer, process = await ssh_client.open_terminal(
+                target, store, columns=columns, rows=rows
+            )
+
+            async def close() -> None:
+                if process.returncode is None:
+                    process.terminate()
+                    try:
+                        await asyncio.wait_for(process.wait(), 5)
+                    except asyncio.TimeoutError:
+                        process.kill()
+                        await process.wait()
+
+            return reader, writer, close
+
+        return cls("ssh", f"ssh:{target.port}", target.port, False, opener)
 
 
 PAUSED_MESSAGE = "VM is paused; keys wait for pysnap resume. Ctrl-Q detaches."
@@ -295,42 +363,53 @@ class TerminalSession:
         :returns: Exit code.
         """
         vm_info = self.service.prepare_vm_connection(vm_name)
-        if vm_info.serial_port is None:
-            raise PySnapError(f'Virtual machine "{vm_name}" does not expose a serial TCP port.')
         paused = (vm_info.vm_state or "").lower() == "paused"
+        if self.service.get_vm_access(vm_name).mode == "ssh":
+            try:
+                target = self.service.prepare_ssh_terminal(vm_name, notify=_notify)
+            except KeyboardInterrupt:
+                _notify("Stopped waiting for ssh.")
+                return 130
+            transport = SessionTransport.for_ssh(target, self.service.ssh_key_store)
+        else:
+            if vm_info.serial_port is None:
+                raise PySnapError(f'Virtual machine "{vm_name}" does not expose a serial TCP port.')
+            transport = SessionTransport.for_serial(
+                vm_info.serial_port, timeout=PAUSED_CONNECT_TIMEOUT if paused else None
+            )
         try:
-            asyncio.run(self._run_async(vm_info.name, vm_info.serial_port, paused=paused))
+            asyncio.run(self._run_async(vm_info.name, transport, paused=paused))
         except (KeyboardInterrupt, asyncio.CancelledError):
             return 0
         return 0
 
-    async def _run_async(self, vm_name: str, serial_port: int, paused: bool = False) -> None:
+    async def _run_async(
+        self, vm_name: str, transport: SessionTransport, paused: bool = False
+    ) -> None:
         """Run the asynchronous terminal session.
 
         :param vm_name: Virtual machine name.
-        :param serial_port: Serial TCP port.
+        :param transport: How the guest is reached.
         :param paused: Whether the VM is paused; the console is then woken
             only after it is resumed.
         """
-        if paused:
-            try:
-                reader, writer = await open_serial_connection(
-                    "localhost", serial_port, timeout=PAUSED_CONNECT_TIMEOUT
-                )
-            except PySnapError:
-                raise PySnapError(
-                    f'Virtual machine "{vm_name}" is paused and its serial port does not '
-                    f"accept connections; run pysnap resume {vm_name}."
-                ) from None
-        else:
-            reader, writer = await open_serial_connection("localhost", serial_port)
         columns, rows = shutil.get_terminal_size(fallback=(80, 24))
-        emulator = TerminalEmulator(*_terminal_content_size(columns=columns, rows=rows))
+        content_columns, content_rows = _terminal_content_size(columns=columns, rows=rows)
+        try:
+            reader, writer, close_transport = await transport.opener(content_columns, content_rows)
+        except PySnapError:
+            if not paused:
+                raise
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" is paused and its serial port does not '
+                f"accept connections; run pysnap resume {vm_name}."
+            ) from None
+        emulator = TerminalEmulator(content_columns, content_rows)
         query_responder = TerminalQueryResponder()
         status = SessionStatus(
             vm_name=vm_name,
             vm_state="Paused" if paused else "Working",
-            serial_port=serial_port,
+            port_label=transport.label,
             message="Connected. Waking serial console...",
         )
         pause_tracker = PauseTracker(paused)
@@ -344,9 +423,11 @@ class TerminalSession:
 
         if paused:
             status.message = PAUSED_MESSAGE
-        else:
+        elif transport.serial:
             await _wake_serial_console(writer)
             status.message = "Connected. Ctrl-Q detaches."
+        else:
+            status.message = "Connected through ssh. Ctrl-Q detaches."
 
         def begin_selection(x: int, y: int) -> None:
             selection_tracker.begin(x, y)
@@ -384,7 +465,7 @@ class TerminalSession:
             selection_suffix = " | Selection" if selection_tracker.is_active else ""
             text = (
                 f" {status.vm_name} | {status.vm_state} | "
-                f"UART1:{status.serial_port} | "
+                f"{status.port_label} | "
                 f"{status.message}{scrollback_suffix}{selection_suffix} "
             )
             return [("reverse", text)]
@@ -510,7 +591,7 @@ class TerminalSession:
             if transfer["console"] is not None:
                 transfer["console"].close()
             status.vm_state = "Changing"
-            status.message = "Serial connection closed."
+            status.message = f"{transport.name} connection closed."
             stop_event.set()
             _safe_exit_application(app)
 
@@ -594,7 +675,7 @@ class TerminalSession:
                         status.message = PAUSED_MESSAGE
                     elif change == "resumed":
                         status.message = "VM resumed. Ctrl-Q detaches."
-                        if not received_output.is_set():
+                        if transport.serial and not received_output.is_set():
                             # Connected while paused: the screen is still empty.
                             await _wake_serial_console(writer)
                     app.invalidate()
@@ -608,7 +689,7 @@ class TerminalSession:
             try:
                 await asyncio.wait_for(received_output.wait(), timeout=2.0)
             except asyncio.TimeoutError:
-                if stop_event.is_set() or pause_tracker.paused:
+                if stop_event.is_set() or pause_tracker.paused or not transport.serial:
                     return
                 status.message = "Connected. Press Enter if the guest stays silent."
                 app.invalidate()
@@ -645,14 +726,16 @@ class TerminalSession:
             app.invalidate()
             return result
 
-        control = ControlServer(run_control_transfer)
-        control_port = await control.start()
+        # Only the COM1 console needs the control channel: VirtualBox serves one
+        # client per serial port, while ssh accepts further connections.
+        control = ControlServer(run_control_transfer) if transport.serial else None
+        control_port = await control.start() if control is not None else None
         try:
             with self.service.session_registry.register(
                 vm_name,
-                serial_port,
+                transport.port,
                 control_port=control_port,
-                control_token=control.token,
+                control_token=control.token if control is not None else None,
             ):
                 app.create_background_task(reader_loop())
                 app.create_background_task(resize_loop())
@@ -661,9 +744,15 @@ class TerminalSession:
                 await app.run_async(handle_sigint=False)
         finally:
             stop_event.set()
-            await control.close()
+            if control is not None:
+                await control.close()
             writer.close()
-            await writer.wait_closed()
+            try:
+                await writer.wait_closed()
+            except (ConnectionError, OSError):
+                pass
+            if close_transport is not None:
+                await close_transport()
 
 
 _READ_CHUNK_SIZE = 65536
@@ -688,6 +777,11 @@ async def _read_pending_burst(reader: asyncio.StreamReader) -> bytes | None:
         )
     except asyncio.TimeoutError:
         return None
+
+
+def _notify(message: str) -> None:
+    """Print a progress message before the terminal interface starts."""
+    print(message, flush=True)
 
 
 async def _wake_serial_console(writer) -> None:

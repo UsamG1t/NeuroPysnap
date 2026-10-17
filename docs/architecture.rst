@@ -158,6 +158,16 @@ decided afterwards by key logins, not by parsing the dialogue. Interactive
 terminals use ``ssh -tt`` with pipes; the guest terminal size is set with
 ``stty`` before the login shell starts.
 
+``TerminalSession`` works on a ``SessionTransport``: a name, a status-line
+label and an opener that returns a reader, a writer and a close coroutine.
+The serial transport opens the ``UART1`` TCP connection; the ssh transport
+starts ``ssh -tt``, merges its error output into the stream and terminates the
+process on close. Before an ssh session the service checks the key login
+(``prepare_ssh_terminal``): it waits for a booting guest, and a refused key
+starts the same key setup as ``pysnap ssh-key``. Features of the serial
+console only (the waking newline, the silence hint, the report control
+channel) run only for the serial transport.
+
 Runtime State Strategy
 ----------------------
 

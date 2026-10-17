@@ -306,11 +306,26 @@ Connect to a Headless Virtual Machine
 -------------------------------------
 
 The ``connect`` command ensures that the selected VM is running in headless
-mode and then attaches a built-in PySnap terminal interface to its ``UART1``
-TCP console.
+mode and then attaches a built-in PySnap terminal interface to the guest: to
+its ``UART1`` TCP console, or to an ssh login shell for VMs reached through
+ssh (see `Access to the Guest`_).
 
-For VMs that do not already expose a suitable ``UART1 tcpserver`` endpoint, run
-``pysnap plug <VM>`` first.
+For VMs that do not already expose a suitable ``UART1 tcpserver`` endpoint or
+a forwarded ssh port, run ``pysnap plug <VM>`` first.
+
+Over ssh, ``connect`` logs in with the PySnap key as the ssh user of the VM:
+
+- while the guest is still booting and no ssh server answers yet, PySnap
+  waits up to three minutes and says so once; ``Ctrl-C`` stops waiting
+- when the guest refuses the key, PySnap installs it right away in the same
+  way as ``pysnap ssh-key`` (password of the user, then optionally of root)
+  and then logs in with the key
+- the status line shows ``ssh:PORT`` instead of ``UART1:PORT``, no waking
+  newline is sent because the login shell prints its own prompt, and the
+  session ends when the login shell exits (``exit`` or ``Ctrl-D``)
+- a paused VM is refused with a hint to run ``pysnap resume``, because a
+  paused guest cannot answer the login
+- one ``connect`` session per VM is allowed, as on the serial console
 
 The terminal session is detached with ``Ctrl-Q``. Detaching does not stop the
 virtual machine. ``Ctrl-L`` redraws the local interface.
@@ -350,9 +365,9 @@ for ``VBoxManage`` when the command is not exported in ``PATH``.
 
    pysnap connect MyVM
 
-A paused VM can be attached too: the status line shows ``Paused``, keys are
-held back and nothing is sent to the guest until ``pysnap resume``. Then the
-keys work again, and when the guest has not printed anything yet PySnap sends
+A paused VM can be attached through ``UART1`` too: the status line shows
+``Paused``, keys are held back and nothing is sent to the guest until
+``pysnap resume``. Then the keys work again, and when the guest has not printed anything yet PySnap sends
 the usual waking newline. When a VM is paused during a session, the session
 stays open in the same way, so ``Ctrl-Q`` on a paused VM and a new
 ``connect`` lead to the same state. If the paused VM does not accept the

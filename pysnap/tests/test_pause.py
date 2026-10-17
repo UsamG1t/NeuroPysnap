@@ -27,7 +27,8 @@ class PauseClient(FakeClient):
         """Register a VM in the given raw state."""
         self.references[name] = VMReference(name=name, uuid=f"uuid-{name}")
         self.infos[name] = VMInfo(name=name, uuid=f"uuid-{name}", groups=("/Lab",),
-                                  serial_port=port, vm_state=state)
+                                  serial_port=port, vm_state=state,
+                                  metadata={"pysnap/access": "com"})
 
     def _set_state(self, name: str, state: str) -> None:
         self.infos[name] = replace(self.infos[name], vm_state=state)

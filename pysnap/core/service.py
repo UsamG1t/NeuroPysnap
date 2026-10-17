@@ -70,6 +70,7 @@ class PySnapService:
     DEFAULT_START_TIMEOUT = 30.0
     DEFAULT_STOP_TIMEOUT = 60.0
     DEFAULT_PAUSE_TIMEOUT = 30.0
+    DEFAULT_SSH_WAIT_TIMEOUT = 180.0
     DEFAULT_INTEGRATION_STOP_TIMEOUT = 180.0
     STOPPED_STATES = {"poweroff", "saved", "aborted"}
     STOPPING_STATES = {"stopping"}
@@ -367,7 +368,7 @@ class PySnapService:
         vm_name: str,
         timeout: float | None = None,
     ) -> VMInfo:
-        """Ensure that a VM is ready for an interactive serial connection.
+        """Ensure that a VM is ready for an interactive connection (COM1 or ssh).
 
         :param vm_name: VM name.
         :param timeout: Optional startup timeout in seconds.
@@ -375,7 +376,13 @@ class PySnapService:
         :raises PySnapError: If the VM cannot be connected.
         """
         vm_info = self._require_vm(vm_name)
-        if vm_info.serial_port is None:
+        access = self._access_of(vm_info)
+        if access.mode == "ssh" and access.ssh_port is None:
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" is reached through ssh but has no forwarded '
+                f"ssh port; run pysnap plug {vm_name}."
+            )
+        if access.mode == "com" and vm_info.serial_port is None:
             raise PySnapError(
                 f'Virtual machine "{vm_name}" does not have a TCP-backed serial port.'
             )
@@ -388,6 +395,12 @@ class PySnapService:
         if raw_state == "running":
             return vm_info
         if raw_state in self.PAUSED_STATES:
+            if access.mode == "ssh":
+                # A paused guest cannot answer the ssh login.
+                raise PySnapError(
+                    f'Virtual machine "{vm_name}" is paused; ssh needs a running guest. '
+                    f"Run pysnap resume {vm_name}."
+                )
             return vm_info
         if raw_state in self.ERROR_STATES:
             raise PySnapError(
@@ -763,6 +776,57 @@ class PySnapService:
             port=access.ssh_port,
             user=validate_ssh_user(user) if user else access.ssh_user,
         )
+
+    def prepare_ssh_terminal(
+        self,
+        vm_name: str,
+        *,
+        timeout: float | None = None,
+        notify: Callable[[str], None] | None = None,
+        installer=None,
+        poll_interval: float = 2.0,
+    ) -> SshTarget:
+        """Wait for the guest ssh server and make sure the PySnap key works.
+
+        A freshly started guest needs time to boot, so a missing ssh server is
+        retried until ``timeout``. A refused key starts the interactive key
+        setup of :meth:`setup_ssh_key` in the current terminal.
+
+        :param vm_name: Name of a running VM reached through ssh.
+        :param timeout: Seconds to wait for the ssh server.
+        :param notify: Callback for progress messages.
+        :param installer: Interactive installer, for tests.
+        :param poll_interval: Seconds between attempts.
+        :returns: Connection target for the ssh user of the VM.
+        :raises PySnapError: When no ssh server answers in time or the key
+            cannot be installed.
+        """
+        notify = notify or (lambda message: None)
+        deadline = monotonic() + (timeout or self.DEFAULT_SSH_WAIT_TIMEOUT)
+        announced = False
+        while True:
+            target = self.ssh_target(vm_name)
+            check = ssh_client.check_key_access(target, self.ssh_key_store)
+            if check.status == "ok":
+                return target
+            if check.status == "denied":
+                notify(
+                    f'The PySnap ssh key is not installed for {target.user} in "{vm_name}". '
+                    "Installing it now (see pysnap ssh-key --help)."
+                )
+                result = self.setup_ssh_key(vm_name, installer=installer)
+                if result.changed_user:
+                    notify(f"ssh user of {vm_name} set to {result.ssh_user}.")
+                return self.ssh_target(vm_name)
+            if monotonic() >= deadline:
+                raise PySnapError(
+                    f'No ssh server answered on port {target.port} of "{vm_name}": '
+                    f"{check.message or 'connection failed'}."
+                )
+            if not announced:
+                notify(f'Waiting for the ssh server of "{vm_name}" (Ctrl-C stops)...')
+                announced = True
+            sleep(poll_interval)
 
     def setup_ssh_key(
         self,

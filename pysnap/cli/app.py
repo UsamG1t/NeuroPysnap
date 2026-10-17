@@ -82,7 +82,7 @@ COMMAND_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     (
         "Running virtual machines",
         (
-            ("connect", "Start a VM headless and attach to its serial console."),
+            ("connect", "Start a VM headless and attach to its console or ssh."),
             ("ssh-key", "Install the PySnap ssh key in a guest reached through ssh."),
             ("monitor", "List VMs that are running, paused or changing state."),
             ("pause", "Pause running VMs; they stay in memory."),
@@ -639,12 +639,15 @@ def _run_connect(
         prog="pysnap connect",
         description=(
             "Start a VM in headless mode when needed and attach the PySnap "
-            "terminal to its serial console (COM1). Ctrl-Q detaches without "
+            "terminal to its serial console (COM1) or, for VMs reached through "
+            "ssh (see pysnap show), to an ssh login shell. Ctrl-Q detaches without "
             "stopping the VM, Ctrl-L redraws, Alt-Up/Down scroll the local "
             "history line by line and Alt-Left/Right jump to its start or back "
             "to the live output, Ctrl-Shift-C copies text selected with the "
-            "mouse. A paused VM can be attached too: keys wait until pysnap "
-            "resume."
+            "mouse. A paused VM can be attached through COM1: keys wait until "
+            "pysnap resume. Over ssh, PySnap waits for the guest ssh server, "
+            "installs its key on the first connect when the guest refuses it "
+            "(see pysnap ssh-key) and ends the session when the login shell exits."
         ),
         epilog=_examples(
             "pysnap connect first",

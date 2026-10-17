@@ -119,16 +119,7 @@ class FakeClient:
         current = self.infos[vm_name]
         if vm_name in self.state_sequences and self.state_sequences[vm_name]:
             next_state = self.state_sequences[vm_name].pop(0)
-            current = VMInfo(
-                name=current.name,
-                uuid=current.uuid,
-                groups=current.groups,
-                serial_port=current.serial_port,
-                vm_state=next_state,
-                parent_name=current.parent_name,
-                managed=current.managed,
-                metadata=current.metadata,
-            )
+            current = replace(current, vm_state=next_state)
             self.infos[vm_name] = current
         return current
 
@@ -301,16 +292,7 @@ class FakeClient:
         """Record an ACPI stop request."""
         self.calls.append(("stop_vm_acpi", vm_name))
         current = self.infos[vm_name]
-        self.infos[vm_name] = VMInfo(
-            name=current.name,
-            uuid=current.uuid,
-            groups=current.groups,
-            serial_port=current.serial_port,
-            vm_state="stopping",
-            parent_name=current.parent_name,
-            managed=current.managed,
-            metadata=current.metadata,
-        )
+        self.infos[vm_name] = replace(current, vm_state="stopping")
         if not self.state_sequences.get(vm_name):
             self.state_sequences[vm_name] = ["poweroff"]
 
@@ -900,6 +882,7 @@ class ServiceTests(unittest.TestCase):
             groups=("/Lab",),
             serial_port=2345,
             vm_state="poweroff",
+            metadata={"pysnap/access": "com"},
         )
 
         service = self.make_service(client=client, session_registry=FakeSessionRegistry())
