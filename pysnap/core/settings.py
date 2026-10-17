@@ -4,7 +4,9 @@ Each option is ``KEY=VALUE``:
 
 - ``comN``: ``auto`` or a TCP port number for a TCP server, ``server:NAME``
   or ``client:NAME`` for a host pipe between VMs, or ``off``;
-- ``nicN``: an internal network name, ``nat`` or ``off``.
+- ``nicN``: an internal network name, ``nat`` or ``off``;
+- ``access``: ``com``, ``ssh`` or ``auto`` (the choice by protosettings);
+- ``ssh-user``: the guest user for ssh connections.
 
 ``N`` is any port or adapter number; whether the VM has it (VirtualBox
 offers COM1-COM4 and, depending on the chipset, NIC1-NIC8 or NIC1-NIC36) is
@@ -24,6 +26,7 @@ import re
 import tempfile
 from typing import Sequence
 
+from pysnap.core.access import validate_access_mode, validate_ssh_user
 from pysnap.core.models import ComPortSetting, NicSetting
 from pysnap.errors import PySnapError
 
@@ -55,15 +58,24 @@ class SetRequest:
 
     :param com_ports: Port numbers mapped to the requested change.
     :param nics: Adapter numbers mapped to the requested setting.
+    :param access: ``"com"``, ``"ssh"`` or ``"auto"``, if requested.
+    :param ssh_user: Guest user for ssh, if requested.
     """
 
     com_ports: dict[int, ComPortRequest]
     nics: dict[int, NicSetting]
+    access: str | None = None
+    ssh_user: str | None = None
 
     @property
     def empty(self) -> bool:
         """Return whether no change was requested."""
-        return not self.com_ports and not self.nics
+        return not self.hardware_changes and self.access is None and self.ssh_user is None
+
+    @property
+    def hardware_changes(self) -> bool:
+        """Return whether serial ports or adapters change (the VM must be stopped)."""
+        return bool(self.com_ports or self.nics)
 
 
 def parse_set_options(options: Sequence[str]) -> SetRequest:
@@ -75,12 +87,21 @@ def parse_set_options(options: Sequence[str]) -> SetRequest:
     """
     com_ports: dict[int, ComPortRequest] = {}
     nics: dict[int, NicSetting] = {}
+    settings: dict[str, str] = {}
     for option in options:
         key, separator, value = option.partition("=")
-        match = _KEY_PATTERN.match(key.strip().lower())
+        name = key.strip().lower()
+        if separator and name in {"access", "ssh-user"}:
+            if name in settings:
+                raise PySnapError(f"{name} is given more than once.")
+            value = value.strip()
+            settings[name] = validate_access_mode(value) if name == "access" else validate_ssh_user(value)
+            continue
+        match = _KEY_PATTERN.match(name)
         if not separator or match is None:
             raise PySnapError(
-                f'Invalid option "{option}"; use comN=VALUE or nicN=VALUE.'
+                f'Invalid option "{option}"; use comN=VALUE, nicN=VALUE, access=VALUE '
+                "or ssh-user=NAME."
             )
         number = int(match["number"])
         value = value.strip()
@@ -92,7 +113,12 @@ def parse_set_options(options: Sequence[str]) -> SetRequest:
             if number in nics:
                 raise PySnapError(f"NIC{number} is given more than once.")
             nics[number] = _parse_nic_value(number, value)
-    return SetRequest(com_ports=com_ports, nics=nics)
+    return SetRequest(
+        com_ports=com_ports,
+        nics=nics,
+        access=settings.get("access"),
+        ssh_user=settings.get("ssh-user"),
+    )
 
 
 def host_pipe_path(name: str, *, windows: bool | None = None) -> str:

@@ -21,6 +21,9 @@ terminal, and removing virtual machines with dependency checks.
 - Allocate the next available serial TCP port automatically when `-p` is omitted.
 - Show or change the COM ports and network adapters of a stopped VM with
   `pysnap set`: TCP servers, host pipes between VMs, internal networks, NAT.
+- Reach protosettings VMs and their clones through the COM1 serial console and
+  every other VM through ssh over a forwarded NAT port; `pysnap set` can
+  override the choice and the ssh user.
 - Start virtual machines in headless mode and attach to them through a
   cross-platform Python terminal interface.
 - Track outer-terminal resize events during ``connect`` sessions and answer

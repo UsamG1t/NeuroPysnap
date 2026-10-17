@@ -96,6 +96,36 @@ This behavior is relevant for the following CMC MSU courses:
 
    pysnap protosettings BaseVM
 
+Registered base VMs and their clones are also known to have their console on
+``COM1``, so PySnap reaches them through the serial console; every other VM is
+reached through ssh (see `Access to the Guest`_).
+
+Access to the Guest
+-------------------
+
+PySnap reaches the guest of a VM in one of two ways:
+
+- **COM1 serial console** for base VMs registered with ``pysnap protosettings``
+  and their clones: ``UART1`` is a TCP server on the host
+- **ssh** for every other VM: a rule named ``pysnap-ssh`` on the NAT adapter
+  forwards a host port on ``127.0.0.1`` to port 22 of the guest
+
+The choice can be overridden per VM with ``pysnap set VM access=com|ssh`` and
+returned to the automatic choice with ``access=auto``. Clones inherit an
+explicit choice of their base VM. ssh connections use the guest user ``root``
+unless ``pysnap set VM ssh-user=NAME`` names another one; clones inherit it.
+``pysnap show`` prints the access of a VM and ``pysnap monitor`` shows
+``ssh:PORT`` instead of the serial port for ssh VMs.
+
+.. code-block:: text
+
+   pysnap show first
+   ...
+   Access: ssh root@127.0.0.1:2400 (default)
+
+   pysnap set first access=com
+   pysnap set first access=auto ssh-user=student
+
 Import an Appliance
 -------------------
 
@@ -134,10 +164,14 @@ port configured through ``UART1``.
 Plug a Virtual Machine for PySnap Connections
 ---------------------------------------------
 
-The ``plug`` command prepares an existing VM for ``pysnap connect`` by
-configuring ``UART1`` as a ``tcpserver`` endpoint when this can be done safely.
+The ``plug`` command prepares an existing VM for ``pysnap connect``. For a VM
+reached through ssh it adds the ``pysnap-ssh`` forwarding rule on the first NAT
+adapter with a free host port; this works on stopped, running and paused VMs,
+and a VM without a NAT adapter is refused with a hint to run
+``pysnap set VM nic1=nat``. For a VM reached through the ``COM1`` console it
+configures ``UART1`` as a ``tcpserver`` endpoint when this can be done safely.
 
-PySnap checks these conditions:
+For the ``COM1`` console PySnap checks these conditions:
 
 - the VM exists
 - if ``UART1`` is already configured as ``tcpserver,<port>``, the VM is left unchanged
@@ -195,6 +229,8 @@ VM, ``NIC1``-``NIC8`` (PIIX3) or ``NIC1``-``NIC36`` (ICH9). The output lists
 - ``comN=off``: no serial port
 - ``nicN=NETWORK``: the internal network ``NETWORK``
 - ``nicN=nat``: NAT; ``nicN=off``: no network adapter
+- ``access=com|ssh|auto`` and ``ssh-user=NAME``: how PySnap reaches the guest
+  (see `Access to the Guest`_); these two work on a VM in any state
 
 .. code-block:: text
 
@@ -356,16 +392,19 @@ When ``-p`` is omitted, PySnap scans existing VMs, finds the maximum already
 used serial TCP port, and assigns the next value. If no serial TCP ports are
 configured yet, the automatic sequence starts at ``1024``.
 
-Up to three extra positional arguments configure internal networks. PySnap uses
-two layouts depending on whether the base VM was registered through
-``pysnap protosettings``:
+Up to three extra positional arguments configure internal networks:
 
-- for ordinary base VMs, the legacy layout is used: networks are mapped
-  sequentially onto ``nic1`` through ``nic3``, and omitted adapters are set to
-  ``none``
-- for proto-settings base VMs, ``nic1`` stays in ``nat`` mode, the requested
-  networks are mapped onto ``nic2`` through ``nic4``, and omitted adapters are
-  left enabled
+- ``nic1`` stays in ``nat`` mode, the requested networks are mapped onto
+  ``nic2`` through ``nic4``, and omitted adapters are left enabled. This
+  layout is used for clones of proto-settings base VMs and for every clone
+  reached through ssh, whose ssh port is forwarded on ``nic1``
+- only a clone of a base VM set to ``access=com`` without protosettings keeps
+  the legacy layout: networks are mapped sequentially onto ``nic1`` through
+  ``nic3``, and omitted adapters are set to ``none``
+
+A clone copies the settings of its base VM, including its ``pysnap-ssh`` rule;
+PySnap removes that copy, because its host port belongs to the base VM, and a
+clone reached through ssh gets its own free port.
 
 If the base VM was previously registered through ``pysnap protosettings``,
 PySnap also applies educational DMI settings to the clone.

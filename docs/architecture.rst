@@ -92,8 +92,8 @@ is not already occupied by another mode such as ``tcpclient`` or ``file``.
 When needed, the selected TCP port must be available both in VirtualBox and on
 the host system.
 
-Automatic allocation counts the TCP servers of all four serial ports of all
-VMs as used. ``pysnap set`` reads ``COM1``-``COM4`` and every network adapter
+Automatic allocation counts the TCP servers of all four serial ports and the
+forwarded ssh ports of all VMs as used. ``pysnap set`` reads ``COM1``-``COM4`` and every network adapter
 of the VM from ``showvminfo``; the adapter count of its chipset comes from
 ``VBoxManage list systemproperties`` (8 for PIIX3 and 36 for ICH9 when it is
 not reported). It validates every option and TCP port before changing anything,
@@ -129,6 +129,19 @@ PySnap writes additional DMI settings through ``VBoxManage setextradata``:
 - ``DmiSystemSKU = port<Port>[.<net1>[.<net2>[.<net3>]]]``
 
 This mode exists for educational VirtualBox images used in CMC MSU courses.
+
+Access Strategy
+---------------
+
+``pysnap.core.access.resolve_access`` decides how a guest is reached: an
+explicit ``pysnap/access`` extra data entry wins, base VMs registered with
+protosettings and their clones use the ``COM1`` serial console, and every other
+VM uses ssh. The ssh user is the ``pysnap/ssh-user`` extra data entry or
+``root``. The ssh port is not stored separately: it is read from the NAT
+port-forwarding rule ``pysnap-ssh`` (``127.0.0.1:PORT`` to guest port 22), so
+VirtualBox remains the only source of truth. ``showvminfo --machinereadable``
+prints the rules of a NAT adapter after its ``natnetN`` line, which tells
+which adapter holds the rule.
 
 Runtime State Strategy
 ----------------------

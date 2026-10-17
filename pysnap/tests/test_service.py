@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import io
 import threading
 import tarfile
@@ -12,7 +13,7 @@ from pathlib import Path
 
 from pysnap.config.protosettings import ProtoSettingsStore
 from pysnap.core.models import ImportCandidate, VMInfo, VMMonitorRecord, VMReference
-from pysnap.core.models import SerialPortConfiguration
+from pysnap.core.models import ComPortSetting, NicSetting, SerialPortConfiguration, VMHardware
 from pysnap.core.service import PySnapService
 from pysnap.errors import CommandExecutionError, PySnapError, VMDependencyError
 from pysnap.runtime.sessions import SessionRecord
@@ -84,6 +85,30 @@ class FakeClient:
         self.state_query_failures: dict[str, list[CommandExecutionError]] = {}
         self.serial_configurations: dict[str, SerialPortConfiguration] = {}
         self.running_vm_names_override: set[str] | None = None
+        self.ssh_rules: dict[str, tuple[int, int]] = {}
+
+    def get_ssh_forwarding(self, vm_name: str) -> tuple[int, int] | None:
+        """Return the recorded ssh rule of a VM."""
+        return self.ssh_rules.get(vm_name)
+
+    def add_ssh_forwarding(self, vm_name: str, adapter: int, port: int, *, running: bool) -> None:
+        """Record an ssh forwarding rule."""
+        self.calls.append(("add_ssh_forwarding", vm_name, adapter, port, running))
+        self.ssh_rules[vm_name] = (adapter, port)
+        self.infos[vm_name] = replace(self.infos[vm_name], ssh_port=port)
+
+    def remove_ssh_forwarding(self, vm_name: str, adapter: int) -> None:
+        """Remove a recorded ssh forwarding rule."""
+        self.calls.append(("remove_ssh_forwarding", vm_name, adapter))
+        self.ssh_rules.pop(vm_name, None)
+        self.infos[vm_name] = replace(self.infos[vm_name], ssh_port=None)
+
+    def get_vm_hardware(self, vm_name: str) -> VMHardware:
+        """Return NIC1 on NAT and nothing else."""
+        return VMHardware(
+            com_ports=(ComPortSetting("off"),) * 4,
+            nics=(NicSetting("nat"),) + (NicSetting("none"),) * 7,
+        )
 
     def list_vms(self) -> list[VMReference]:
         """Return known VM references."""
@@ -177,12 +202,8 @@ class FakeClient:
         current = self.infos[vm_name]
         merged_metadata = dict(current.metadata)
         merged_metadata.update(metadata)
-        self.infos[vm_name] = VMInfo(
-            name=current.name,
-            uuid=current.uuid,
-            groups=current.groups,
-            serial_port=current.serial_port,
-            vm_state=current.vm_state,
+        self.infos[vm_name] = replace(
+            current,
             parent_name=merged_metadata.get("pysnap/parent"),
             managed=merged_metadata.get("pysnap/managed") == "true",
             metadata=merged_metadata,
@@ -378,10 +399,12 @@ class ServiceTests(unittest.TestCase):
                 "configure_internal_networks",
                 "clone-vm",
                 ("intnet-a", "intnet-b"),
-                False,
+                True,
             ),
             client.calls,
         )
+        # Clones of base VMs outside protosettings are reached through ssh.
+        self.assertIn(("add_ssh_forwarding", "clone-vm", 1, 2346, False), client.calls)
 
     def test_clone_vm_auto_assigns_next_serial_port(self) -> None:
         """Assign the next TCP port when ``-p`` is omitted."""
@@ -892,6 +915,7 @@ class ServiceTests(unittest.TestCase):
         client.infos["srv"] = VMInfo(
             name="srv",
             uuid="uuid-srv",
+            metadata={"pysnap/access": "com"},
             groups=("/Lab",),
             vm_state="poweroff",
         )
@@ -910,6 +934,7 @@ class ServiceTests(unittest.TestCase):
         client.infos["srv"] = VMInfo(
             name="srv",
             uuid="uuid-srv",
+            metadata={"pysnap/access": "com"},
             groups=("/Lab",),
             serial_port=2345,
             vm_state="running",
@@ -934,6 +959,7 @@ class ServiceTests(unittest.TestCase):
         client.infos["srv"] = VMInfo(
             name="srv",
             uuid="uuid-srv",
+            metadata={"pysnap/access": "com"},
             groups=("/Lab",),
             vm_state="poweroff",
         )
@@ -953,6 +979,7 @@ class ServiceTests(unittest.TestCase):
         client.infos["srv"] = VMInfo(
             name="srv",
             uuid="uuid-srv",
+            metadata={"pysnap/access": "com"},
             groups=("/Lab",),
             vm_state="running",
         )
@@ -969,6 +996,7 @@ class ServiceTests(unittest.TestCase):
         client.infos["srv"] = VMInfo(
             name="srv",
             uuid="uuid-srv",
+            metadata={"pysnap/access": "com"},
             groups=("/Lab",),
             vm_state="poweroff",
         )

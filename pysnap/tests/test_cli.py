@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from pysnap.cli.app import run_cli
+from pysnap.core.access import AccessInfo
 from pysnap.errors import CommandExecutionError
 from pysnap.core.models import (
     IntegrationTestResult,
@@ -44,6 +45,10 @@ class FakeService:
     def show_vm(self, vm_name: str) -> VMInfo:
         """Return a static VM description."""
         return VMInfo(name=vm_name, uuid="uuid", groups=("/Lab",), serial_port=2345)
+
+    def get_vm_access(self, vm_name: str) -> AccessInfo:
+        """Return a COM1 access description."""
+        return AccessInfo("com", "protosettings", 2345, None, "root")
 
     def plug_vm(self, vm_name: str) -> VMInfo:
         """Record a plug request and return the updated VM description."""
@@ -514,6 +519,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(service.plugged_vm, "base-vm")
         self.assertIn("Name: base-vm", stdout.getvalue())
         self.assertIn("Serial port: 2345", stdout.getvalue())
+        self.assertIn("Access: COM1 serial console, port 2345 (protosettings)", stdout.getvalue())
         self.assertEqual("", stderr.getvalue())
 
     def test_bare_image_argument_is_rejected(self) -> None:
