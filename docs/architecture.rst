@@ -143,6 +143,21 @@ VirtualBox remains the only source of truth. ``showvminfo --machinereadable``
 prints the rules of a NAT adapter after its ``natnetN`` line, which tells
 which adapter holds the rule.
 
+ssh Strategy
+------------
+
+``pysnap.ssh`` runs the system OpenSSH client instead of a Python ssh library,
+so PySnap gains no dependency. Every call uses ``-F`` with the null device (no
+user configuration), the PySnap key with ``IdentitiesOnly`` and no agent, the
+known_hosts file of the VM with ``StrictHostKeyChecking=accept-new`` and batch
+mode, so a missing key fails instead of asking for a password. Only
+``pysnap ssh-key`` runs ssh with password login in the user's terminal; its
+guest script appends the key to ``~/.ssh/authorized_keys`` unless it is there
+and then runs the same for root through ``su``. Whether the key works is
+decided afterwards by key logins, not by parsing the dialogue. Interactive
+terminals use ``ssh -tt`` with pipes; the guest terminal size is set with
+``stty`` before the login shell starts.
+
 Runtime State Strategy
 ----------------------
 

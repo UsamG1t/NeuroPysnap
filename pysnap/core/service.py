@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import replace
 from contextlib import contextmanager
 from pathlib import Path
 import shutil
@@ -21,9 +22,20 @@ from pysnap.core.models import (
     VMHardware,
     VMInfo,
     VMMonitorRecord,
+    SshKeyResult,
     VMSettingsResult,
 )
-from pysnap.core.access import ACCESS_KEY, SSH_USER_KEY, AccessInfo, resolve_access
+from pysnap.core.access import (
+    ACCESS_KEY,
+    DEFAULT_SSH_USER,
+    SSH_USER_KEY,
+    AccessInfo,
+    resolve_access,
+    validate_ssh_user,
+)
+from pysnap.ssh import client as ssh_client
+from pysnap.ssh.client import SshTarget
+from pysnap.ssh.keys import SshKeyStore
 from pysnap.core.settings import ComPortRequest, com_setting_from_request, parse_set_options
 from pysnap.errors import (
     CommandExecutionError,
@@ -70,15 +82,18 @@ class PySnapService:
         session_registry: SessionRegistry | None = None,
         serial_probe_factory: SerialProbeFactory | None = None,
         proto_settings_store: ProtoSettingsStore | None = None,
+        ssh_key_store: SshKeyStore | None = None,
     ) -> None:
         """Initialize the service.
 
         :param client: Optional VirtualBox client implementation.
+        :param ssh_key_store: Optional PySnap ssh key store.
         """
         self.client = client or VBoxManageClient()
         self.session_registry = session_registry or SessionRegistry()
         self.serial_probe_factory = serial_probe_factory or serial_connection_probe
         self.proto_settings_store = proto_settings_store or ProtoSettingsStore()
+        self.ssh_key_store = ssh_key_store or SshKeyStore()
 
     def import_image(
         self,
@@ -719,6 +734,101 @@ class PySnapService:
                 "example nic1=nat, and run pysnap plug."
             )
         return VMSettingsResult(vm_name, vm_info.vm_state, updated, tuple(warnings), access)
+
+    def ssh_target(self, vm_name: str, user: str | None = None) -> SshTarget:
+        """Return where and as whom to reach a running VM through ssh.
+
+        :param vm_name: VM name.
+        :param user: Guest user; the ssh user of the VM by default.
+        :returns: Connection target.
+        :raises PySnapError: Without a forwarded ssh port or a running VM.
+        """
+        info = self._require_vm(vm_name)
+        access = self._access_of(info)
+        if access.ssh_port is None:
+            hint = (
+                f"run pysnap plug {vm_name}"
+                if access.mode == "ssh"
+                else f"it is reached through COM1; run pysnap set {vm_name} access=ssh "
+                f"and pysnap plug {vm_name}"
+            )
+            raise PySnapError(f'Virtual machine "{vm_name}" has no forwarded ssh port; {hint}.')
+        if (info.vm_state or "").lower() != "running":
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" is not running; ssh needs a running guest.'
+            )
+        return SshTarget(
+            vm_name=vm_name,
+            vm_uuid=info.uuid,
+            port=access.ssh_port,
+            user=validate_ssh_user(user) if user else access.ssh_user,
+        )
+
+    def setup_ssh_key(
+        self,
+        vm_name: str,
+        user: str | None = None,
+        *,
+        console: bool = False,
+        installer=None,
+        console_wait: float = 10.0,
+    ) -> SshKeyResult:
+        """Install the PySnap key in the guest so that ssh needs no password.
+
+        By default ssh logs in with the password of ``user`` (the ssh user of
+        the VM) in the current terminal, adds the key for that user and, when
+        the root password is given in the guest, for root as well. With
+        ``console`` the key line is typed on the VM screen instead, for a
+        shell that is logged in there. When the ssh user of the VM cannot use
+        the key but ``user`` can, the ssh user is switched to ``user``.
+
+        :param vm_name: VM name.
+        :param user: Guest user for the password login.
+        :param console: Type the command on the VM screen.
+        :param installer: Interactive installer, for tests.
+        :param console_wait: Seconds to wait for a typed command to work.
+        :returns: Users that can log in with the key afterwards.
+        :raises PySnapError: When no ssh server answers or nothing worked.
+        """
+        target = self.ssh_target(vm_name, user)
+        access = self.get_vm_access(vm_name)
+        store = self.ssh_key_store
+        store.ensure_key()
+
+        before = ssh_client.check_key_access(target, store)
+        if before.status == "unreachable":
+            raise PySnapError(
+                f'No ssh server answered on port {target.port} of "{vm_name}": '
+                f"{before.message or 'connection failed'}."
+            )
+        already = before.status == "ok"
+        if not already:
+            if console:
+                script = ssh_client.install_script(store.public_key_text(), with_root=False)
+                self.client.type_on_console(vm_name, " " + script)
+                deadline = monotonic() + console_wait
+                while ssh_client.check_key_access(target, store).status != "ok" and monotonic() < deadline:
+                    sleep(0.5)
+            else:
+                (installer or ssh_client.install_key_interactively)(target, store)
+
+        candidates = list(dict.fromkeys([target.user, access.ssh_user, DEFAULT_SSH_USER]))
+        working = tuple(
+            name for name in candidates
+            if ssh_client.check_key_access(replace(target, user=name), store).status == "ok"
+        )
+        if not working:
+            raise PySnapError(
+                f'The PySnap key was not installed in "{vm_name}"; the guest refused it '
+                f"for {', '.join(candidates)}. Many systems refuse a root password over "
+                f"ssh: log in as an ordinary user with --user NAME, or type the key on "
+                f"the VM screen with --console."
+            )
+        ssh_user, changed = access.ssh_user, False
+        if ssh_user not in working:
+            ssh_user, changed = working[0], True
+            self.client.set_metadata(vm_name, {SSH_USER_KEY: ssh_user})
+        return SshKeyResult(vm_name, working, ssh_user, changed, already)
 
     def get_vm_access(self, vm_name: str) -> AccessInfo:
         """Return how PySnap reaches the guest of a VM.

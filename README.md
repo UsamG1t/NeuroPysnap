@@ -24,6 +24,8 @@ terminal, and removing virtual machines with dependency checks.
 - Reach protosettings VMs and their clones through the COM1 serial console and
   every other VM through ssh over a forwarded NAT port; `pysnap set` can
   override the choice and the ssh user.
+- Install a PySnap-only ssh key in a guest with `pysnap ssh-key`, through a
+  password login (with an optional `su` for root) or typed on the VM screen.
 - Start virtual machines in headless mode and attach to them through a
   cross-platform Python terminal interface.
 - Track outer-terminal resize events during ``connect`` sessions and answer
@@ -67,6 +69,7 @@ pysnap protosettings BASE_VM
 pysnap docs [--browser BROWSER]
 pysnap show <VM>
 pysnap plug <VM>
+pysnap ssh-key <VM> [--user USER] [--console]
 pysnap set <VM> [comN=auto|PORT|server:NAME|client:NAME|off] [nicN=NETWORK|nat|off] ...
 pysnap connect <VM>
 pysnap monitor

@@ -134,6 +134,24 @@ class VMHardware:
 
 
 @dataclass(frozen=True)
+class SshKeyResult:
+    """Represent the outcome of ``pysnap ssh-key``.
+
+    :param vm_name: VM name.
+    :param users: Guest users whose login with the PySnap key works.
+    :param ssh_user: User that PySnap uses for ssh after the setup.
+    :param changed_user: Whether ``ssh_user`` was switched to make ssh work.
+    :param already_installed: Whether the key worked before anything was done.
+    """
+
+    vm_name: str
+    users: tuple[str, ...]
+    ssh_user: str
+    changed_user: bool = False
+    already_installed: bool = False
+
+
+@dataclass(frozen=True)
 class VMSettingsResult:
     """Represent the outcome of ``pysnap set``.
 

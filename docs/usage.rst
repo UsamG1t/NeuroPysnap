@@ -126,6 +126,42 @@ unless ``pysnap set VM ssh-user=NAME`` names another one; clones inherit it.
    pysnap set first access=com
    pysnap set first access=auto ssh-user=student
 
+Install the ssh Key
+~~~~~~~~~~~~~~~~~~~
+
+ssh connections of PySnap use only key login. PySnap keeps its own key pair in
+``~/.pysnap/ssh`` (``pysnap_vm_access_ed25519``, created once without a
+passphrase) and one ``known_hosts`` file per VM in
+``~/.pysnap/ssh/known_hosts.d/<VM UUID>``: the first host key of a VM is
+accepted, a different key later is refused. ``~/.ssh`` is never read or
+changed, and existing files are never overwritten. PySnap runs the system
+OpenSSH client ``ssh``, which is part of Linux distributions, macOS and
+Windows 10 and newer.
+
+``pysnap ssh-key`` installs the key in a running guest:
+
+.. code-block:: text
+
+   pysnap ssh-key first --user student
+   student@127.0.0.1's password:
+   PySnap: the key is installed for student.
+   PySnap: enter the root password to install the key for root too (press Enter to skip).
+   Password:
+   PySnap: the key is installed for root.
+   PySnap key works for: student, root
+
+- ssh logs in with the password of the given user (by default the ssh user
+  of the VM) in the current terminal and adds the key for that user
+- then the guest asks for the root password through ``su``; with it the key is
+  added for root as well, an empty or wrong password skips root
+- many systems refuse a root password over ssh, so the login usually uses an
+  ordinary user with ``--user``
+- when the ssh user of the VM cannot use the key afterwards but the login user
+  can, the ssh user of the VM is switched to the login user
+- with ``--console`` the command that adds the key is typed on the VM screen
+  through VirtualBox keyboard input instead, for a shell that is already logged
+  in there; the guest needs a Latin keyboard layout
+
 Import an Appliance
 -------------------
 

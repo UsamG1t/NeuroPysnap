@@ -336,6 +336,19 @@ class VBoxManageClient:
         """
         self.runner.run(["modifyvm", vm_name, f"--natpf{adapter}", "delete", SSH_RULE_NAME])
 
+    def type_on_console(self, vm_name: str, text: str) -> None:
+        """Type a line on the screen of a running VM and press Enter.
+
+        ``Ctrl-U`` first clears a half-typed line. VirtualBox types through
+        US keyboard scan codes, so the guest needs a Latin layout.
+
+        :param vm_name: VM name.
+        :param text: ASCII text to type.
+        """
+        self.runner.run(["controlvm", vm_name, "keyboardputscancode", "1d", "16", "96", "9d"])
+        self.runner.run(["controlvm", vm_name, "keyboardputstring", text])
+        self.runner.run(["controlvm", vm_name, "keyboardputscancode", "1c", "9c"])
+
     def delete_metadata(self, vm_name: str, key: str) -> None:
         """Remove one extra data entry of a VM.
 

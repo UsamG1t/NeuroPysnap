@@ -83,6 +83,7 @@ COMMAND_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "Running virtual machines",
         (
             ("connect", "Start a VM headless and attach to its serial console."),
+            ("ssh-key", "Install the PySnap ssh key in a guest reached through ssh."),
             ("monitor", "List VMs that are running, paused or changing state."),
             ("pause", "Pause running VMs; they stay in memory."),
             ("resume", "Resume paused VMs."),
@@ -261,6 +262,8 @@ def run_cli(
             return _run_monitor(arguments[1:], app_service, output, error_output)
         if command == "stop":
             return _run_stop(arguments[1:], app_service, output, error_output)
+        if command == "ssh-key":
+            return _run_ssh_key(arguments[1:], app_service, output, error_output)
         if command in {"pause", "resume"}:
             return _run_pause_resume(command, arguments[1:], app_service, output, error_output)
         if command == "clone":
@@ -769,6 +772,62 @@ def _run_stop(
 
     service.stop_runtime_vm(namespace.vm)
     print(f'Stopped virtual machine: {namespace.vm}', file=stdout)
+    return 0
+
+
+def _run_ssh_key(
+    arguments: Sequence[str],
+    service: PySnapService,
+    stdout: TextIO,
+    stderr: TextIO,
+) -> int:
+    """Run the ``ssh-key`` command.
+
+    :param arguments: Subcommand arguments.
+    :param service: Application service.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :returns: Process exit code.
+    """
+    parser = CliArgumentParser(
+        prog="pysnap ssh-key",
+        description=(
+            "Install the PySnap ssh key in a running guest, so that ssh "
+            "connections need no password. PySnap keeps its own key pair in "
+            "~/.pysnap/ssh (pysnap_vm_access_ed25519) and never touches ~/.ssh.\n\n"
+            "By default ssh logs in with the password of USER (the ssh user of "
+            "the VM, see pysnap set ssh-user) in this terminal and adds the key "
+            "for that user; then the guest asks for the root password to add it "
+            "for root too, which may be skipped with Enter. Many systems refuse "
+            "a root password over ssh, so log in as an ordinary user with --user.\n\n"
+            "With --console the command that adds the key is typed on the VM "
+            "screen instead (VirtualBox keyboard input, Latin layout), for a "
+            "shell that is already logged in there.\n\n"
+            "When the ssh user of the VM cannot use the key afterwards but USER "
+            "can, the ssh user of the VM is switched to USER."
+        ),
+        epilog=_examples(
+            "pysnap ssh-key first",
+            "pysnap ssh-key first --user student",
+            "pysnap ssh-key first --console",
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    parser.add_argument("vm", metavar="VM", help="Name of the running virtual machine.")
+    parser.add_argument(
+        "--user", metavar="USER", help="Guest user for the password login; default: the ssh user."
+    )
+    parser.add_argument(
+        "--console", action="store_true", help="Type the command on the VM screen instead of ssh."
+    )
+    namespace = parser.parse_args(list(arguments))
+    result = service.setup_ssh_key(namespace.vm, namespace.user, console=namespace.console)
+    if result.already_installed:
+        print(f"The PySnap key already works for {result.users[0]}.", file=stdout)
+    print(f"PySnap key works for: {', '.join(result.users)}", file=stdout)
+    if result.changed_user:
+        print(f"ssh user of {result.vm_name} set to {result.ssh_user}.", file=stdout)
     return 0
 
 
