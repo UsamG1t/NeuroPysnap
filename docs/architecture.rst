@@ -324,16 +324,24 @@ the search from the final label values.
 Report Transfer Strategy
 ------------------------
 
-``pysnap.report.extract`` reuses the ``UART1`` TCP endpoint of the VM. The
-service checks the VM state, the serial port and the session registry first,
-because VirtualBox accepts only one client on the port. On the console the
-transfer relies on the guest shell and coreutils only: an arithmetic ``echo``
-proves a working shell (its answer never appears in the echoed command), one
-command prints the file as a single ``base64`` line and its ``sha256sum``
-between random markers, and the markers are split in the command so that the
-echo of the command never looks like a marker. The host verifies the
-checksum and writes the file atomically. The ``report`` prompt is detected
-before any command is sent, so a running recording is never modified.
+For a VM reached through ssh, ``pysnap.report.extract`` runs one batch-mode
+ssh command with the PySnap key: ``sh -c`` checks that the file is readable
+(exit status 3 otherwise), prints its ``sha256sum`` and then at most one byte
+more than the size limit of the file with ``head -c``. The host splits the
+first line off, checks the size and the checksum and writes the file
+atomically. This session is independent of ``pysnap connect``, so the session
+registry and the control channel are not used.
+
+For other VMs ``pysnap.report.extract`` reuses the ``UART1`` TCP endpoint of
+the VM. The service checks the VM state, the serial port and the session
+registry first, because VirtualBox accepts only one client on the port. On the
+console the transfer relies on the guest shell and coreutils only: an
+arithmetic ``echo`` proves a working shell (its answer never appears in the
+echoed command), one command prints the file as a single ``base64`` line and
+its ``sha256sum`` between random markers, and the markers are split in the
+command so that the echo of the command never looks like a marker. The host
+verifies the checksum and writes the file atomically. The ``report`` prompt is
+detected before any command is sent, so a running recording is never modified.
 
 While ``pysnap connect`` is attached, the port is taken, so the terminal
 session also serves a control channel (``pysnap.report.control``): it listens

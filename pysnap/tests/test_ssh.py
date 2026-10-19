@@ -165,8 +165,8 @@ class _TestSshd:
 
 
 @unittest.skipUnless(HAVE_OPENSSH and SSHD and os.name == "posix", "OpenSSH client and server are required")
-class RealSshdTests(unittest.TestCase):
-    """Log in, run commands and open a terminal against a real sshd."""
+class SshdFixture(unittest.TestCase):
+    """Start a real sshd that accepts the PySnap key of a temporary store."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -180,6 +180,10 @@ class RealSshdTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.sshd.stop()
         cls._temp_dir.cleanup()
+
+
+class RealSshdTests(SshdFixture):
+    """Log in, run commands and open a terminal against a real sshd."""
 
     def test_checks_key_access(self) -> None:
         """Tell a working key, a refused one and a missing server apart."""

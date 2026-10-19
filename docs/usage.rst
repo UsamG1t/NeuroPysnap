@@ -731,9 +731,11 @@ not changed.
 Extract a Report from a Running VM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``extract`` subcommand copies a report from a running VM to the host
-through the same ``UART1`` serial console that ``pysnap connect`` uses, so no
-second COM port and no VM restart are needed.
+The ``extract`` subcommand copies a report from a running VM to the host.
+A VM reached through ssh (see `Access to the Guest`_) is read through a
+separate ssh session; every other VM through the same ``UART1`` serial
+console that ``pysnap connect`` uses, so no second COM port and no VM restart
+are needed.
 
 .. code-block:: text
 
@@ -741,7 +743,21 @@ second COM port and no VM restart are needed.
    Extracted "$HOME"/report.01.first from first to /home/user/report.01.first (2621 bytes, sha256 ...).
    pysnap report extract first /tmp/report.03.pc1 --output reports/pc1 --force
 
-Requirements and behavior:
+Over ssh:
+
+- the VM is running, has a forwarded ssh port (see ``pysnap plug``) and the
+  PySnap key is installed for its ssh user (see ``pysnap ssh-key``); unlike
+  ``connect``, ``extract`` never asks for a password
+- one command prints the ``sha256sum`` of the file and the file itself;
+  PySnap verifies the checksum and writes the file as described below
+- the student's terminal is not touched: nothing is typed into it, so the
+  command works the same with or without an attached ``pysnap connect`` and
+  needs no shell prompt there. A report that is still being recorded is
+  copied as it is at that moment
+- a name without ``/`` is looked up in the home directory of the ssh user
+- the transfer fails when it takes more than two minutes
+
+On the serial console:
 
 - the VM is running and has a ``UART1`` TCP port (see ``pysnap plug``)
 - the command also works while ``pysnap connect`` is attached to the VM:

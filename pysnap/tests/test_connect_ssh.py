@@ -22,7 +22,7 @@ from pysnap.ssh.client import AccessCheck, SshTarget
 from pysnap.terminal.session import SessionStatus, SessionTransport, TerminalSession
 from pysnap.tests.test_access import AccessClient
 from pysnap.tests.test_service import FakeSessionRegistry
-from pysnap.tests.test_ssh import HAVE_OPENSSH, SSHD, RealSshdTests
+from pysnap.tests.test_ssh import HAVE_OPENSSH, SSHD, SshdFixture
 
 
 class PrepareTests(unittest.TestCase):
@@ -244,7 +244,7 @@ class SessionLoopTests(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_OPENSSH and SSHD, "OpenSSH client and server are required")
-class SshTransportTests(RealSshdTests):
+class SshTransportTests(SshdFixture):
     """Open the ssh transport of a session against a real sshd."""
 
     def test_transport_opens_and_closes(self) -> None:
