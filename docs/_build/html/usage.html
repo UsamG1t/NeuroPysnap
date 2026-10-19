@@ -5,12 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Usage Guide &#8212; PySnap 2.1.0 documentation</title>
+    <title>Usage Guide &#8212; PySnap 2.2.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
-    <script src="_static/documentation_options.js?v=20623aea"></script>
+    <script src="_static/documentation_options.js?v=b21de401"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -117,6 +117,67 @@ clone created from it receives additional DMI values:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap protosettings BaseVM
 </pre></div>
 </div>
+<p>Registered base VMs and their clones are also known to have their console on
+<code class="docutils literal notranslate"><span class="pre">COM1</span></code>, so PySnap reaches them through the serial console; every other VM is
+reached through ssh (see <a class="reference internal" href="#access-to-the-guest">Access to the Guest</a>).</p>
+</section>
+<section id="access-to-the-guest">
+<h2>Access to the Guest<a class="headerlink" href="#access-to-the-guest" title="Link to this heading">¶</a></h2>
+<p>PySnap reaches the guest of a VM in one of two ways:</p>
+<ul class="simple">
+<li><p><strong>COM1 serial console</strong> for base VMs registered with <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">protosettings</span></code>
+and their clones: <code class="docutils literal notranslate"><span class="pre">UART1</span></code> is a TCP server on the host</p></li>
+<li><p><strong>ssh</strong> for every other VM: a rule named <code class="docutils literal notranslate"><span class="pre">pysnap-ssh</span></code> on the NAT adapter
+forwards a host port on <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code> to port 22 of the guest</p></li>
+</ul>
+<p>The choice can be overridden per VM with <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">set</span> <span class="pre">VM</span> <span class="pre">access=com|ssh</span></code> and
+returned to the automatic choice with <code class="docutils literal notranslate"><span class="pre">access=auto</span></code>. Clones inherit an
+explicit choice of their base VM. ssh connections use the guest user <code class="docutils literal notranslate"><span class="pre">root</span></code>
+unless <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">set</span> <span class="pre">VM</span> <span class="pre">ssh-user=NAME</span></code> names another one; clones inherit it.
+<code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">show</span></code> prints the access of a VM and <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">monitor</span></code> shows
+<code class="docutils literal notranslate"><span class="pre">ssh:PORT</span></code> instead of the serial port for ssh VMs.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap show first
+...
+Access: ssh root@127.0.0.1:2400 (default)
+
+pysnap set first access=com
+pysnap set first access=auto ssh-user=student
+</pre></div>
+</div>
+<section id="install-the-ssh-key">
+<h3>Install the ssh Key<a class="headerlink" href="#install-the-ssh-key" title="Link to this heading">¶</a></h3>
+<p>ssh connections of PySnap use only key login. PySnap keeps its own key pair in
+<code class="docutils literal notranslate"><span class="pre">~/.pysnap/ssh</span></code> (<code class="docutils literal notranslate"><span class="pre">pysnap_vm_access_ed25519</span></code>, created once without a
+passphrase) and one <code class="docutils literal notranslate"><span class="pre">known_hosts</span></code> file per VM in
+<code class="docutils literal notranslate"><span class="pre">~/.pysnap/ssh/known_hosts.d/&lt;VM</span> <span class="pre">UUID&gt;</span></code>: the first host key of a VM is
+accepted, a different key later is refused. <code class="docutils literal notranslate"><span class="pre">~/.ssh</span></code> is never read or
+changed, and existing files are never overwritten. PySnap runs the system
+OpenSSH client <code class="docutils literal notranslate"><span class="pre">ssh</span></code>, which is part of Linux distributions, macOS and
+Windows 10 and newer.</p>
+<p><code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">ssh-key</span></code> installs the key in a running guest:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap ssh-key first --user student
+student@127.0.0.1's password:
+PySnap: the key is installed for student.
+PySnap: enter the root password to install the key for root too (press Enter to skip).
+Password:
+PySnap: the key is installed for root.
+PySnap key works for: student, root
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>ssh logs in with the password of the given user (by default the ssh user
+of the VM) in the current terminal and adds the key for that user</p></li>
+<li><p>then the guest asks for the root password through <code class="docutils literal notranslate"><span class="pre">su</span></code>; with it the key is
+added for root as well, an empty or wrong password skips root</p></li>
+<li><p>many systems refuse a root password over ssh, so the login usually uses an
+ordinary user with <code class="docutils literal notranslate"><span class="pre">--user</span></code></p></li>
+<li><p>when the ssh user of the VM cannot use the key afterwards but the login user
+can, the ssh user of the VM is switched to the login user</p></li>
+<li><p>with <code class="docutils literal notranslate"><span class="pre">--console</span></code> the command that adds the key is typed on the VM screen
+through VirtualBox keyboard input instead, for a shell that is already logged
+in there; the guest needs a Latin keyboard layout</p></li>
+</ul>
+</section>
 </section>
 <section id="import-an-appliance">
 <h2>Import an Appliance<a class="headerlink" href="#import-an-appliance" title="Link to this heading">¶</a></h2>
@@ -147,9 +208,13 @@ port configured through <code class="docutils literal notranslate"><span class="
 </section>
 <section id="plug-a-virtual-machine-for-pysnap-connections">
 <h2>Plug a Virtual Machine for PySnap Connections<a class="headerlink" href="#plug-a-virtual-machine-for-pysnap-connections" title="Link to this heading">¶</a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">plug</span></code> command prepares an existing VM for <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code> by
-configuring <code class="docutils literal notranslate"><span class="pre">UART1</span></code> as a <code class="docutils literal notranslate"><span class="pre">tcpserver</span></code> endpoint when this can be done safely.</p>
-<p>PySnap checks these conditions:</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">plug</span></code> command prepares an existing VM for <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code>. For a VM
+reached through ssh it adds the <code class="docutils literal notranslate"><span class="pre">pysnap-ssh</span></code> forwarding rule on the first NAT
+adapter with a free host port; this works on stopped, running and paused VMs,
+and a VM without a NAT adapter is refused with a hint to run
+<code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">set</span> <span class="pre">VM</span> <span class="pre">nic1=nat</span></code>. For a VM reached through the <code class="docutils literal notranslate"><span class="pre">COM1</span></code> console it
+configures <code class="docutils literal notranslate"><span class="pre">UART1</span></code> as a <code class="docutils literal notranslate"><span class="pre">tcpserver</span></code> endpoint when this can be done safely.</p>
+<p>For the <code class="docutils literal notranslate"><span class="pre">COM1</span></code> console PySnap checks these conditions:</p>
 <ul class="simple">
 <li><p>the VM exists</p></li>
 <li><p>if <code class="docutils literal notranslate"><span class="pre">UART1</span></code> is already configured as <code class="docutils literal notranslate"><span class="pre">tcpserver,&lt;port&gt;</span></code>, the VM is left unchanged</p></li>
@@ -200,6 +265,8 @@ created by the VM with <code class="docutils literal notranslate"><span class="p
 <li><p><code class="docutils literal notranslate"><span class="pre">comN=off</span></code>: no serial port</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nicN=NETWORK</span></code>: the internal network <code class="docutils literal notranslate"><span class="pre">NETWORK</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nicN=nat</span></code>: NAT; <code class="docutils literal notranslate"><span class="pre">nicN=off</span></code>: no network adapter</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">access=com|ssh|auto</span></code> and <code class="docutils literal notranslate"><span class="pre">ssh-user=NAME</span></code>: how PySnap reaches the guest
+(see <a class="reference internal" href="#access-to-the-guest">Access to the Guest</a>); these two work on a VM in any state</p></li>
 </ul>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap set first  nic2=left nic3=right com2=server:link
 pysnap set second nic2=left com2=client:link
@@ -235,10 +302,25 @@ port part of the previous SKU is kept.</p>
 <section id="connect-to-a-headless-virtual-machine">
 <h2>Connect to a Headless Virtual Machine<a class="headerlink" href="#connect-to-a-headless-virtual-machine" title="Link to this heading">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">connect</span></code> command ensures that the selected VM is running in headless
-mode and then attaches a built-in PySnap terminal interface to its <code class="docutils literal notranslate"><span class="pre">UART1</span></code>
-TCP console.</p>
-<p>For VMs that do not already expose a suitable <code class="docutils literal notranslate"><span class="pre">UART1</span> <span class="pre">tcpserver</span></code> endpoint, run
-<code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">plug</span> <span class="pre">&lt;VM&gt;</span></code> first.</p>
+mode and then attaches a built-in PySnap terminal interface to the guest: to
+its <code class="docutils literal notranslate"><span class="pre">UART1</span></code> TCP console, or to an ssh login shell for VMs reached through
+ssh (see <a class="reference internal" href="#access-to-the-guest">Access to the Guest</a>).</p>
+<p>For VMs that do not already expose a suitable <code class="docutils literal notranslate"><span class="pre">UART1</span> <span class="pre">tcpserver</span></code> endpoint or
+a forwarded ssh port, run <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">plug</span> <span class="pre">&lt;VM&gt;</span></code> first.</p>
+<p>Over ssh, <code class="docutils literal notranslate"><span class="pre">connect</span></code> logs in with the PySnap key as the ssh user of the VM:</p>
+<ul class="simple">
+<li><p>while the guest is still booting and no ssh server answers yet, PySnap
+waits up to three minutes and says so once; <code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code> stops waiting</p></li>
+<li><p>when the guest refuses the key, PySnap installs it right away in the same
+way as <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">ssh-key</span></code> (password of the user, then optionally of root)
+and then logs in with the key</p></li>
+<li><p>the status line shows <code class="docutils literal notranslate"><span class="pre">ssh:PORT</span></code> instead of <code class="docutils literal notranslate"><span class="pre">UART1:PORT</span></code>, no waking
+newline is sent because the login shell prints its own prompt, and the
+session ends when the login shell exits (<code class="docutils literal notranslate"><span class="pre">exit</span></code> or <code class="docutils literal notranslate"><span class="pre">Ctrl-D</span></code>)</p></li>
+<li><p>a paused VM is refused with a hint to run <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">resume</span></code>, because a
+paused guest cannot answer the login</p></li>
+<li><p>one <code class="docutils literal notranslate"><span class="pre">connect</span></code> session per VM is allowed, as on the serial console</p></li>
+</ul>
 <p>The terminal session is detached with <code class="docutils literal notranslate"><span class="pre">Ctrl-Q</span></code>. Detaching does not stop the
 virtual machine. <code class="docutils literal notranslate"><span class="pre">Ctrl-L</span></code> redraws the local interface.</p>
 <p>PySnap also keeps a local scrollback buffer for the attached session:</p>
@@ -271,9 +353,9 @@ for <code class="docutils literal notranslate"><span class="pre">VBoxManage</spa
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap connect MyVM
 </pre></div>
 </div>
-<p>A paused VM can be attached too: the status line shows <code class="docutils literal notranslate"><span class="pre">Paused</span></code>, keys are
-held back and nothing is sent to the guest until <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">resume</span></code>. Then the
-keys work again, and when the guest has not printed anything yet PySnap sends
+<p>A paused VM can be attached through <code class="docutils literal notranslate"><span class="pre">UART1</span></code> too: the status line shows
+<code class="docutils literal notranslate"><span class="pre">Paused</span></code>, keys are held back and nothing is sent to the guest until
+<code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">resume</span></code>. Then the keys work again, and when the guest has not printed anything yet PySnap sends
 the usual waking newline. When a VM is paused during a session, the session
 stays open in the same way, so <code class="docutils literal notranslate"><span class="pre">Ctrl-Q</span></code> on a paused VM and a new
 <code class="docutils literal notranslate"><span class="pre">connect</span></code> lead to the same state. If the paused VM does not accept the
@@ -337,17 +419,19 @@ the base VM group.</p>
 <p>When <code class="docutils literal notranslate"><span class="pre">-p</span></code> is omitted, PySnap scans existing VMs, finds the maximum already
 used serial TCP port, and assigns the next value. If no serial TCP ports are
 configured yet, the automatic sequence starts at <code class="docutils literal notranslate"><span class="pre">1024</span></code>.</p>
-<p>Up to three extra positional arguments configure internal networks. PySnap uses
-two layouts depending on whether the base VM was registered through
-<code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">protosettings</span></code>:</p>
+<p>Up to three extra positional arguments configure internal networks:</p>
 <ul class="simple">
-<li><p>for ordinary base VMs, the legacy layout is used: networks are mapped
-sequentially onto <code class="docutils literal notranslate"><span class="pre">nic1</span></code> through <code class="docutils literal notranslate"><span class="pre">nic3</span></code>, and omitted adapters are set to
-<code class="docutils literal notranslate"><span class="pre">none</span></code></p></li>
-<li><p>for proto-settings base VMs, <code class="docutils literal notranslate"><span class="pre">nic1</span></code> stays in <code class="docutils literal notranslate"><span class="pre">nat</span></code> mode, the requested
-networks are mapped onto <code class="docutils literal notranslate"><span class="pre">nic2</span></code> through <code class="docutils literal notranslate"><span class="pre">nic4</span></code>, and omitted adapters are
-left enabled</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nic1</span></code> stays in <code class="docutils literal notranslate"><span class="pre">nat</span></code> mode, the requested networks are mapped onto
+<code class="docutils literal notranslate"><span class="pre">nic2</span></code> through <code class="docutils literal notranslate"><span class="pre">nic4</span></code>, and omitted adapters are left enabled. This
+layout is used for clones of proto-settings base VMs and for every clone
+reached through ssh, whose ssh port is forwarded on <code class="docutils literal notranslate"><span class="pre">nic1</span></code></p></li>
+<li><p>only a clone of a base VM set to <code class="docutils literal notranslate"><span class="pre">access=com</span></code> without protosettings keeps
+the legacy layout: networks are mapped sequentially onto <code class="docutils literal notranslate"><span class="pre">nic1</span></code> through
+<code class="docutils literal notranslate"><span class="pre">nic3</span></code>, and omitted adapters are set to <code class="docutils literal notranslate"><span class="pre">none</span></code></p></li>
 </ul>
+<p>A clone copies the settings of its base VM, including its <code class="docutils literal notranslate"><span class="pre">pysnap-ssh</span></code> rule;
+PySnap removes that copy, because its host port belongs to the base VM, and a
+clone reached through ssh gets its own free port.</p>
 <p>If the base VM was previously registered through <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">protosettings</span></code>,
 PySnap also applies educational DMI settings to the clone.</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap clone BaseVM CloneVM -p 2345 intnet1 intnet2 intnet3
@@ -596,15 +680,40 @@ not changed.</p>
 </section>
 <section id="extract-a-report-from-a-running-vm">
 <h3>Extract a Report from a Running VM<a class="headerlink" href="#extract-a-report-from-a-running-vm" title="Link to this heading">¶</a></h3>
-<p>The <code class="docutils literal notranslate"><span class="pre">extract</span></code> subcommand copies a report from a running VM to the host
-through the same <code class="docutils literal notranslate"><span class="pre">UART1</span></code> serial console that <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code> uses, so no
-second COM port and no VM restart are needed.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">extract</span></code> subcommand copies a report from a running VM to the host.
+A VM reached through ssh (see <a class="reference internal" href="#access-to-the-guest">Access to the Guest</a>) is read through a
+separate ssh session; every other VM through the same <code class="docutils literal notranslate"><span class="pre">UART1</span></code> serial
+console that <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code> uses, so no second COM port and no VM restart
+are needed.</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>pysnap report extract first report.01.first
 Extracted "$HOME"/report.01.first from first to /home/user/report.01.first (2621 bytes, sha256 ...).
 pysnap report extract first /tmp/report.03.pc1 --output reports/pc1 --force
 </pre></div>
 </div>
-<p>Requirements and behavior:</p>
+<p>Over ssh:</p>
+<ul class="simple">
+<li><p>the VM is running, has a forwarded ssh port (see <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">plug</span></code>) and the
+PySnap key is installed for its ssh user (see <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">ssh-key</span></code>); unlike
+<code class="docutils literal notranslate"><span class="pre">connect</span></code>, <code class="docutils literal notranslate"><span class="pre">extract</span></code> never asks for a password</p></li>
+<li><p>one command prints the <code class="docutils literal notranslate"><span class="pre">sha256sum</span></code> of the file and the file itself;
+PySnap verifies the checksum and writes the file as described below</p></li>
+<li><p>the student’s terminal is not touched: nothing is typed into it, so the
+command works the same with or without an attached <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code> and
+needs no shell prompt there. A report that is still being recorded is
+copied as it is at that moment</p></li>
+<li><p>a name without <code class="docutils literal notranslate"><span class="pre">/</span></code> becomes <code class="docutils literal notranslate"><span class="pre">&quot;$HOME&quot;/NAME</span></code> and the guest shell of the
+ssh user expands <code class="docutils literal notranslate"><span class="pre">$HOME</span></code>: the name is looked up in the home directory of
+the ssh user of the VM (<code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">set</span> <span class="pre">VM</span> <span class="pre">ssh-user=NAME</span></code>, <code class="docutils literal notranslate"><span class="pre">root</span></code> by
+default) and nowhere else. A path with <code class="docutils literal notranslate"><span class="pre">/</span></code> is used as given; a relative
+path starts in that home directory too. With the default user,
+<code class="docutils literal notranslate"><span class="pre">report.01.first</span></code> means <code class="docutils literal notranslate"><span class="pre">/root/report.01.first</span></code>; with
+<code class="docutils literal notranslate"><span class="pre">ssh-user=student</span></code> it means <code class="docutils literal notranslate"><span class="pre">/home/student/report.01.first</span></code>. A report
+recorded by another user needs its full path, for example
+<code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">report</span> <span class="pre">extract</span> <span class="pre">first</span> <span class="pre">/home/student/report.01.first</span></code>, and the ssh
+user must be allowed to read it</p></li>
+<li><p>the transfer fails when it takes more than two minutes</p></li>
+</ul>
+<p>On the serial console:</p>
 <ul class="simple">
 <li><p>the VM is running and has a <code class="docutils literal notranslate"><span class="pre">UART1</span></code> TCP port (see <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">plug</span></code>)</p></li>
 <li><p>the command also works while <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code> is attached to the VM:
@@ -618,8 +727,10 @@ PySnap cannot do this; detach them with <code class="docutils literal notranslat
 <li><p>no <code class="docutils literal notranslate"><span class="pre">report</span></code> recording is running: PySnap presses <code class="docutils literal notranslate"><span class="pre">Ctrl-U</span></code> and Enter once, and when the
 recording prompt appears it stops before sending any command, so nothing
 else ends up in the student’s report</p></li>
-<li><p>a name without <code class="docutils literal notranslate"><span class="pre">/</span></code> is looked up in the home directory of the console
-user; a path with <code class="docutils literal notranslate"><span class="pre">/</span></code> is used as given</p></li>
+<li><p>a name without <code class="docutils literal notranslate"><span class="pre">/</span></code> is looked up in the home directory (<code class="docutils literal notranslate"><span class="pre">$HOME</span></code>) of the
+shell running on the console, that is of the user logged in there; a path
+with <code class="docutils literal notranslate"><span class="pre">/</span></code> is used as given, and a relative one starts in the current
+directory of that shell</p></li>
 <li><p>the file is sent as <code class="docutils literal notranslate"><span class="pre">base64</span></code> together with its <code class="docutils literal notranslate"><span class="pre">sha256sum</span></code>; PySnap
 verifies the checksum, writes the file under the same name into the current
 directory or to <code class="docutils literal notranslate"><span class="pre">--output</span></code>, and never replaces an existing file without
@@ -749,6 +860,7 @@ or <code class="docutils literal notranslate"><span class="pre">No</span> <span 
 <li class="toctree-l2"><a class="reference internal" href="#list-virtual-machines">List Virtual Machines</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#run-an-integration-test">Run an Integration Test</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#register-proto-settings-for-a-base-vm">Register Proto Settings for a Base VM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#access-to-the-guest">Access to the Guest</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#import-an-appliance">Import an Appliance</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#show-virtual-machine-details">Show Virtual Machine Details</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#plug-a-virtual-machine-for-pysnap-connections">Plug a Virtual Machine for PySnap Connections</a></li>

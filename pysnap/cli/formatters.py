@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TextIO
 
+from pysnap.core.access import SSH_HOST_ADDRESS, AccessInfo
 from pysnap.core.settings import host_pipe_name
 from pysnap.core.models import (
     ComPortSetting,
@@ -69,10 +70,11 @@ def format_groups(groups: list[VMGroup]) -> str:
     return "\n".join(lines)
 
 
-def format_vm_info(vm_info: VMInfo) -> str:
+def format_vm_info(vm_info: VMInfo, access: AccessInfo | None = None) -> str:
     """Format one VM description for terminal output.
 
     :param vm_info: VM information to format.
+    :param access: How PySnap reaches the guest, if known.
     :returns: Human-readable text output.
     """
     serial_value = str(vm_info.serial_port) if vm_info.serial_port is not None else "none"
@@ -83,7 +85,31 @@ def format_vm_info(vm_info: VMInfo) -> str:
     ]
     if vm_info.parent_name:
         lines.append(f"Parent VM: {vm_info.parent_name}")
+    if access is not None:
+        lines.append(f"Access: {format_access(access)}")
     return "\n".join(lines)
+
+
+_ACCESS_SOURCES = {
+    "override": "set with pysnap set",
+    "protosettings": "protosettings",
+    "default": "default",
+}
+
+
+def format_access(access: AccessInfo) -> str:
+    """Describe how PySnap reaches a guest in one line.
+
+    :param access: Access description.
+    :returns: For example ``ssh root@127.0.0.1:2222 (default)``.
+    """
+    source = _ACCESS_SOURCES.get(access.source, access.source)
+    if access.mode == "ssh":
+        if access.ssh_port is None:
+            return f"ssh as {access.ssh_user}, no forwarded port yet: run pysnap plug ({source})"
+        return f"ssh {access.ssh_user}@{SSH_HOST_ADDRESS}:{access.ssh_port} ({source})"
+    port = access.serial_port if access.serial_port is not None else "none"
+    return f"COM1 serial console, port {port} ({source})"
 
 
 def format_vm_settings(result: VMSettingsResult) -> str:
@@ -93,6 +119,8 @@ def format_vm_settings(result: VMSettingsResult) -> str:
     :returns: Human-readable text output.
     """
     lines = [f"{result.vm_name} ({result.vm_state or 'unknown state'})"]
+    if result.access is not None:
+        lines.append(f"  Access  {format_access(result.access)}")
     for number, setting in enumerate(result.hardware.com_ports, start=1):
         lines.append(f"  COM{number}  {_describe_com_port(setting)}")
     # Show NIC1-NIC4 and further adapters up to the last one in use.
@@ -161,6 +189,13 @@ def format_integration_test_result(result: IntegrationTestResult) -> str:
     return "\n".join(lines).rstrip()
 
 
+def _monitor_port(record: VMMonitorRecord) -> str:
+    """Return the port column of ``monitor``: COM1 port or ``ssh:PORT``."""
+    if record.access_mode == "ssh":
+        return f"ssh:{record.ssh_port if record.ssh_port is not None else 'none'}"
+    return str(record.serial_port) if record.serial_port is not None else "none"
+
+
 def format_monitor_records(records: list[VMMonitorRecord]) -> str:
     """Format compact runtime records for the ``monitor`` command.
 
@@ -171,7 +206,7 @@ def format_monitor_records(records: list[VMMonitorRecord]) -> str:
         return "No active virtual machines found."
     return "\n".join(
         f"{record.name} (state: {record.display_state} ; "
-        f"{record.serial_port if record.serial_port is not None else 'none'} ; "
+        f"{_monitor_port(record)} ; "
         f"{record.group})"
         for record in records
     )

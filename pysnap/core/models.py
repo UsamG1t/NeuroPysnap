@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pysnap.core.access import AccessInfo
 
 
 @dataclass(frozen=True)
@@ -45,6 +49,7 @@ class VMInfo:
     managed: bool = False
     metadata: dict[str, str] = field(default_factory=dict)
     serial_tcp_ports: tuple[int, ...] = ()
+    ssh_port: int | None = None
 
     @property
     def primary_group(self) -> str:
@@ -81,6 +86,8 @@ class VMMonitorRecord:
     serial_port: int | None
     group: str
     raw_state: str
+    access_mode: str = "com"
+    ssh_port: int | None = None
 
 
 @dataclass(frozen=True)
@@ -127,6 +134,24 @@ class VMHardware:
 
 
 @dataclass(frozen=True)
+class SshKeyResult:
+    """Represent the outcome of ``pysnap ssh-key``.
+
+    :param vm_name: VM name.
+    :param users: Guest users whose login with the PySnap key works.
+    :param ssh_user: User that PySnap uses for ssh after the setup.
+    :param changed_user: Whether ``ssh_user`` was switched to make ssh work.
+    :param already_installed: Whether the key worked before anything was done.
+    """
+
+    vm_name: str
+    users: tuple[str, ...]
+    ssh_user: str
+    changed_user: bool = False
+    already_installed: bool = False
+
+
+@dataclass(frozen=True)
 class VMSettingsResult:
     """Represent the outcome of ``pysnap set``.
 
@@ -134,9 +159,11 @@ class VMSettingsResult:
     :param vm_state: Raw VirtualBox state.
     :param hardware: Serial ports and network adapters after the change.
     :param warnings: Notes about removed TCP servers and similar effects.
+    :param access: How PySnap reaches the guest after the change.
     """
 
     vm_name: str
     vm_state: str | None
     hardware: VMHardware
     warnings: tuple[str, ...] = ()
+    access: AccessInfo | None = None

@@ -9,6 +9,14 @@ pysnap.core package
 Submodules
 ----------
 
+pysnap.core.access module
+-------------------------
+
+.. automodule:: pysnap.core.access
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 pysnap.core.appliance module
 ----------------------------
 

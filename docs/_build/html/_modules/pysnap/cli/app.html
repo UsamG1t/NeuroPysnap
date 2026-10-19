@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pysnap.cli.app &#8212; PySnap 2.1.0 documentation</title>
+    <title>pysnap.cli.app &#8212; PySnap 2.2.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
-    <script src="../../../_static/documentation_options.js?v=20623aea"></script>
+    <script src="../../../_static/documentation_options.js?v=b21de401"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -122,7 +122,8 @@
     <span class="p">(</span>
         <span class="s2">"Running virtual machines"</span><span class="p">,</span>
         <span class="p">(</span>
-            <span class="p">(</span><span class="s2">"connect"</span><span class="p">,</span> <span class="s2">"Start a VM headless and attach to its serial console."</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"connect"</span><span class="p">,</span> <span class="s2">"Start a VM headless and attach to its console or ssh."</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"ssh-key"</span><span class="p">,</span> <span class="s2">"Install the PySnap ssh key in a guest reached through ssh."</span><span class="p">),</span>
             <span class="p">(</span><span class="s2">"monitor"</span><span class="p">,</span> <span class="s2">"List VMs that are running, paused or changing state."</span><span class="p">),</span>
             <span class="p">(</span><span class="s2">"pause"</span><span class="p">,</span> <span class="s2">"Pause running VMs; they stay in memory."</span><span class="p">),</span>
             <span class="p">(</span><span class="s2">"resume"</span><span class="p">,</span> <span class="s2">"Resume paused VMs."</span><span class="p">),</span>
@@ -237,7 +238,7 @@
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
             <span class="s2">"Manage VirtualBox appliance imports and linked clones for network "</span>
             <span class="s2">"labs: import images, clone and configure virtual machines, attach "</span>
-            <span class="s2">"to their serial consoles and read the session reports recorded "</span>
+            <span class="s2">"to their serial consoles or through ssh and read the session reports recorded "</span>
             <span class="s2">"inside them."</span>
         <span class="p">),</span>
         <span class="n">epilog</span><span class="o">=</span><span class="n">_commands_epilog</span><span class="p">(),</span>
@@ -312,6 +313,8 @@
             <span class="k">return</span> <span class="n">_run_monitor</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"stop"</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_run_stop</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"ssh-key"</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_run_ssh_key</span><span class="p">(</span><span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">command</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"pause"</span><span class="p">,</span> <span class="s2">"resume"</span><span class="p">}:</span>
             <span class="k">return</span> <span class="n">_run_pause_resume</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">arguments</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">app_service</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">error_output</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">"clone"</span><span class="p">:</span>
@@ -401,7 +404,8 @@
         <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap show"</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
             <span class="s2">"Show the name, group, serial TCP port (COM1) and, for linked "</span>
-            <span class="s2">"clones, the parent of a virtual machine."</span>
+            <span class="s2">"clones, the parent of a virtual machine, and how PySnap reaches its "</span>
+            <span class="s2">"guest: through the COM1 serial console or through ssh."</span>
         <span class="p">),</span>
         <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
             <span class="s2">"pysnap show first"</span><span class="p">,</span>
@@ -411,7 +415,8 @@
     <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"VM"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Name of the virtual machine."</span><span class="p">)</span>
     <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">format_vm_info</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">show_vm</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">)),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="n">vm_info</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">show_vm</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">format_vm_info</span><span class="p">(</span><span class="n">vm_info</span><span class="p">,</span> <span class="n">service</span><span class="o">.</span><span class="n">get_vm_access</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">)),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
     <span class="k">return</span> <span class="mi">0</span>
 
 
@@ -435,8 +440,9 @@
             <span class="s2">"Register a base VM whose linked clones get lab settings: NIC1 "</span>
             <span class="s2">"stays on NAT, the internal networks of pysnap clone go to "</span>
             <span class="s2">"NIC2-NIC4, and the clone name, serial port and networks are "</span>
-            <span class="s2">"written into its DMI system information. The list of such base VMs "</span>
-            <span class="s2">"is kept in ~/.ptotosettings."</span>
+            <span class="s2">"written into its DMI system information. These VMs and their clones "</span>
+            <span class="s2">"are reached through the COM1 serial console; other VMs through ssh. "</span>
+            <span class="s2">"The list of such base VMs is kept in ~/.ptotosettings."</span>
         <span class="p">),</span>
         <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
             <span class="s2">"pysnap protosettings protocols-jeos-20251218-x86_64"</span><span class="p">,</span>
@@ -522,10 +528,13 @@
     <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
         <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap plug"</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-            <span class="s2">"Prepare an existing VM for pysnap connect: configure COM1 (UART1) "</span>
-            <span class="s2">"as a TCP server on a free port. A VM whose COM1 already is a TCP "</span>
-            <span class="s2">"server is left unchanged; otherwise the VM must be stopped. Use "</span>
-            <span class="s2">"pysnap set for other ports and adapters."</span>
+            <span class="s2">"Prepare an existing VM for pysnap connect. A VM reached through the "</span>
+            <span class="s2">"COM1 console gets COM1 (UART1) as a TCP server on a free port; a VM "</span>
+            <span class="s2">"whose COM1 already is a TCP server is left unchanged, otherwise it "</span>
+            <span class="s2">"must be stopped. A VM reached through ssh gets a rule on its NAT "</span>
+            <span class="s2">"adapter that forwards a free port on 127.0.0.1 to port 22 of the "</span>
+            <span class="s2">"guest, on a stopped, running or paused VM. Use pysnap set for other "</span>
+            <span class="s2">"ports and adapters and to choose the access."</span>
         <span class="p">),</span>
         <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
             <span class="s2">"pysnap plug MyVM"</span><span class="p">,</span>
@@ -537,7 +546,7 @@
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"VM"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Name of the virtual machine."</span><span class="p">)</span>
     <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
     <span class="n">vm_info</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">plug_vm</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">format_vm_info</span><span class="p">(</span><span class="n">vm_info</span><span class="p">),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">format_vm_info</span><span class="p">(</span><span class="n">vm_info</span><span class="p">,</span> <span class="n">service</span><span class="o">.</span><span class="n">get_vm_access</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">)),</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
     <span class="k">return</span> <span class="mi">0</span>
 
 
@@ -560,10 +569,11 @@
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
             <span class="s2">"Show or change the serial (COM) ports and network adapters of a VM: "</span>
             <span class="s2">"COM1-COM4, and NIC1-NIC8 or NIC1-NIC36 depending on the chipset of the "</span>
-            <span class="s2">"VM. Without options the current settings are shown. "</span>
-            <span class="s2">"Changes need a stopped VM; all options are checked first and then "</span>
-            <span class="s2">"applied together, so an invalid option changes nothing. Removing a "</span>
-            <span class="s2">"TCP server prints a warning: pysnap connect uses COM1."</span>
+            <span class="s2">"VM, and how PySnap reaches the guest. Without options the current "</span>
+            <span class="s2">"settings are shown. Ports and adapters change only on a stopped VM; "</span>
+            <span class="s2">"access and ssh-user can change at any time. All options are checked "</span>
+            <span class="s2">"first and then applied together, so an invalid option changes "</span>
+            <span class="s2">"nothing. Removing a TCP server prints a warning."</span>
         <span class="p">),</span>
         <span class="n">epilog</span><span class="o">=</span><span class="p">(</span>
             <span class="s2">"Options (N is the port or adapter number):</span><span class="se">\n</span><span class="s2">"</span>
@@ -575,12 +585,17 @@
             <span class="s2">"  nicN=NETWORK     internal network NETWORK</span><span class="se">\n</span><span class="s2">"</span>
             <span class="s2">"  nicN=nat         NAT</span><span class="se">\n</span><span class="s2">"</span>
             <span class="s2">"  nicN=off         no network adapter</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  access=com       reach the guest through the COM1 console</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  access=ssh       reach the guest through ssh</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  access=auto      COM1 for protosettings VMs, ssh otherwise</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"  ssh-user=NAME    guest user for ssh (default: root)</span><span class="se">\n</span><span class="s2">"</span>
             <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
             <span class="o">+</span> <span class="n">_examples</span><span class="p">(</span>
                 <span class="s2">"pysnap set first"</span><span class="p">,</span>
                 <span class="s2">"pysnap set first nic2=left nic3=right com2=server:link"</span><span class="p">,</span>
                 <span class="s2">"pysnap set second nic2=left com2=client:link"</span><span class="p">,</span>
                 <span class="s2">"pysnap set first com1=2330 nic4=off"</span><span class="p">,</span>
+                <span class="s2">"pysnap set first access=ssh ssh-user=student"</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">),</span>
         <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
@@ -588,7 +603,7 @@
     <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"VM"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Name of the virtual machine."</span><span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-        <span class="s2">"options"</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">"*"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"OPTION"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"comN=VALUE or nicN=VALUE, see below."</span>
+        <span class="s2">"options"</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">"*"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"OPTION"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"KEY=VALUE option, see below."</span>
     <span class="p">)</span>
     <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
     <span class="n">result</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">set_vm_settings</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">,</span> <span class="n">namespace</span><span class="o">.</span><span class="n">options</span><span class="p">)</span>
@@ -616,10 +631,11 @@
         <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap clone"</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
             <span class="s2">"Create a linked clone of a base VM in the same group. The clone "</span>
-            <span class="s2">"gets COM1 as a TCP server and up to three internal networks: on "</span>
-            <span class="s2">"NIC1-NIC3 for ordinary base VMs (other adapters are switched off) "</span>
-            <span class="s2">"or on NIC2-NIC4 for proto-settings base VMs, where NIC1 stays on "</span>
-            <span class="s2">"NAT. A snapshot of the base VM is taken when it has none."</span>
+            <span class="s2">"gets COM1 as a TCP server and up to three internal networks on "</span>
+            <span class="s2">"NIC2-NIC4, while NIC1 stays on NAT. A clone reached through ssh "</span>
+            <span class="s2">"also gets a forwarded ssh port; only base VMs set to COM1 access "</span>
+            <span class="s2">"with pysnap set keep the old layout with networks on NIC1-NIC3. A "</span>
+            <span class="s2">"snapshot of the base VM is taken when it has none."</span>
         <span class="p">),</span>
         <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
             <span class="s2">"pysnap clone base first"</span><span class="p">,</span>
@@ -678,12 +694,15 @@
         <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap connect"</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
             <span class="s2">"Start a VM in headless mode when needed and attach the PySnap "</span>
-            <span class="s2">"terminal to its serial console (COM1). Ctrl-Q detaches without "</span>
+            <span class="s2">"terminal to its serial console (COM1) or, for VMs reached through "</span>
+            <span class="s2">"ssh (see pysnap show), to an ssh login shell. Ctrl-Q detaches without "</span>
             <span class="s2">"stopping the VM, Ctrl-L redraws, Alt-Up/Down scroll the local "</span>
             <span class="s2">"history line by line and Alt-Left/Right jump to its start or back "</span>
             <span class="s2">"to the live output, Ctrl-Shift-C copies text selected with the "</span>
-            <span class="s2">"mouse. A paused VM can be attached too: keys wait until pysnap "</span>
-            <span class="s2">"resume."</span>
+            <span class="s2">"mouse. A paused VM can be attached through COM1: keys wait until "</span>
+            <span class="s2">"pysnap resume. Over ssh, PySnap waits for the guest ssh server, "</span>
+            <span class="s2">"installs its key on the first connect when the guest refuses it "</span>
+            <span class="s2">"(see pysnap ssh-key) and ends the session when the login shell exits."</span>
         <span class="p">),</span>
         <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
             <span class="s2">"pysnap connect first"</span><span class="p">,</span>
@@ -750,7 +769,8 @@
         <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap monitor"</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
             <span class="s2">"List the virtual machines that are not stopped, with their state, "</span>
-            <span class="s2">"serial TCP port and group. States: Working (a pysnap connect "</span>
+            <span class="s2">"port and group; the port is the COM1 TCP port or ssh:PORT for VMs "</span>
+            <span class="s2">"reached through ssh. States: Working (a pysnap connect "</span>
             <span class="s2">"session is attached), Active (running without a session), Paused, "</span>
             <span class="s2">"Stopping, Changing and Error."</span>
         <span class="p">),</span>
@@ -810,6 +830,62 @@
 
     <span class="n">service</span><span class="o">.</span><span class="n">stop_runtime_vm</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Stopped virtual machine: </span><span class="si">{</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="si">}</span><span class="s1">'</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_ssh_key</span><span class="p">(</span>
+    <span class="n">arguments</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">service</span><span class="p">:</span> <span class="n">PySnapService</span><span class="p">,</span>
+    <span class="n">stdout</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+    <span class="n">stderr</span><span class="p">:</span> <span class="n">TextIO</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Run the ``ssh-key`` command.</span>
+
+<span class="sd">    :param arguments: Subcommand arguments.</span>
+<span class="sd">    :param service: Application service.</span>
+<span class="sd">    :param stdout: Output stream.</span>
+<span class="sd">    :param stderr: Error stream.</span>
+<span class="sd">    :returns: Process exit code.</span>
+<span class="sd">    """</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">CliArgumentParser</span><span class="p">(</span>
+        <span class="n">prog</span><span class="o">=</span><span class="s2">"pysnap ssh-key"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Install the PySnap ssh key in a running guest, so that ssh "</span>
+            <span class="s2">"connections need no password. PySnap keeps its own key pair in "</span>
+            <span class="s2">"~/.pysnap/ssh (pysnap_vm_access_ed25519) and never touches ~/.ssh.</span><span class="se">\n\n</span><span class="s2">"</span>
+            <span class="s2">"By default ssh logs in with the password of USER (the ssh user of "</span>
+            <span class="s2">"the VM, see pysnap set ssh-user) in this terminal and adds the key "</span>
+            <span class="s2">"for that user; then the guest asks for the root password to add it "</span>
+            <span class="s2">"for root too, which may be skipped with Enter. Many systems refuse "</span>
+            <span class="s2">"a root password over ssh, so log in as an ordinary user with --user.</span><span class="se">\n\n</span><span class="s2">"</span>
+            <span class="s2">"With --console the command that adds the key is typed on the VM "</span>
+            <span class="s2">"screen instead (VirtualBox keyboard input, Latin layout), for a "</span>
+            <span class="s2">"shell that is already logged in there.</span><span class="se">\n\n</span><span class="s2">"</span>
+            <span class="s2">"When the ssh user of the VM cannot use the key afterwards but USER "</span>
+            <span class="s2">"can, the ssh user of the VM is switched to USER."</span>
+        <span class="p">),</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
+            <span class="s2">"pysnap ssh-key first"</span><span class="p">,</span>
+            <span class="s2">"pysnap ssh-key first --user student"</span><span class="p">,</span>
+            <span class="s2">"pysnap ssh-key first --console"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">stderr</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"vm"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"VM"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Name of the running virtual machine."</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--user"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"USER"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Guest user for the password login; default: the ssh user."</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--console"</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Type the command on the VM screen instead of ssh."</span>
+    <span class="p">)</span>
+    <span class="n">namespace</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">arguments</span><span class="p">))</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">setup_ssh_key</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">vm</span><span class="p">,</span> <span class="n">namespace</span><span class="o">.</span><span class="n">user</span><span class="p">,</span> <span class="n">console</span><span class="o">=</span><span class="n">namespace</span><span class="o">.</span><span class="n">console</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">already_installed</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"The PySnap key already works for </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">users</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"PySnap key works for: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">users</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">changed_user</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ssh user of </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">vm_name</span><span class="si">}</span><span class="s2"> set to </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">ssh_user</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">stdout</span><span class="p">)</span>
     <span class="k">return</span> <span class="mi">0</span>
 
 

@@ -162,13 +162,17 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
 
     extract = subcommands.add_parser(
         "extract",
-        help="Copy a report file from a running VM through its serial console.",
+        help="Copy a report file from a running VM through its console or ssh.",
         description=(
-            "Copy a file from a running VM to the host through the UART1 serial "
-            "console. The VM must be at a shell prompt, without a running report "
-            "recording. An attached pysnap connect session runs the transfer on "
-            "its own connection. A name without / is looked up in the home "
-            "directory of the console user."
+            "Copy a file from a running VM to the host. A VM reached through ssh "
+            "is read through a separate ssh session with the PySnap key (see "
+            "pysnap ssh-key); the student's terminal is not touched. Other VMs "
+            "use the UART1 serial console: it must be at a shell prompt, without "
+            "a running report recording, and an attached pysnap connect session "
+            "runs the transfer on its own connection. A name without / is looked "
+            "up only in the home directory of the user logged in on the console, "
+            "or of the ssh user of the VM (pysnap set VM ssh-user=NAME, root by "
+            "default); give the full path for a report of another user."
         ),
         epilog=_examples(
             "pysnap report extract first report.01.first",

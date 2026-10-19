@@ -14,6 +14,7 @@ from prompt_toolkit.mouse_events import (
     MouseEventType,
 )
 
+from pysnap.core.access import AccessInfo
 from pysnap.core.models import VMInfo
 from pysnap.terminal.emulator import TerminalEmulator
 from pysnap.terminal.session import (
@@ -113,6 +114,10 @@ class TerminalSessionTests(unittest.TestCase):
                     vm_state="running",
                 )
 
+            def get_vm_access(self, vm_name: str) -> AccessInfo:
+                """Reach the VM through COM1."""
+                return AccessInfo("com", "protosettings", 2326, None, "root")
+
         session = TerminalSession(service=FakeService())
 
         def raising_run(coroutine):
@@ -137,6 +142,10 @@ class TerminalSessionTests(unittest.TestCase):
                     serial_port=2326,
                     vm_state="running",
                 )
+
+            def get_vm_access(self, vm_name: str) -> AccessInfo:
+                """Reach the VM through COM1."""
+                return AccessInfo("com", "protosettings", 2326, None, "root")
 
         session = TerminalSession(service=FakeService())
 

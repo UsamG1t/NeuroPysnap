@@ -92,8 +92,8 @@ is not already occupied by another mode such as ``tcpclient`` or ``file``.
 When needed, the selected TCP port must be available both in VirtualBox and on
 the host system.
 
-Automatic allocation counts the TCP servers of all four serial ports of all
-VMs as used. ``pysnap set`` reads ``COM1``-``COM4`` and every network adapter
+Automatic allocation counts the TCP servers of all four serial ports and the
+forwarded ssh ports of all VMs as used. ``pysnap set`` reads ``COM1``-``COM4`` and every network adapter
 of the VM from ``showvminfo``; the adapter count of its chipset comes from
 ``VBoxManage list systemproperties`` (8 for PIIX3 and 36 for ICH9 when it is
 not reported). It validates every option and TCP port before changing anything,
@@ -129,6 +129,44 @@ PySnap writes additional DMI settings through ``VBoxManage setextradata``:
 - ``DmiSystemSKU = port<Port>[.<net1>[.<net2>[.<net3>]]]``
 
 This mode exists for educational VirtualBox images used in CMC MSU courses.
+
+Access Strategy
+---------------
+
+``pysnap.core.access.resolve_access`` decides how a guest is reached: an
+explicit ``pysnap/access`` extra data entry wins, base VMs registered with
+protosettings and their clones use the ``COM1`` serial console, and every other
+VM uses ssh. The ssh user is the ``pysnap/ssh-user`` extra data entry or
+``root``. The ssh port is not stored separately: it is read from the NAT
+port-forwarding rule ``pysnap-ssh`` (``127.0.0.1:PORT`` to guest port 22), so
+VirtualBox remains the only source of truth. ``showvminfo --machinereadable``
+prints the rules of a NAT adapter after its ``natnetN`` line, which tells
+which adapter holds the rule.
+
+ssh Strategy
+------------
+
+``pysnap.ssh`` runs the system OpenSSH client instead of a Python ssh library,
+so PySnap gains no dependency. Every call uses ``-F`` with the null device (no
+user configuration), the PySnap key with ``IdentitiesOnly`` and no agent, the
+known_hosts file of the VM with ``StrictHostKeyChecking=accept-new`` and batch
+mode, so a missing key fails instead of asking for a password. Only
+``pysnap ssh-key`` runs ssh with password login in the user's terminal; its
+guest script appends the key to ``~/.ssh/authorized_keys`` unless it is there
+and then runs the same for root through ``su``. Whether the key works is
+decided afterwards by key logins, not by parsing the dialogue. Interactive
+terminals use ``ssh -tt`` with pipes; the guest terminal size is set with
+``stty`` before the login shell starts.
+
+``TerminalSession`` works on a ``SessionTransport``: a name, a status-line
+label and an opener that returns a reader, a writer and a close coroutine.
+The serial transport opens the ``UART1`` TCP connection; the ssh transport
+starts ``ssh -tt``, merges its error output into the stream and terminates the
+process on close. Before an ssh session the service checks the key login
+(``prepare_ssh_terminal``): it waits for a booting guest, and a refused key
+starts the same key setup as ``pysnap ssh-key``. Features of the serial
+console only (the waking newline, the silence hint, the report control
+channel) run only for the serial transport.
 
 Runtime State Strategy
 ----------------------
@@ -286,16 +324,24 @@ the search from the final label values.
 Report Transfer Strategy
 ------------------------
 
-``pysnap.report.extract`` reuses the ``UART1`` TCP endpoint of the VM. The
-service checks the VM state, the serial port and the session registry first,
-because VirtualBox accepts only one client on the port. On the console the
-transfer relies on the guest shell and coreutils only: an arithmetic ``echo``
-proves a working shell (its answer never appears in the echoed command), one
-command prints the file as a single ``base64`` line and its ``sha256sum``
-between random markers, and the markers are split in the command so that the
-echo of the command never looks like a marker. The host verifies the
-checksum and writes the file atomically. The ``report`` prompt is detected
-before any command is sent, so a running recording is never modified.
+For a VM reached through ssh, ``pysnap.report.extract`` runs one batch-mode
+ssh command with the PySnap key: ``sh -c`` checks that the file is readable
+(exit status 3 otherwise), prints its ``sha256sum`` and then at most one byte
+more than the size limit of the file with ``head -c``. The host splits the
+first line off, checks the size and the checksum and writes the file
+atomically. This session is independent of ``pysnap connect``, so the session
+registry and the control channel are not used.
+
+For other VMs ``pysnap.report.extract`` reuses the ``UART1`` TCP endpoint of
+the VM. The service checks the VM state, the serial port and the session
+registry first, because VirtualBox accepts only one client on the port. On the
+console the transfer relies on the guest shell and coreutils only: an
+arithmetic ``echo`` proves a working shell (its answer never appears in the
+echoed command), one command prints the file as a single ``base64`` line and
+its ``sha256sum`` between random markers, and the markers are split in the
+command so that the echo of the command never looks like a marker. The host
+verifies the checksum and writes the file atomically. The ``report`` prompt is
+detected before any command is sent, so a running recording is never modified.
 
 While ``pysnap connect`` is attached, the port is taken, so the terminal
 session also serves a control channel (``pysnap.report.control``): it listens

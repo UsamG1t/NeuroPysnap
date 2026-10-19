@@ -82,7 +82,8 @@ COMMAND_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     (
         "Running virtual machines",
         (
-            ("connect", "Start a VM headless and attach to its serial console."),
+            ("connect", "Start a VM headless and attach to its console or ssh."),
+            ("ssh-key", "Install the PySnap ssh key in a guest reached through ssh."),
             ("monitor", "List VMs that are running, paused or changing state."),
             ("pause", "Pause running VMs; they stay in memory."),
             ("resume", "Resume paused VMs."),
@@ -189,7 +190,7 @@ def build_root_parser(
         description=(
             "Manage VirtualBox appliance imports and linked clones for network "
             "labs: import images, clone and configure virtual machines, attach "
-            "to their serial consoles and read the session reports recorded "
+            "to their serial consoles or through ssh and read the session reports recorded "
             "inside them."
         ),
         epilog=_commands_epilog(),
@@ -261,6 +262,8 @@ def run_cli(
             return _run_monitor(arguments[1:], app_service, output, error_output)
         if command == "stop":
             return _run_stop(arguments[1:], app_service, output, error_output)
+        if command == "ssh-key":
+            return _run_ssh_key(arguments[1:], app_service, output, error_output)
         if command in {"pause", "resume"}:
             return _run_pause_resume(command, arguments[1:], app_service, output, error_output)
         if command == "clone":
@@ -346,7 +349,8 @@ def _run_show(
         prog="pysnap show",
         description=(
             "Show the name, group, serial TCP port (COM1) and, for linked "
-            "clones, the parent of a virtual machine."
+            "clones, the parent of a virtual machine, and how PySnap reaches its "
+            "guest: through the COM1 serial console or through ssh."
         ),
         epilog=_examples(
             "pysnap show first",
@@ -356,7 +360,8 @@ def _run_show(
     )
     parser.add_argument("vm", metavar="VM", help="Name of the virtual machine.")
     namespace = parser.parse_args(list(arguments))
-    print(format_vm_info(service.show_vm(namespace.vm)), file=stdout)
+    vm_info = service.show_vm(namespace.vm)
+    print(format_vm_info(vm_info, service.get_vm_access(namespace.vm)), file=stdout)
     return 0
 
 
@@ -380,8 +385,9 @@ def _run_protosettings(
             "Register a base VM whose linked clones get lab settings: NIC1 "
             "stays on NAT, the internal networks of pysnap clone go to "
             "NIC2-NIC4, and the clone name, serial port and networks are "
-            "written into its DMI system information. The list of such base VMs "
-            "is kept in ~/.ptotosettings."
+            "written into its DMI system information. These VMs and their clones "
+            "are reached through the COM1 serial console; other VMs through ssh. "
+            "The list of such base VMs is kept in ~/.ptotosettings."
         ),
         epilog=_examples(
             "pysnap protosettings protocols-jeos-20251218-x86_64",
@@ -467,10 +473,13 @@ def _run_plug(
     parser = CliArgumentParser(
         prog="pysnap plug",
         description=(
-            "Prepare an existing VM for pysnap connect: configure COM1 (UART1) "
-            "as a TCP server on a free port. A VM whose COM1 already is a TCP "
-            "server is left unchanged; otherwise the VM must be stopped. Use "
-            "pysnap set for other ports and adapters."
+            "Prepare an existing VM for pysnap connect. A VM reached through the "
+            "COM1 console gets COM1 (UART1) as a TCP server on a free port; a VM "
+            "whose COM1 already is a TCP server is left unchanged, otherwise it "
+            "must be stopped. A VM reached through ssh gets a rule on its NAT "
+            "adapter that forwards a free port on 127.0.0.1 to port 22 of the "
+            "guest, on a stopped, running or paused VM. Use pysnap set for other "
+            "ports and adapters and to choose the access."
         ),
         epilog=_examples(
             "pysnap plug MyVM",
@@ -482,7 +491,7 @@ def _run_plug(
     parser.add_argument("vm", metavar="VM", help="Name of the virtual machine.")
     namespace = parser.parse_args(list(arguments))
     vm_info = service.plug_vm(namespace.vm)
-    print(format_vm_info(vm_info), file=stdout)
+    print(format_vm_info(vm_info, service.get_vm_access(namespace.vm)), file=stdout)
     return 0
 
 
@@ -505,10 +514,11 @@ def _run_set(
         description=(
             "Show or change the serial (COM) ports and network adapters of a VM: "
             "COM1-COM4, and NIC1-NIC8 or NIC1-NIC36 depending on the chipset of the "
-            "VM. Without options the current settings are shown. "
-            "Changes need a stopped VM; all options are checked first and then "
-            "applied together, so an invalid option changes nothing. Removing a "
-            "TCP server prints a warning: pysnap connect uses COM1."
+            "VM, and how PySnap reaches the guest. Without options the current "
+            "settings are shown. Ports and adapters change only on a stopped VM; "
+            "access and ssh-user can change at any time. All options are checked "
+            "first and then applied together, so an invalid option changes "
+            "nothing. Removing a TCP server prints a warning."
         ),
         epilog=(
             "Options (N is the port or adapter number):\n"
@@ -520,12 +530,17 @@ def _run_set(
             "  nicN=NETWORK     internal network NETWORK\n"
             "  nicN=nat         NAT\n"
             "  nicN=off         no network adapter\n"
+            "  access=com       reach the guest through the COM1 console\n"
+            "  access=ssh       reach the guest through ssh\n"
+            "  access=auto      COM1 for protosettings VMs, ssh otherwise\n"
+            "  ssh-user=NAME    guest user for ssh (default: root)\n"
             "\n"
             + _examples(
                 "pysnap set first",
                 "pysnap set first nic2=left nic3=right com2=server:link",
                 "pysnap set second nic2=left com2=client:link",
                 "pysnap set first com1=2330 nic4=off",
+                "pysnap set first access=ssh ssh-user=student",
             )
         ),
         stdout=stdout,
@@ -533,7 +548,7 @@ def _run_set(
     )
     parser.add_argument("vm", metavar="VM", help="Name of the virtual machine.")
     parser.add_argument(
-        "options", nargs="*", metavar="OPTION", help="comN=VALUE or nicN=VALUE, see below."
+        "options", nargs="*", metavar="OPTION", help="KEY=VALUE option, see below."
     )
     namespace = parser.parse_args(list(arguments))
     result = service.set_vm_settings(namespace.vm, namespace.options)
@@ -561,10 +576,11 @@ def _run_clone(
         prog="pysnap clone",
         description=(
             "Create a linked clone of a base VM in the same group. The clone "
-            "gets COM1 as a TCP server and up to three internal networks: on "
-            "NIC1-NIC3 for ordinary base VMs (other adapters are switched off) "
-            "or on NIC2-NIC4 for proto-settings base VMs, where NIC1 stays on "
-            "NAT. A snapshot of the base VM is taken when it has none."
+            "gets COM1 as a TCP server and up to three internal networks on "
+            "NIC2-NIC4, while NIC1 stays on NAT. A clone reached through ssh "
+            "also gets a forwarded ssh port; only base VMs set to COM1 access "
+            "with pysnap set keep the old layout with networks on NIC1-NIC3. A "
+            "snapshot of the base VM is taken when it has none."
         ),
         epilog=_examples(
             "pysnap clone base first",
@@ -623,12 +639,15 @@ def _run_connect(
         prog="pysnap connect",
         description=(
             "Start a VM in headless mode when needed and attach the PySnap "
-            "terminal to its serial console (COM1). Ctrl-Q detaches without "
+            "terminal to its serial console (COM1) or, for VMs reached through "
+            "ssh (see pysnap show), to an ssh login shell. Ctrl-Q detaches without "
             "stopping the VM, Ctrl-L redraws, Alt-Up/Down scroll the local "
             "history line by line and Alt-Left/Right jump to its start or back "
             "to the live output, Ctrl-Shift-C copies text selected with the "
-            "mouse. A paused VM can be attached too: keys wait until pysnap "
-            "resume."
+            "mouse. A paused VM can be attached through COM1: keys wait until "
+            "pysnap resume. Over ssh, PySnap waits for the guest ssh server, "
+            "installs its key on the first connect when the guest refuses it "
+            "(see pysnap ssh-key) and ends the session when the login shell exits."
         ),
         epilog=_examples(
             "pysnap connect first",
@@ -695,7 +714,8 @@ def _run_monitor(
         prog="pysnap monitor",
         description=(
             "List the virtual machines that are not stopped, with their state, "
-            "serial TCP port and group. States: Working (a pysnap connect "
+            "port and group; the port is the COM1 TCP port or ssh:PORT for VMs "
+            "reached through ssh. States: Working (a pysnap connect "
             "session is attached), Active (running without a session), Paused, "
             "Stopping, Changing and Error."
         ),
@@ -755,6 +775,62 @@ def _run_stop(
 
     service.stop_runtime_vm(namespace.vm)
     print(f'Stopped virtual machine: {namespace.vm}', file=stdout)
+    return 0
+
+
+def _run_ssh_key(
+    arguments: Sequence[str],
+    service: PySnapService,
+    stdout: TextIO,
+    stderr: TextIO,
+) -> int:
+    """Run the ``ssh-key`` command.
+
+    :param arguments: Subcommand arguments.
+    :param service: Application service.
+    :param stdout: Output stream.
+    :param stderr: Error stream.
+    :returns: Process exit code.
+    """
+    parser = CliArgumentParser(
+        prog="pysnap ssh-key",
+        description=(
+            "Install the PySnap ssh key in a running guest, so that ssh "
+            "connections need no password. PySnap keeps its own key pair in "
+            "~/.pysnap/ssh (pysnap_vm_access_ed25519) and never touches ~/.ssh.\n\n"
+            "By default ssh logs in with the password of USER (the ssh user of "
+            "the VM, see pysnap set ssh-user) in this terminal and adds the key "
+            "for that user; then the guest asks for the root password to add it "
+            "for root too, which may be skipped with Enter. Many systems refuse "
+            "a root password over ssh, so log in as an ordinary user with --user.\n\n"
+            "With --console the command that adds the key is typed on the VM "
+            "screen instead (VirtualBox keyboard input, Latin layout), for a "
+            "shell that is already logged in there.\n\n"
+            "When the ssh user of the VM cannot use the key afterwards but USER "
+            "can, the ssh user of the VM is switched to USER."
+        ),
+        epilog=_examples(
+            "pysnap ssh-key first",
+            "pysnap ssh-key first --user student",
+            "pysnap ssh-key first --console",
+        ),
+        stdout=stdout,
+        stderr=stderr,
+    )
+    parser.add_argument("vm", metavar="VM", help="Name of the running virtual machine.")
+    parser.add_argument(
+        "--user", metavar="USER", help="Guest user for the password login; default: the ssh user."
+    )
+    parser.add_argument(
+        "--console", action="store_true", help="Type the command on the VM screen instead of ssh."
+    )
+    namespace = parser.parse_args(list(arguments))
+    result = service.setup_ssh_key(namespace.vm, namespace.user, console=namespace.console)
+    if result.already_installed:
+        print(f"The PySnap key already works for {result.users[0]}.", file=stdout)
+    print(f"PySnap key works for: {', '.join(result.users)}", file=stdout)
+    if result.changed_user:
+        print(f"ssh user of {result.vm_name} set to {result.ssh_user}.", file=stdout)
     return 0
 
 

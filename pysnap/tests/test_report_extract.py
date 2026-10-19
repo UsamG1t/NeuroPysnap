@@ -14,10 +14,14 @@ import tempfile
 import threading
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
+from pysnap.core.access import AccessInfo
 from pysnap.core.models import VMInfo
 from pysnap.report.extract import ExtractError, extract_file, remote_shell_path
 from pysnap.runtime.sessions import SessionRecord
+from pysnap.ssh.client import SshTarget
+from pysnap.tests.test_ssh import HAVE_OPENSSH, SSHD, SshdFixture
 
 REPORT_PS1 = "[\\u@01-first \\W]# "
 
@@ -32,6 +36,10 @@ class _Service:
     def show_vm(self, vm_name: str) -> VMInfo:
         """Return the fake VM."""
         return self.vm_info
+
+    def get_vm_access(self, vm_name: str) -> AccessInfo:
+        """Reach the fake VM through COM1."""
+        return AccessInfo("com", "protosettings", self.vm_info.serial_port, None, "root")
 
 
 class _ShellServer:
@@ -240,3 +248,108 @@ class ExtractPreconditionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class _SshService:
+    """Service of a VM reached through ssh."""
+
+    def __init__(self, target=None, store=None, error: str | None = None) -> None:
+        self.target, self.ssh_key_store, self.error = target, store, error
+        self.session_registry = SimpleNamespace(
+            get_live_session=lambda name: SessionRecord("first", 2400, 1, "now")
+        )
+
+    def get_vm_access(self, vm_name: str) -> AccessInfo:
+        """Reach the fake VM through ssh."""
+        return AccessInfo("ssh", "default", None, 2400, "root")
+
+    def ssh_target(self, vm_name: str):
+        """Return the target or refuse like the real service."""
+        if self.error:
+            from pysnap.errors import PySnapError
+            raise PySnapError(self.error)
+        return self.target
+
+
+class ExtractOverSshTests(unittest.TestCase):
+    """Copy files through a separate ssh session."""
+
+    def setUp(self) -> None:
+        self._temp_dir = tempfile.TemporaryDirectory()
+        self.destination = Path(self._temp_dir.name) / "copy"
+        self.answers: list = []
+        self.commands: list[str] = []
+        patcher = patch("pysnap.report.extract.ssh_client.run_remote", self._run_remote)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.addCleanup(self._temp_dir.cleanup)
+
+    def _run_remote(self, target, store, command, *, timeout=None):
+        self.commands.append(command)
+        answer = self.answers.pop(0)
+        if isinstance(answer, BaseException):
+            raise answer
+        return answer
+
+    def _extract(self, service=None, name="report.01.first", **kwargs):
+        return extract_file(service or _SshService(target=SshTarget("first", "u", 2400, "root")), "first", name,
+                            destination=self.destination, **kwargs)
+
+    @staticmethod
+    def _answer(code=0, stdout=b"", stderr=b""):
+        return subprocess.CompletedProcess([], code, stdout, stderr)
+
+    def test_copies_and_verifies_the_file(self) -> None:
+        """Ignore the attached session, verify the checksum and write the file."""
+        content = b"\x00report\nline\r\n"
+        digest = hashlib.sha256(content).hexdigest()
+        self.answers = [self._answer(stdout=digest.encode() + b"  -\n" + content)]
+        result = self._extract(max_bytes=len(content))
+        self.assertEqual((result.size, result.sha256), (len(content), digest))
+        self.assertEqual(self.destination.read_bytes(), content)
+        self.assertIn('"$HOME"/report.01.first', self.commands[0])
+        self.assertIn(f"head -c {len(content) + 1}", self.commands[0])
+
+    def test_reports_failures(self) -> None:
+        """Explain missing files, refused keys, ssh errors and bad data."""
+        digest = hashlib.sha256(b"data").hexdigest().encode()
+        cases = [
+            (self._answer(3), "was not found or is not readable"),
+            (self._answer(255, stderr=b"root@127.0.0.1: Permission denied (publickey)."),
+             "refused the PySnap key for root; run pysnap ssh-key first"),
+            (self._answer(255, stderr=b"Connection refused"), "ssh transfer from \"first\" failed: Connection refused"),
+            (self._answer(1), "failed: exit status 1"),
+            (self._answer(stdout=b""), "incomplete transfer"),
+            (self._answer(stdout=digest + b"  -\ndat"), "checksum of the received file does not match"),
+            (self._answer(stdout=digest + b"  -\n" + b"x" * 5), "larger than 4 bytes"),
+            (subprocess.TimeoutExpired("ssh", 120), "did not finish within 120 seconds"),
+        ]
+        for answer, message in cases:
+            self.answers = [answer]
+            with self.subTest(message=message), self.assertRaisesRegex(ExtractError, message):
+                self._extract(max_bytes=4)
+            self.assertFalse(self.destination.exists())
+
+    def test_needs_a_running_vm_with_a_port(self) -> None:
+        """Pass on why the service cannot reach the VM."""
+        with self.assertRaisesRegex(ExtractError, "is not running; ssh needs a running guest"):
+            self._extract(_SshService(error='Virtual machine "first" is not running; ssh needs a running guest.'))
+
+
+@unittest.skipUnless(HAVE_OPENSSH and SSHD and os.name == "posix", "OpenSSH client and server are required")
+class ExtractWithSshdTests(SshdFixture):
+    """Copy a file from a real sshd."""
+
+    def test_copies_a_file_with_spaces_in_its_path(self) -> None:
+        """Transfer binary content byte for byte."""
+        source = Path(self._temp_dir.name) / "my report"
+        content = bytes(range(256)) * 40
+        source.write_bytes(content)
+        destination = Path(self._temp_dir.name) / "copy"
+        result = extract_file(_SshService(self.target, self.store), "first", str(source),
+                              destination=destination)
+        self.assertEqual(destination.read_bytes(), content)
+        self.assertEqual(result.sha256, hashlib.sha256(content).hexdigest())
+        with self.assertRaisesRegex(ExtractError, "not found"):
+            extract_file(_SshService(self.target, self.store), "first", str(source) + "-missing",
+                         destination=Path(self._temp_dir.name) / "other")

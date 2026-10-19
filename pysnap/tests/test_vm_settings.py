@@ -31,13 +31,15 @@ class SettingsClient(FakeClient):
         self.hardware: dict[str, VMHardware] = {}
         self.extra_data: dict[str, dict[str, str]] = {}
 
-    def add_vm(self, name: str, *, state: str = "poweroff", com=(), nics=(), nic_count: int = 8) -> None:
+    def add_vm(self, name: str, *, state: str = "poweroff", com=(), nics=(), nic_count: int = 8,
+               metadata=None) -> None:
         """Register a VM with the given COM ports and adapters."""
         com_ports = tuple(com) + (OFF,) * (4 - len(com))
         adapters = tuple(nics) + (NO_NIC,) * (nic_count - len(nics))
         self.references[name] = VMReference(name=name, uuid=f"uuid-{name}")
         self.hardware[name] = VMHardware(com_ports=com_ports, nics=adapters)
-        self.infos[name] = VMInfo(name=name, uuid=f"uuid-{name}", groups=("/Lab",), vm_state=state)
+        self.infos[name] = VMInfo(name=name, uuid=f"uuid-{name}", groups=("/Lab",), vm_state=state,
+                                  metadata=dict(metadata or {}))
         self._sync_ports(name)
 
     def _sync_ports(self, name: str) -> None:
@@ -282,7 +284,8 @@ class ServiceSettingsTests(unittest.TestCase):
     def test_warns_when_a_tcp_server_is_removed(self) -> None:
         """Warn for every removed TCP server and name the connect effect on COM1."""
         self.client.add_vm("third", com=[ComPortSetting("tcpserver", port=2500),
-                                         ComPortSetting("tcpserver", port=2501)])
+                                         ComPortSetting("tcpserver", port=2501)],
+                           metadata={"pysnap/access": "com"})
         result = self.service.set_vm_settings("third", ["com1=off", "com2=client:link"])
         self.assertEqual(result.warnings, (
             "COM1 no longer serves TCP port 2500; pysnap connect uses COM1 and cannot reach this VM.",
@@ -348,6 +351,7 @@ class SetCommandTests(unittest.TestCase):
         self.assertIn("Warning: COM1 no longer serves TCP port 2326", errors.getvalue())
         self.assertEqual(output.getvalue().splitlines(), [
             "first (poweroff)",
+            "  Access  ssh as root, no forwarded port yet: run pysnap plug (default)",
             "  COM1  off",
             f'  COM2  pipe server, creates "link" ({host_pipe_path("link")})',
             "  COM3  off",

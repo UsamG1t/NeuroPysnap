@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import replace
 from contextlib import contextmanager
 from pathlib import Path
 import shutil
@@ -21,8 +22,20 @@ from pysnap.core.models import (
     VMHardware,
     VMInfo,
     VMMonitorRecord,
+    SshKeyResult,
     VMSettingsResult,
 )
+from pysnap.core.access import (
+    ACCESS_KEY,
+    DEFAULT_SSH_USER,
+    SSH_USER_KEY,
+    AccessInfo,
+    resolve_access,
+    validate_ssh_user,
+)
+from pysnap.ssh import client as ssh_client
+from pysnap.ssh.client import SshTarget
+from pysnap.ssh.keys import SshKeyStore
 from pysnap.core.settings import ComPortRequest, com_setting_from_request, parse_set_options
 from pysnap.errors import (
     CommandExecutionError,
@@ -57,6 +70,7 @@ class PySnapService:
     DEFAULT_START_TIMEOUT = 30.0
     DEFAULT_STOP_TIMEOUT = 60.0
     DEFAULT_PAUSE_TIMEOUT = 30.0
+    DEFAULT_SSH_WAIT_TIMEOUT = 180.0
     DEFAULT_INTEGRATION_STOP_TIMEOUT = 180.0
     STOPPED_STATES = {"poweroff", "saved", "aborted"}
     STOPPING_STATES = {"stopping"}
@@ -69,15 +83,18 @@ class PySnapService:
         session_registry: SessionRegistry | None = None,
         serial_probe_factory: SerialProbeFactory | None = None,
         proto_settings_store: ProtoSettingsStore | None = None,
+        ssh_key_store: SshKeyStore | None = None,
     ) -> None:
         """Initialize the service.
 
         :param client: Optional VirtualBox client implementation.
+        :param ssh_key_store: Optional PySnap ssh key store.
         """
         self.client = client or VBoxManageClient()
         self.session_registry = session_registry or SessionRegistry()
         self.serial_probe_factory = serial_probe_factory or serial_connection_probe
         self.proto_settings_store = proto_settings_store or ProtoSettingsStore()
+        self.ssh_key_store = ssh_key_store or SshKeyStore()
 
     def import_image(
         self,
@@ -233,6 +250,8 @@ class PySnapService:
                     "pysnap/managed": "true",
                     "pysnap/kind": "base",
                     "pysnap/source": str(image),
+                    # The scenario checks the COM1 console of protocol images.
+                    ACCESS_KEY: "com",
                 },
             )
             created_vm_names.append(imported_vm_name)
@@ -309,6 +328,7 @@ class PySnapService:
         :returns: Monitor records sorted by VM name.
         """
         live_sessions = self.session_registry.list_live_sessions()
+        proto_names = self.proto_settings_store.list_vm_names()
         records: list[VMMonitorRecord] = []
         for vm_info in self._collect_vm_infos():
             display_state = self._display_state(
@@ -324,6 +344,8 @@ class PySnapService:
                     serial_port=vm_info.serial_port,
                     group=vm_info.primary_group,
                     raw_state=(vm_info.vm_state or "").lower(),
+                    access_mode=resolve_access(vm_info, proto_names).mode,
+                    ssh_port=vm_info.ssh_port,
                 )
             )
         return sorted(records, key=lambda record: record.name)
@@ -346,7 +368,7 @@ class PySnapService:
         vm_name: str,
         timeout: float | None = None,
     ) -> VMInfo:
-        """Ensure that a VM is ready for an interactive serial connection.
+        """Ensure that a VM is ready for an interactive connection (COM1 or ssh).
 
         :param vm_name: VM name.
         :param timeout: Optional startup timeout in seconds.
@@ -354,7 +376,13 @@ class PySnapService:
         :raises PySnapError: If the VM cannot be connected.
         """
         vm_info = self._require_vm(vm_name)
-        if vm_info.serial_port is None:
+        access = self._access_of(vm_info)
+        if access.mode == "ssh" and access.ssh_port is None:
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" is reached through ssh but has no forwarded '
+                f"ssh port; run pysnap plug {vm_name}."
+            )
+        if access.mode == "com" and vm_info.serial_port is None:
             raise PySnapError(
                 f'Virtual machine "{vm_name}" does not have a TCP-backed serial port.'
             )
@@ -367,6 +395,12 @@ class PySnapService:
         if raw_state == "running":
             return vm_info
         if raw_state in self.PAUSED_STATES:
+            if access.mode == "ssh":
+                # A paused guest cannot answer the ssh login.
+                raise PySnapError(
+                    f'Virtual machine "{vm_name}" is paused; ssh needs a running guest. '
+                    f"Run pysnap resume {vm_name}."
+                )
             return vm_info
         if raw_state in self.ERROR_STATES:
             raise PySnapError(
@@ -576,17 +610,21 @@ class PySnapService:
         return self.client.get_vm_info(vm_name)
 
     def plug_vm(self, vm_name: str) -> VMInfo:
-        """Configure one VM for PySnap serial-console connections.
+        """Configure one VM for PySnap connections.
 
-        If ``UART1`` is already configured as a TCP server, the VM is returned
-        unchanged. Otherwise, PySnap assigns a free TCP port and enables the
-        same ``UART1`` tcpserver mode used by the imported protocol images.
+        A VM reached through COM1 gets ``UART1`` as a TCP server: if it already
+        is one, the VM is returned unchanged; otherwise PySnap assigns a free
+        TCP port and enables the same ``UART1`` tcpserver mode used by the
+        imported protocol images. A VM reached through ssh gets a NAT rule that
+        forwards a free host port to port 22 of the guest.
 
         :param vm_name: VM name to configure.
         :returns: Updated VM information.
         :raises PySnapError: If the VM cannot be configured safely.
         """
         vm_info = self._require_vm(vm_name)
+        if self._access_of(vm_info).mode == "ssh":
+            return self._plug_ssh(vm_name, vm_info)
         serial_config = self.client.get_serial_port_configuration(vm_name)
         if serial_config.mode == "tcpserver" and serial_config.port is not None:
             return self.client.get_vm_info(vm_name)
@@ -607,6 +645,39 @@ class PySnapService:
         self.client.configure_serial_port(vm_name, serial_port)
         return self.client.get_vm_info(vm_name)
 
+    def _plug_ssh(self, vm_name: str, vm_info: VMInfo) -> VMInfo:
+        """Forward a free host port to the guest ssh server.
+
+        :param vm_name: VM name.
+        :param vm_info: Current VM information.
+        :returns: Updated VM information.
+        :raises PySnapError: Without a NAT adapter or in a transitional state.
+        """
+        if vm_info.ssh_port is not None:
+            return vm_info
+        hardware = self.client.get_vm_hardware(vm_name)
+        adapter = next(
+            (number for number, nic in enumerate(hardware.nics, start=1) if nic.attachment == "nat"),
+            None,
+        )
+        if adapter is None:
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" is reached through ssh but has no NAT adapter; '
+                f"run pysnap set {vm_name} nic1=nat first."
+            )
+        raw_state = (vm_info.vm_state or "").lower()
+        if raw_state in self.STOPPED_STATES:
+            running = False
+        elif raw_state in {"running", *self.PAUSED_STATES}:
+            running = True
+        else:
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" is changing state; try again later.'
+            )
+        port = self._allocate_serial_port(require_host_availability=True)
+        self.client.add_ssh_forwarding(vm_name, adapter, port, running=running)
+        return self.client.get_vm_info(vm_name)
+
     def set_vm_settings(self, vm_name: str, options: Sequence[str]) -> VMSettingsResult:
         """Change the serial ports and network adapters of a stopped VM.
 
@@ -625,7 +696,9 @@ class PySnapService:
         vm_info = self._require_vm(vm_name)
         current = self.client.get_vm_hardware(vm_name)
         if request.empty:
-            return VMSettingsResult(vm_name, vm_info.vm_state, current)
+            return VMSettingsResult(
+                vm_name, vm_info.vm_state, current, access=self._access_of(vm_info)
+            )
         for number in request.com_ports:
             if number > len(current.com_ports):
                 raise PySnapError(
@@ -637,26 +710,201 @@ class PySnapService:
                     f'NIC{number}: virtual machine "{vm_name}" offers NIC1-NIC{len(current.nics)} '
                     "with its chipset."
                 )
-        if (vm_info.vm_state or "").lower() not in self.STOPPED_STATES:
+        if request.hardware_changes and (vm_info.vm_state or "").lower() not in self.STOPPED_STATES:
             raise PySnapError(
                 f'Virtual machine "{vm_name}" must be stopped before its serial ports '
                 f"and network adapters can be changed; run pysnap stop {vm_name}."
             )
 
         com_settings = self._resolve_com_requests(vm_name, current, request.com_ports)
+        if request.access is not None:
+            if request.access == "auto":
+                self.client.delete_metadata(vm_name, ACCESS_KEY)
+            else:
+                self.client.set_metadata(vm_name, {ACCESS_KEY: request.access})
+        if request.ssh_user is not None:
+            self.client.set_metadata(vm_name, {SSH_USER_KEY: request.ssh_user})
+        access = self.get_vm_access(vm_name)
+
         warnings = []
         for number, setting in sorted(com_settings.items()):
             before = current.com_ports[number - 1]
             if before.mode == "tcpserver" and setting.mode != "tcpserver":
                 note = f"COM{number} no longer serves TCP port {before.port}"
-                if number == 1:
+                if number == 1 and access.mode == "com":
                     note += "; pysnap connect uses COM1 and cannot reach this VM"
                 warnings.append(note + ".")
 
-        self.client.apply_vm_hardware(vm_name, com_settings, request.nics)
-        updated = self.client.get_vm_hardware(vm_name)
-        self._update_proto_system_sku(vm_name, updated)
-        return VMSettingsResult(vm_name, vm_info.vm_state, updated, tuple(warnings))
+        updated = current
+        if request.hardware_changes:
+            self.client.apply_vm_hardware(vm_name, com_settings, request.nics)
+            updated = self.client.get_vm_hardware(vm_name)
+            self._update_proto_system_sku(vm_name, updated)
+        access = self.get_vm_access(vm_name)
+        if access.mode == "ssh" and not any(nic.attachment == "nat" for nic in updated.nics):
+            warnings.append(
+                "The VM is reached through ssh but has no NAT adapter; set one, for "
+                "example nic1=nat, and run pysnap plug."
+            )
+        return VMSettingsResult(vm_name, vm_info.vm_state, updated, tuple(warnings), access)
+
+    def ssh_target(self, vm_name: str, user: str | None = None) -> SshTarget:
+        """Return where and as whom to reach a running VM through ssh.
+
+        :param vm_name: VM name.
+        :param user: Guest user; the ssh user of the VM by default.
+        :returns: Connection target.
+        :raises PySnapError: Without a forwarded ssh port or a running VM.
+        """
+        info = self._require_vm(vm_name)
+        access = self._access_of(info)
+        if access.ssh_port is None:
+            hint = (
+                f"run pysnap plug {vm_name}"
+                if access.mode == "ssh"
+                else f"it is reached through COM1; run pysnap set {vm_name} access=ssh "
+                f"and pysnap plug {vm_name}"
+            )
+            raise PySnapError(f'Virtual machine "{vm_name}" has no forwarded ssh port; {hint}.')
+        if (info.vm_state or "").lower() != "running":
+            raise PySnapError(
+                f'Virtual machine "{vm_name}" is not running; ssh needs a running guest.'
+            )
+        return SshTarget(
+            vm_name=vm_name,
+            vm_uuid=info.uuid,
+            port=access.ssh_port,
+            user=validate_ssh_user(user) if user else access.ssh_user,
+        )
+
+    def prepare_ssh_terminal(
+        self,
+        vm_name: str,
+        *,
+        timeout: float | None = None,
+        notify: Callable[[str], None] | None = None,
+        installer=None,
+        poll_interval: float = 2.0,
+    ) -> SshTarget:
+        """Wait for the guest ssh server and make sure the PySnap key works.
+
+        A freshly started guest needs time to boot, so a missing ssh server is
+        retried until ``timeout``. A refused key starts the interactive key
+        setup of :meth:`setup_ssh_key` in the current terminal.
+
+        :param vm_name: Name of a running VM reached through ssh.
+        :param timeout: Seconds to wait for the ssh server.
+        :param notify: Callback for progress messages.
+        :param installer: Interactive installer, for tests.
+        :param poll_interval: Seconds between attempts.
+        :returns: Connection target for the ssh user of the VM.
+        :raises PySnapError: When no ssh server answers in time or the key
+            cannot be installed.
+        """
+        notify = notify or (lambda message: None)
+        deadline = monotonic() + (timeout or self.DEFAULT_SSH_WAIT_TIMEOUT)
+        announced = False
+        while True:
+            target = self.ssh_target(vm_name)
+            check = ssh_client.check_key_access(target, self.ssh_key_store)
+            if check.status == "ok":
+                return target
+            if check.status == "denied":
+                notify(
+                    f'The PySnap ssh key is not installed for {target.user} in "{vm_name}". '
+                    "Installing it now (see pysnap ssh-key --help)."
+                )
+                result = self.setup_ssh_key(vm_name, installer=installer)
+                if result.changed_user:
+                    notify(f"ssh user of {vm_name} set to {result.ssh_user}.")
+                return self.ssh_target(vm_name)
+            if monotonic() >= deadline:
+                raise PySnapError(
+                    f'No ssh server answered on port {target.port} of "{vm_name}": '
+                    f"{check.message or 'connection failed'}."
+                )
+            if not announced:
+                notify(f'Waiting for the ssh server of "{vm_name}" (Ctrl-C stops)...')
+                announced = True
+            sleep(poll_interval)
+
+    def setup_ssh_key(
+        self,
+        vm_name: str,
+        user: str | None = None,
+        *,
+        console: bool = False,
+        installer=None,
+        console_wait: float = 10.0,
+    ) -> SshKeyResult:
+        """Install the PySnap key in the guest so that ssh needs no password.
+
+        By default ssh logs in with the password of ``user`` (the ssh user of
+        the VM) in the current terminal, adds the key for that user and, when
+        the root password is given in the guest, for root as well. With
+        ``console`` the key line is typed on the VM screen instead, for a
+        shell that is logged in there. When the ssh user of the VM cannot use
+        the key but ``user`` can, the ssh user is switched to ``user``.
+
+        :param vm_name: VM name.
+        :param user: Guest user for the password login.
+        :param console: Type the command on the VM screen.
+        :param installer: Interactive installer, for tests.
+        :param console_wait: Seconds to wait for a typed command to work.
+        :returns: Users that can log in with the key afterwards.
+        :raises PySnapError: When no ssh server answers or nothing worked.
+        """
+        target = self.ssh_target(vm_name, user)
+        access = self.get_vm_access(vm_name)
+        store = self.ssh_key_store
+        store.ensure_key()
+
+        before = ssh_client.check_key_access(target, store)
+        if before.status == "unreachable":
+            raise PySnapError(
+                f'No ssh server answered on port {target.port} of "{vm_name}": '
+                f"{before.message or 'connection failed'}."
+            )
+        already = before.status == "ok"
+        if not already:
+            if console:
+                script = ssh_client.install_script(store.public_key_text(), with_root=False)
+                self.client.type_on_console(vm_name, " " + script)
+                deadline = monotonic() + console_wait
+                while ssh_client.check_key_access(target, store).status != "ok" and monotonic() < deadline:
+                    sleep(0.5)
+            else:
+                (installer or ssh_client.install_key_interactively)(target, store)
+
+        candidates = list(dict.fromkeys([target.user, access.ssh_user, DEFAULT_SSH_USER]))
+        working = tuple(
+            name for name in candidates
+            if ssh_client.check_key_access(replace(target, user=name), store).status == "ok"
+        )
+        if not working:
+            raise PySnapError(
+                f'The PySnap key was not installed in "{vm_name}"; the guest refused it '
+                f"for {', '.join(candidates)}. Many systems refuse a root password over "
+                f"ssh: log in as an ordinary user with --user NAME, or type the key on "
+                f"the VM screen with --console."
+            )
+        ssh_user, changed = access.ssh_user, False
+        if ssh_user not in working:
+            ssh_user, changed = working[0], True
+            self.client.set_metadata(vm_name, {SSH_USER_KEY: ssh_user})
+        return SshKeyResult(vm_name, working, ssh_user, changed, already)
+
+    def get_vm_access(self, vm_name: str) -> AccessInfo:
+        """Return how PySnap reaches the guest of a VM.
+
+        :param vm_name: VM name.
+        :returns: Access mode, its source and the connection details.
+        """
+        return self._access_of(self.client.get_vm_info(vm_name))
+
+    def _access_of(self, info: VMInfo) -> AccessInfo:
+        """Return the access description of known VM information."""
+        return resolve_access(info, self.proto_settings_store.list_vm_names())
 
     def clone_vm(
         self,
@@ -697,22 +945,39 @@ class PySnapService:
         )
 
         proto_settings_enabled = self.proto_settings_store.contains(base_vm)
+        base_access = self._access_of(base_info)
+        override = base_info.metadata.get(ACCESS_KEY) if base_access.source == "override" else None
+        # A clone inherits the protosettings choice through its parent and an
+        # explicit choice of the base VM through the copied override.
+        ssh_clone = (override or ("com" if proto_settings_enabled else "ssh")) == "ssh"
         self.client.configure_serial_port(clone_vm, serial_port)
-        if networks:
+        if networks or ssh_clone:
             self.client.configure_internal_networks(
                 clone_vm,
                 networks,
-                preserve_primary_nat=proto_settings_enabled,
+                preserve_primary_nat=proto_settings_enabled or ssh_clone,
             )
+        # The clone copies the ssh rule of its base VM; its host port belongs
+        # to the base, so the copy is removed.
+        inherited = self.client.get_ssh_forwarding(clone_vm)
+        if inherited is not None:
+            self.client.remove_ssh_forwarding(clone_vm, inherited[0])
+        if ssh_clone:
+            ssh_port = self._allocate_serial_port(
+                require_host_availability=True, reserved={serial_port}
+            )
+            self.client.add_ssh_forwarding(clone_vm, 1, ssh_port, running=False)
 
-        self.client.set_metadata(
-            clone_vm,
-            {
-                "pysnap/managed": "true",
-                "pysnap/kind": "clone",
-                "pysnap/parent": base_vm,
-            },
-        )
+        clone_metadata = {
+            "pysnap/managed": "true",
+            "pysnap/kind": "clone",
+            "pysnap/parent": base_vm,
+        }
+        if override:
+            clone_metadata[ACCESS_KEY] = override
+        if SSH_USER_KEY in base_info.metadata:
+            clone_metadata[SSH_USER_KEY] = base_info.metadata[SSH_USER_KEY]
+        self.client.set_metadata(clone_vm, clone_metadata)
         if proto_settings_enabled:
             self.client.configure_dmi_system_information(
                 clone_vm,
@@ -873,10 +1138,11 @@ class PySnapService:
 
     @staticmethod
     def _vm_tcp_ports(info: VMInfo) -> tuple[int, ...]:
-        """Return the TCP ports served by the serial ports of a VM."""
-        if info.serial_tcp_ports:
-            return info.serial_tcp_ports
-        return (info.serial_port,) if info.serial_port is not None else ()
+        """Return the host TCP ports of a VM: serial TCP servers and ssh forwarding."""
+        ports = info.serial_tcp_ports or (
+            (info.serial_port,) if info.serial_port is not None else ()
+        )
+        return ports + ((info.ssh_port,) if info.ssh_port is not None else ())
 
     def _cleanup_integration_vms(
         self,

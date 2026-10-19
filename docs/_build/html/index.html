@@ -5,12 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>PySnap Documentation &#8212; PySnap 2.1.0 documentation</title>
+    <title>PySnap Documentation &#8212; PySnap 2.2.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
-    <script src="_static/documentation_options.js?v=20623aea"></script>
+    <script src="_static/documentation_options.js?v=b21de401"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -37,12 +37,12 @@
 <h1>PySnap Documentation<a class="headerlink" href="#pysnap-documentation" title="Link to this heading">¶</a></h1>
 <p>PySnap is a Python package for managing VirtualBox virtual machines through
 <code class="docutils literal notranslate"><span class="pre">VBoxManage</span></code>. It imports OVA and OVF appliances, creates linked clones,
-configures internal networks, manages serial TCP ports, removes virtual
-machines with dependency checks, and can wipe the VirtualBox data directories
-entirely after explicit confirmation.</p>
+configures internal networks, manages serial TCP ports and ssh access to the
+guests, removes virtual machines with dependency checks, and can wipe the
+VirtualBox data directories entirely after explicit confirmation.</p>
 <section id="downloads">
 <h2>Downloads<a class="headerlink" href="#downloads" title="Link to this heading">¶</a></h2>
-<p>Download the <a class="reference external" href="https://github.com/UsamG1t/NeuroPysnap/raw/refs/heads/master/dist/pysnap-2.1.0-py3-none-any.whl">latest version</a> of the PySnap wheel package.</p>
+<p>Download the <a class="reference external" href="https://github.com/UsamG1t/NeuroPysnap/raw/refs/heads/master/dist/pysnap-2.2.0-py3-none-any.whl">latest version</a> of the PySnap wheel package.</p>
 <p><a class="reference external" href="https://github.com/UsamG1t/NeuroPysnap/tree/master/dist">Other versions</a> are available in the <code class="docutils literal notranslate"><span class="pre">dist</span></code> directory of the repository on
 GitHub.</p>
 <div class="toctree-wrapper compound">
@@ -54,6 +54,7 @@ GitHub.</p>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#list-virtual-machines">List Virtual Machines</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#run-an-integration-test">Run an Integration Test</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#register-proto-settings-for-a-base-vm">Register Proto Settings for a Base VM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#access-to-the-guest">Access to the Guest</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#import-an-appliance">Import an Appliance</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#show-virtual-machine-details">Show Virtual Machine Details</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#plug-a-virtual-machine-for-pysnap-connections">Plug a Virtual Machine for PySnap Connections</a></li>
@@ -76,6 +77,8 @@ GitHub.</p>
 <li class="toctree-l2"><a class="reference internal" href="architecture.html#serial-port-strategy">Serial Port Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="architecture.html#terminal-selection-strategy">Terminal Selection Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="architecture.html#proto-settings-strategy">Proto Settings Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#access-strategy">Access Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#ssh-strategy">ssh Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="architecture.html#runtime-state-strategy">Runtime State Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="architecture.html#host-cleanup-strategy">Host Cleanup Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="architecture.html#listing-robustness-strategy">Listing Robustness Strategy</a></li>

@@ -1,6 +1,11 @@
-"""Copy a report file from a running VM through its serial console.
+"""Copy a report file from a running VM through its serial console or ssh.
 
-The transfer uses only the guest shell and coreutils:
+A VM reached through ssh gets a separate ssh session that runs one command:
+it prints the ``sha256sum`` of the file and then the file itself. The
+student's terminal is not touched, so this works while ``pysnap connect`` is
+attached. Every other VM uses its serial console.
+
+The serial transfer uses only the guest shell and coreutils:
 
 1. The VM must be running and expose ``UART1`` as a TCP server. VirtualBox
    serves one client, so when ``pysnap connect`` is attached the transfer is
@@ -37,15 +42,20 @@ import socket
 import tempfile
 import threading
 from time import monotonic
+import subprocess
 from typing import Callable, Protocol
 
 from pysnap.errors import PySnapError
+from pysnap.ssh import client as ssh_client
 from pysnap.terminal.transport import open_serial_socket
 
 DEFAULT_CONNECT_TIMEOUT = 10.0
 DEFAULT_SHELL_TIMEOUT = 5.0
 DEFAULT_IDLE_TIMEOUT = 10.0
 DEFAULT_MAX_BYTES = 16 * 1024 * 1024
+DEFAULT_SSH_TIMEOUT = 120.0
+# Exit status of the ssh transfer command when the file cannot be read.
+_SSH_MISSING_STATUS = 3
 _QUIET_PERIOD = 0.3
 
 PROBE_COMMAND = b" echo PYSNAP_$((20+22))\r"
@@ -112,6 +122,10 @@ def extract_file(
     target = destination if destination is not None else Path.cwd() / Path(name).name
     if target.exists() and not force:
         raise ExtractError(f'"{target}" already exists; use --force to replace it.')
+    if service.get_vm_access(vm_name).mode == "ssh":
+        data, checksum = ssh_transfer(service, vm_name, remote_path, max_bytes=max_bytes)
+        _write_atomically(target, data)
+        return ExtractResult(vm_name, remote_path, target, len(data), checksum)
     port = _connectable_port(service, vm_name)
 
     session = service.session_registry.get_live_session(vm_name)
@@ -188,6 +202,64 @@ def run_transfer(
     data, checksum = _transfer(console, remote_path, idle_timeout, max_bytes)
     console.send(b" clear\r")
     console.exchange(b"", quiet=_QUIET_PERIOD, limit=1.0)
+    return data, checksum
+
+
+def ssh_transfer(
+    service,
+    vm_name: str,
+    remote_path: str,
+    *,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+    timeout: float = DEFAULT_SSH_TIMEOUT,
+) -> tuple[bytes, str]:
+    """Copy a file through a separate ssh session with the PySnap key.
+
+    :param service: PySnap service; gives the ssh target and the key store.
+    :param vm_name: VM to copy from.
+    :param remote_path: Quoted shell path of the file.
+    :param max_bytes: Largest accepted file size.
+    :param timeout: Seconds the whole transfer may take.
+    :returns: File content and its SHA-256 checksum.
+    :raises ExtractError: When ssh fails or the file cannot be read.
+    """
+    try:
+        target = service.ssh_target(vm_name)
+    except PySnapError as error:
+        raise ExtractError(str(error)) from None
+    # One more byte than allowed tells a file that is too large.
+    script = (
+        f"f={remote_path}; if [ -f \"$f\" ] && [ -r \"$f\" ]; then "
+        f"sha256sum < \"$f\" && head -c {max_bytes + 1} < \"$f\"; "
+        f"else exit {_SSH_MISSING_STATUS}; fi"
+    )
+    try:
+        result = ssh_client.run_remote(
+            target, service.ssh_key_store, f"sh -c {shlex.quote(script)}", timeout=timeout
+        )
+    except subprocess.TimeoutExpired:
+        raise ExtractError(f"The transfer did not finish within {timeout:.0f} seconds.") from None
+    if result.returncode == _SSH_MISSING_STATUS:
+        raise ExtractError(f"The file {remote_path} was not found or is not readable in the VM.")
+    if result.returncode != 0:
+        message = result.stderr.decode(errors="replace").strip()
+        if "Permission denied" in message:
+            raise ExtractError(
+                f'The ssh server of "{vm_name}" refused the PySnap key for {target.user}; '
+                f"run pysnap ssh-key {vm_name}."
+            )
+        raise ExtractError(
+            f'The ssh transfer from "{vm_name}" failed: {message or f"exit status {result.returncode}"}.'
+        )
+    header, separator, data = result.stdout.partition(b"\n")
+    if not separator or not header.split():
+        raise ExtractError("The VM sent an incomplete transfer.")
+    if len(data) > max_bytes:
+        raise ExtractError(f"The file is larger than {max_bytes} bytes.")
+    expected = header.split()[0].decode("ascii", errors="replace")
+    checksum = hashlib.sha256(data).hexdigest()
+    if checksum != expected:
+        raise ExtractError("The checksum of the received file does not match; try again.")
     return data, checksum
 
 

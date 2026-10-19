@@ -10,6 +10,7 @@ import subprocess
 import sys
 from typing import Callable, Protocol, Sequence
 
+from pysnap.core.access import SSH_RULE_NAME, parse_ssh_forwarding, ssh_forwarding_rule
 from pysnap.core.models import (
     ComPortSetting,
     NicSetting,
@@ -301,7 +302,60 @@ class VBoxManageClient:
                 for setting in self._parse_com_ports(properties)
                 if setting.mode == "tcpserver" and setting.port is not None
             ),
+            ssh_port=(self._parse_ssh_rule(properties) or (None, None))[1],
         )
+
+    def add_ssh_forwarding(self, vm_name: str, adapter: int, port: int, *, running: bool) -> None:
+        """Forward a host port on 127.0.0.1 to port 22 of the guest.
+
+        :param vm_name: VM name.
+        :param adapter: Number of the NAT adapter.
+        :param port: Host port.
+        :param running: Use ``controlvm`` for a running or paused VM instead of
+            ``modifyvm``.
+        """
+        rule = ssh_forwarding_rule(port)
+        if running:
+            self.runner.run(["controlvm", vm_name, f"natpf{adapter}", rule])
+        else:
+            self.runner.run(["modifyvm", vm_name, f"--natpf{adapter}", rule])
+
+    def get_ssh_forwarding(self, vm_name: str) -> tuple[int, int] | None:
+        """Return the NAT adapter and host port of the PySnap ssh rule.
+
+        :param vm_name: VM name.
+        :returns: ``(adapter, port)`` or ``None`` without such a rule.
+        """
+        return self._parse_ssh_rule(self._get_vm_properties(vm_name))
+
+    def remove_ssh_forwarding(self, vm_name: str, adapter: int) -> None:
+        """Delete the PySnap ssh rule of a stopped VM.
+
+        :param vm_name: VM name.
+        :param adapter: Number of the NAT adapter holding the rule.
+        """
+        self.runner.run(["modifyvm", vm_name, f"--natpf{adapter}", "delete", SSH_RULE_NAME])
+
+    def type_on_console(self, vm_name: str, text: str) -> None:
+        """Type a line on the screen of a running VM and press Enter.
+
+        ``Ctrl-U`` first clears a half-typed line. VirtualBox types through
+        US keyboard scan codes, so the guest needs a Latin layout.
+
+        :param vm_name: VM name.
+        :param text: ASCII text to type.
+        """
+        self.runner.run(["controlvm", vm_name, "keyboardputscancode", "1d", "16", "96", "9d"])
+        self.runner.run(["controlvm", vm_name, "keyboardputstring", text])
+        self.runner.run(["controlvm", vm_name, "keyboardputscancode", "1c", "9c"])
+
+    def delete_metadata(self, vm_name: str, key: str) -> None:
+        """Remove one extra data entry of a VM.
+
+        :param vm_name: VM name.
+        :param key: Extra data key.
+        """
+        self.runner.run(["setextradata", vm_name, key])
 
     def get_vm_hardware(self, vm_name: str) -> VMHardware:
         """Read the serial ports and network adapters of a VM.
@@ -632,6 +686,26 @@ class VBoxManageClient:
         return parse_machine_readable(
             self.runner.run(["showvminfo", vm_name, "--machinereadable"])
         )
+
+    @staticmethod
+    def _parse_ssh_rule(properties: dict[str, str]) -> tuple[int, int] | None:
+        """Return the NAT adapter and host port of the PySnap ssh rule.
+
+        ``showvminfo --machinereadable`` prints the ``Forwarding(i)`` rules of
+        a NAT adapter after its ``natnetN`` line.
+
+        :param properties: Parsed machine-readable VM properties in output order.
+        :returns: ``(adapter, port)`` or ``None``.
+        """
+        adapter = 1
+        for key, value in properties.items():
+            if key.startswith("natnet") and key[6:].isdigit():
+                adapter = int(key[6:])
+            elif key.startswith("Forwarding("):
+                port = parse_ssh_forwarding(value)
+                if port is not None:
+                    return adapter, port
+        return None
 
     def _nic_count(self, chipset: str) -> int:
         """Return how many network adapters a chipset offers.

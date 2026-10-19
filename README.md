@@ -1,9 +1,9 @@
 # PySnap
 
-PySnap 2.1.0 is a Python 3.11+ command line package for importing VirtualBox OVA/OVF
+PySnap 2.2.0 is a Python 3.11+ command line package for importing VirtualBox OVA/OVF
 appliances, creating linked clones, configuring internal networks, starting
-virtual machines in headless mode, attaching to them through a built-in serial
-terminal, and removing virtual machines with dependency checks.
+virtual machines in headless mode, attaching to them through a built-in
+terminal over the serial console or ssh, and removing virtual machines with dependency checks.
 
 ## Features
 
@@ -21,6 +21,11 @@ terminal, and removing virtual machines with dependency checks.
 - Allocate the next available serial TCP port automatically when `-p` is omitted.
 - Show or change the COM ports and network adapters of a stopped VM with
   `pysnap set`: TCP servers, host pipes between VMs, internal networks, NAT.
+- Reach protosettings VMs and their clones through the COM1 serial console and
+  every other VM through ssh over a forwarded NAT port; `pysnap set` can
+  override the choice and the ssh user.
+- Install a PySnap-only ssh key in a guest with `pysnap ssh-key`, through a
+  password login (with an optional `su` for root) or typed on the VM screen.
 - Start virtual machines in headless mode and attach to them through a
   cross-platform Python terminal interface.
 - Track outer-terminal resize events during ``connect`` sessions and answer
@@ -45,7 +50,7 @@ terminal, and removing virtual machines with dependency checks.
   information and statistics: identity, timing, commands, pauses, typing,
   pasted input, addresses and integrity checks; grade a report against a
   TOML check file with expected commands, output blocks and labeled values;
-  copy reports out of running VMs through the serial console; compare
+  copy reports out of running VMs through the serial console or ssh; compare
   reports pairwise for signs of a shared origin.
 - Run an end-to-end integration test that now verifies VM startup and monitor
   state transitions in addition to creation and cleanup.
@@ -64,6 +69,7 @@ pysnap protosettings BASE_VM
 pysnap docs [--browser BROWSER]
 pysnap show <VM>
 pysnap plug <VM>
+pysnap ssh-key <VM> [--user USER] [--console]
 pysnap set <VM> [comN=auto|PORT|server:NAME|client:NAME|off] [nicN=NETWORK|nat|off] ...
 pysnap connect <VM>
 pysnap monitor
@@ -116,7 +122,8 @@ pysnap docs
 pysnap docs --browser /usr/bin/chromium
 ```
 
-Start a VM in headless mode and attach to its serial console:
+Start a VM in headless mode and attach to its serial console or, for VMs
+reached through ssh, to an ssh login shell:
 
 ```bash
 pysnap connect srv

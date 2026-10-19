@@ -17,6 +17,7 @@ Subpackages
    pysnap.core
    pysnap.report
    pysnap.runtime
+   pysnap.ssh
    pysnap.terminal
    pysnap.vbox
 

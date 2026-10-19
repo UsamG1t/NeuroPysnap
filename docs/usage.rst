@@ -96,6 +96,72 @@ This behavior is relevant for the following CMC MSU courses:
 
    pysnap protosettings BaseVM
 
+Registered base VMs and their clones are also known to have their console on
+``COM1``, so PySnap reaches them through the serial console; every other VM is
+reached through ssh (see `Access to the Guest`_).
+
+Access to the Guest
+-------------------
+
+PySnap reaches the guest of a VM in one of two ways:
+
+- **COM1 serial console** for base VMs registered with ``pysnap protosettings``
+  and their clones: ``UART1`` is a TCP server on the host
+- **ssh** for every other VM: a rule named ``pysnap-ssh`` on the NAT adapter
+  forwards a host port on ``127.0.0.1`` to port 22 of the guest
+
+The choice can be overridden per VM with ``pysnap set VM access=com|ssh`` and
+returned to the automatic choice with ``access=auto``. Clones inherit an
+explicit choice of their base VM. ssh connections use the guest user ``root``
+unless ``pysnap set VM ssh-user=NAME`` names another one; clones inherit it.
+``pysnap show`` prints the access of a VM and ``pysnap monitor`` shows
+``ssh:PORT`` instead of the serial port for ssh VMs.
+
+.. code-block:: text
+
+   pysnap show first
+   ...
+   Access: ssh root@127.0.0.1:2400 (default)
+
+   pysnap set first access=com
+   pysnap set first access=auto ssh-user=student
+
+Install the ssh Key
+~~~~~~~~~~~~~~~~~~~
+
+ssh connections of PySnap use only key login. PySnap keeps its own key pair in
+``~/.pysnap/ssh`` (``pysnap_vm_access_ed25519``, created once without a
+passphrase) and one ``known_hosts`` file per VM in
+``~/.pysnap/ssh/known_hosts.d/<VM UUID>``: the first host key of a VM is
+accepted, a different key later is refused. ``~/.ssh`` is never read or
+changed, and existing files are never overwritten. PySnap runs the system
+OpenSSH client ``ssh``, which is part of Linux distributions, macOS and
+Windows 10 and newer.
+
+``pysnap ssh-key`` installs the key in a running guest:
+
+.. code-block:: text
+
+   pysnap ssh-key first --user student
+   student@127.0.0.1's password:
+   PySnap: the key is installed for student.
+   PySnap: enter the root password to install the key for root too (press Enter to skip).
+   Password:
+   PySnap: the key is installed for root.
+   PySnap key works for: student, root
+
+- ssh logs in with the password of the given user (by default the ssh user
+  of the VM) in the current terminal and adds the key for that user
+- then the guest asks for the root password through ``su``; with it the key is
+  added for root as well, an empty or wrong password skips root
+- many systems refuse a root password over ssh, so the login usually uses an
+  ordinary user with ``--user``
+- when the ssh user of the VM cannot use the key afterwards but the login user
+  can, the ssh user of the VM is switched to the login user
+- with ``--console`` the command that adds the key is typed on the VM screen
+  through VirtualBox keyboard input instead, for a shell that is already logged
+  in there; the guest needs a Latin keyboard layout
+
 Import an Appliance
 -------------------
 
@@ -134,10 +200,14 @@ port configured through ``UART1``.
 Plug a Virtual Machine for PySnap Connections
 ---------------------------------------------
 
-The ``plug`` command prepares an existing VM for ``pysnap connect`` by
-configuring ``UART1`` as a ``tcpserver`` endpoint when this can be done safely.
+The ``plug`` command prepares an existing VM for ``pysnap connect``. For a VM
+reached through ssh it adds the ``pysnap-ssh`` forwarding rule on the first NAT
+adapter with a free host port; this works on stopped, running and paused VMs,
+and a VM without a NAT adapter is refused with a hint to run
+``pysnap set VM nic1=nat``. For a VM reached through the ``COM1`` console it
+configures ``UART1`` as a ``tcpserver`` endpoint when this can be done safely.
 
-PySnap checks these conditions:
+For the ``COM1`` console PySnap checks these conditions:
 
 - the VM exists
 - if ``UART1`` is already configured as ``tcpserver,<port>``, the VM is left unchanged
@@ -195,6 +265,8 @@ VM, ``NIC1``-``NIC8`` (PIIX3) or ``NIC1``-``NIC36`` (ICH9). The output lists
 - ``comN=off``: no serial port
 - ``nicN=NETWORK``: the internal network ``NETWORK``
 - ``nicN=nat``: NAT; ``nicN=off``: no network adapter
+- ``access=com|ssh|auto`` and ``ssh-user=NAME``: how PySnap reaches the guest
+  (see `Access to the Guest`_); these two work on a VM in any state
 
 .. code-block:: text
 
@@ -234,11 +306,26 @@ Connect to a Headless Virtual Machine
 -------------------------------------
 
 The ``connect`` command ensures that the selected VM is running in headless
-mode and then attaches a built-in PySnap terminal interface to its ``UART1``
-TCP console.
+mode and then attaches a built-in PySnap terminal interface to the guest: to
+its ``UART1`` TCP console, or to an ssh login shell for VMs reached through
+ssh (see `Access to the Guest`_).
 
-For VMs that do not already expose a suitable ``UART1 tcpserver`` endpoint, run
-``pysnap plug <VM>`` first.
+For VMs that do not already expose a suitable ``UART1 tcpserver`` endpoint or
+a forwarded ssh port, run ``pysnap plug <VM>`` first.
+
+Over ssh, ``connect`` logs in with the PySnap key as the ssh user of the VM:
+
+- while the guest is still booting and no ssh server answers yet, PySnap
+  waits up to three minutes and says so once; ``Ctrl-C`` stops waiting
+- when the guest refuses the key, PySnap installs it right away in the same
+  way as ``pysnap ssh-key`` (password of the user, then optionally of root)
+  and then logs in with the key
+- the status line shows ``ssh:PORT`` instead of ``UART1:PORT``, no waking
+  newline is sent because the login shell prints its own prompt, and the
+  session ends when the login shell exits (``exit`` or ``Ctrl-D``)
+- a paused VM is refused with a hint to run ``pysnap resume``, because a
+  paused guest cannot answer the login
+- one ``connect`` session per VM is allowed, as on the serial console
 
 The terminal session is detached with ``Ctrl-Q``. Detaching does not stop the
 virtual machine. ``Ctrl-L`` redraws the local interface.
@@ -278,9 +365,9 @@ for ``VBoxManage`` when the command is not exported in ``PATH``.
 
    pysnap connect MyVM
 
-A paused VM can be attached too: the status line shows ``Paused``, keys are
-held back and nothing is sent to the guest until ``pysnap resume``. Then the
-keys work again, and when the guest has not printed anything yet PySnap sends
+A paused VM can be attached through ``UART1`` too: the status line shows
+``Paused``, keys are held back and nothing is sent to the guest until
+``pysnap resume``. Then the keys work again, and when the guest has not printed anything yet PySnap sends
 the usual waking newline. When a VM is paused during a session, the session
 stays open in the same way, so ``Ctrl-Q`` on a paused VM and a new
 ``connect`` lead to the same state. If the paused VM does not accept the
@@ -356,16 +443,19 @@ When ``-p`` is omitted, PySnap scans existing VMs, finds the maximum already
 used serial TCP port, and assigns the next value. If no serial TCP ports are
 configured yet, the automatic sequence starts at ``1024``.
 
-Up to three extra positional arguments configure internal networks. PySnap uses
-two layouts depending on whether the base VM was registered through
-``pysnap protosettings``:
+Up to three extra positional arguments configure internal networks:
 
-- for ordinary base VMs, the legacy layout is used: networks are mapped
-  sequentially onto ``nic1`` through ``nic3``, and omitted adapters are set to
-  ``none``
-- for proto-settings base VMs, ``nic1`` stays in ``nat`` mode, the requested
-  networks are mapped onto ``nic2`` through ``nic4``, and omitted adapters are
-  left enabled
+- ``nic1`` stays in ``nat`` mode, the requested networks are mapped onto
+  ``nic2`` through ``nic4``, and omitted adapters are left enabled. This
+  layout is used for clones of proto-settings base VMs and for every clone
+  reached through ssh, whose ssh port is forwarded on ``nic1``
+- only a clone of a base VM set to ``access=com`` without protosettings keeps
+  the legacy layout: networks are mapped sequentially onto ``nic1`` through
+  ``nic3``, and omitted adapters are set to ``none``
+
+A clone copies the settings of its base VM, including its ``pysnap-ssh`` rule;
+PySnap removes that copy, because its host port belongs to the base VM, and a
+clone reached through ssh gets its own free port.
 
 If the base VM was previously registered through ``pysnap protosettings``,
 PySnap also applies educational DMI settings to the clone.
@@ -641,9 +731,11 @@ not changed.
 Extract a Report from a Running VM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``extract`` subcommand copies a report from a running VM to the host
-through the same ``UART1`` serial console that ``pysnap connect`` uses, so no
-second COM port and no VM restart are needed.
+The ``extract`` subcommand copies a report from a running VM to the host.
+A VM reached through ssh (see `Access to the Guest`_) is read through a
+separate ssh session; every other VM through the same ``UART1`` serial
+console that ``pysnap connect`` uses, so no second COM port and no VM restart
+are needed.
 
 .. code-block:: text
 
@@ -651,7 +743,30 @@ second COM port and no VM restart are needed.
    Extracted "$HOME"/report.01.first from first to /home/user/report.01.first (2621 bytes, sha256 ...).
    pysnap report extract first /tmp/report.03.pc1 --output reports/pc1 --force
 
-Requirements and behavior:
+Over ssh:
+
+- the VM is running, has a forwarded ssh port (see ``pysnap plug``) and the
+  PySnap key is installed for its ssh user (see ``pysnap ssh-key``); unlike
+  ``connect``, ``extract`` never asks for a password
+- one command prints the ``sha256sum`` of the file and the file itself;
+  PySnap verifies the checksum and writes the file as described below
+- the student's terminal is not touched: nothing is typed into it, so the
+  command works the same with or without an attached ``pysnap connect`` and
+  needs no shell prompt there. A report that is still being recorded is
+  copied as it is at that moment
+- a name without ``/`` becomes ``"$HOME"/NAME`` and the guest shell of the
+  ssh user expands ``$HOME``: the name is looked up in the home directory of
+  the ssh user of the VM (``pysnap set VM ssh-user=NAME``, ``root`` by
+  default) and nowhere else. A path with ``/`` is used as given; a relative
+  path starts in that home directory too. With the default user,
+  ``report.01.first`` means ``/root/report.01.first``; with
+  ``ssh-user=student`` it means ``/home/student/report.01.first``. A report
+  recorded by another user needs its full path, for example
+  ``pysnap report extract first /home/student/report.01.first``, and the ssh
+  user must be allowed to read it
+- the transfer fails when it takes more than two minutes
+
+On the serial console:
 
 - the VM is running and has a ``UART1`` TCP port (see ``pysnap plug``)
 - the command also works while ``pysnap connect`` is attached to the VM:
@@ -665,8 +780,10 @@ Requirements and behavior:
 - no ``report`` recording is running: PySnap presses ``Ctrl-U`` and Enter once, and when the
   recording prompt appears it stops before sending any command, so nothing
   else ends up in the student's report
-- a name without ``/`` is looked up in the home directory of the console
-  user; a path with ``/`` is used as given
+- a name without ``/`` is looked up in the home directory (``$HOME``) of the
+  shell running on the console, that is of the user logged in there; a path
+  with ``/`` is used as given, and a relative one starts in the current
+  directory of that shell
 - the file is sent as ``base64`` together with its ``sha256sum``; PySnap
   verifies the checksum, writes the file under the same name into the current
   directory or to ``--output``, and never replaces an existing file without
