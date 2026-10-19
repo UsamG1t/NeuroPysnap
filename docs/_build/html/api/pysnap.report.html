@@ -5,12 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>pysnap.report package &#8212; PySnap 2.1.0 documentation</title>
+    <title>pysnap.report package &#8212; PySnap 2.2.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
-    <script src="../_static/documentation_options.js?v=20623aea"></script>
+    <script src="../_static/documentation_options.js?v=b21de401"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -844,8 +844,12 @@ fails.</p>
 </section>
 <section id="module-pysnap.report.extract">
 <span id="pysnap-report-extract-module"></span><h2>pysnap.report.extract module<a class="headerlink" href="#module-pysnap.report.extract" title="Link to this heading">¶</a></h2>
-<p>Copy a report file from a running VM through its serial console.</p>
-<p>The transfer uses only the guest shell and coreutils:</p>
+<p>Copy a report file from a running VM through its serial console or ssh.</p>
+<p>A VM reached through ssh gets a separate ssh session that runs one command:
+it prints the <code class="docutils literal notranslate"><span class="pre">sha256sum</span></code> of the file and then the file itself. The
+student’s terminal is not touched, so this works while <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code> is
+attached. Every other VM uses its serial console.</p>
+<p>The serial transfer uses only the guest shell and coreutils:</p>
 <ol class="arabic simple">
 <li><p>The VM must be running and expose <code class="docutils literal notranslate"><span class="pre">UART1</span></code> as a TCP server. VirtualBox
 serves one client, so when <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code> is attached the transfer is
@@ -967,6 +971,32 @@ directory.</p></li>
 </dd>
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="#pysnap.report.extract.ExtractError" title="pysnap.report.extract.ExtractError"><strong>ExtractError</strong></a> – When the console is not usable or the transfer fails.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple[bytes, str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.report.extract.ssh_transfer">
+<span class="sig-prename descclassname"><span class="pre">pysnap.report.extract.</span></span><span class="sig-name descname"><span class="pre">ssh_transfer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">service</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_path</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_bytes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">16777216</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">120.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/report/extract.html#ssh_transfer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.report.extract.ssh_transfer" title="Link to this definition">¶</a></dt>
+<dd><p>Copy a file through a separate ssh session with the PySnap key.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>service</strong> – PySnap service; gives the ssh target and the key store.</p></li>
+<li><p><strong>vm_name</strong> (<em>str</em>) – VM to copy from.</p></li>
+<li><p><strong>remote_path</strong> (<em>str</em>) – Quoted shell path of the file.</p></li>
+<li><p><strong>max_bytes</strong> (<em>int</em>) – Largest accepted file size.</p></li>
+<li><p><strong>timeout</strong> (<em>float</em>) – Seconds the whole transfer may take.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>File content and its SHA-256 checksum.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#pysnap.report.extract.ExtractError" title="pysnap.report.extract.ExtractError"><strong>ExtractError</strong></a> – When ssh fails or the file cannot be read.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>tuple[bytes, str]</p>

@@ -754,7 +754,16 @@ Over ssh:
   command works the same with or without an attached ``pysnap connect`` and
   needs no shell prompt there. A report that is still being recorded is
   copied as it is at that moment
-- a name without ``/`` is looked up in the home directory of the ssh user
+- a name without ``/`` becomes ``"$HOME"/NAME`` and the guest shell of the
+  ssh user expands ``$HOME``: the name is looked up in the home directory of
+  the ssh user of the VM (``pysnap set VM ssh-user=NAME``, ``root`` by
+  default) and nowhere else. A path with ``/`` is used as given; a relative
+  path starts in that home directory too. With the default user,
+  ``report.01.first`` means ``/root/report.01.first``; with
+  ``ssh-user=student`` it means ``/home/student/report.01.first``. A report
+  recorded by another user needs its full path, for example
+  ``pysnap report extract first /home/student/report.01.first``, and the ssh
+  user must be allowed to read it
 - the transfer fails when it takes more than two minutes
 
 On the serial console:
@@ -771,8 +780,10 @@ On the serial console:
 - no ``report`` recording is running: PySnap presses ``Ctrl-U`` and Enter once, and when the
   recording prompt appears it stops before sending any command, so nothing
   else ends up in the student's report
-- a name without ``/`` is looked up in the home directory of the console
-  user; a path with ``/`` is used as given
+- a name without ``/`` is looked up in the home directory (``$HOME``) of the
+  shell running on the console, that is of the user logged in there; a path
+  with ``/`` is used as given, and a relative one starts in the current
+  directory of that shell
 - the file is sent as ``base64`` together with its ``sha256sum``; PySnap
   verifies the checksum, writes the file under the same name into the current
   directory or to ``--output``, and never replaces an existing file without

@@ -190,7 +190,7 @@ def build_root_parser(
         description=(
             "Manage VirtualBox appliance imports and linked clones for network "
             "labs: import images, clone and configure virtual machines, attach "
-            "to their serial consoles and read the session reports recorded "
+            "to their serial consoles or through ssh and read the session reports recorded "
             "inside them."
         ),
         epilog=_commands_epilog(),

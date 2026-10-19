@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pysnap.cli.report &#8212; PySnap 2.1.0 documentation</title>
+    <title>pysnap.cli.report &#8212; PySnap 2.2.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
-    <script src="../../../_static/documentation_options.js?v=20623aea"></script>
+    <script src="../../../_static/documentation_options.js?v=b21de401"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -198,13 +198,17 @@
 
     <span class="n">extract</span> <span class="o">=</span> <span class="n">subcommands</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
         <span class="s2">"extract"</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">"Copy a report file from a running VM through its serial console."</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Copy a report file from a running VM through its console or ssh."</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-            <span class="s2">"Copy a file from a running VM to the host through the UART1 serial "</span>
-            <span class="s2">"console. The VM must be at a shell prompt, without a running report "</span>
-            <span class="s2">"recording. An attached pysnap connect session runs the transfer on "</span>
-            <span class="s2">"its own connection. A name without / is looked up in the home "</span>
-            <span class="s2">"directory of the console user."</span>
+            <span class="s2">"Copy a file from a running VM to the host. A VM reached through ssh "</span>
+            <span class="s2">"is read through a separate ssh session with the PySnap key (see "</span>
+            <span class="s2">"pysnap ssh-key); the student's terminal is not touched. Other VMs "</span>
+            <span class="s2">"use the UART1 serial console: it must be at a shell prompt, without "</span>
+            <span class="s2">"a running report recording, and an attached pysnap connect session "</span>
+            <span class="s2">"runs the transfer on its own connection. A name without / is looked "</span>
+            <span class="s2">"up only in the home directory of the user logged in on the console, "</span>
+            <span class="s2">"or of the ssh user of the VM (pysnap set VM ssh-user=NAME, root by "</span>
+            <span class="s2">"default); give the full path for a report of another user."</span>
         <span class="p">),</span>
         <span class="n">epilog</span><span class="o">=</span><span class="n">_examples</span><span class="p">(</span>
             <span class="s2">"pysnap report extract first report.01.first"</span><span class="p">,</span>

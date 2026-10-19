@@ -170,7 +170,9 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
             "use the UART1 serial console: it must be at a shell prompt, without "
             "a running report recording, and an attached pysnap connect session "
             "runs the transfer on its own connection. A name without / is looked "
-            "up in the home directory of the console or ssh user."
+            "up only in the home directory of the user logged in on the console, "
+            "or of the ssh user of the VM (pysnap set VM ssh-user=NAME, root by "
+            "default); give the full path for a report of another user."
         ),
         epilog=_examples(
             "pysnap report extract first report.01.first",

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>pysnap.ssh package &#8212; PySnap 2.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+    <script src="../_static/documentation_options.js?v=b21de401"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="pysnap.terminal package" href="pysnap.terminal.html" />
+    <link rel="prev" title="pysnap.runtime package" href="pysnap.runtime.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-pysnap.ssh">
+<span id="pysnap-ssh-package"></span><h1>pysnap.ssh package<a class="headerlink" href="#module-pysnap.ssh" title="Link to this heading">¶</a></h1>
+<p>ssh access to guests that have no console on COM1.</p>
+<p>PySnap runs the system OpenSSH client (<code class="docutils literal notranslate"><span class="pre">ssh</span></code>) with its own key pair and its
+own <code class="docutils literal notranslate"><span class="pre">known_hosts</span></code> files, so the user’s keys and <code class="docutils literal notranslate"><span class="pre">~/.ssh/known_hosts</span></code> are
+never read or changed.</p>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading">¶</a></h2>
+</section>
+<section id="module-pysnap.ssh.client">
+<span id="pysnap-ssh-client-module"></span><h2>pysnap.ssh.client module<a class="headerlink" href="#module-pysnap.ssh.client" title="Link to this heading">¶</a></h2>
+<p>Run the system <code class="docutils literal notranslate"><span class="pre">ssh</span></code> client against a forwarded guest port.</p>
+<p>Every call uses the PySnap key, the known_hosts file of the VM with
+<code class="docutils literal notranslate"><span class="pre">StrictHostKeyChecking=accept-new</span></code> (the first key is trusted, a changed key
+is refused) and no user configuration (<code class="docutils literal notranslate"><span class="pre">-F</span></code> with the null device), so the
+behaviour does not depend on <code class="docutils literal notranslate"><span class="pre">~/.ssh</span></code>. Non-interactive calls run in batch
+mode: they never ask for a password.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.ssh.client.SshTarget">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.ssh.client.</span></span><span class="sig-name descname"><span class="pre">SshTarget</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vm_uuid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/ssh/client.html#SshTarget"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.client.SshTarget" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Describe where and as whom to connect.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vm_name</strong> (<em>str</em>) – VM name, used in messages.</p></li>
+<li><p><strong>vm_uuid</strong> (<em>str</em>) – VM UUID, selects the known_hosts file.</p></li>
+<li><p><strong>port</strong> (<em>int</em>) – Host port forwarded to the guest ssh server.</p></li>
+<li><p><strong>user</strong> (<em>str</em>) – Guest user.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.ssh.client.SshTarget.vm_name">
+<span class="sig-name descname"><span class="pre">vm_name</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#pysnap.ssh.client.SshTarget.vm_name" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.ssh.client.SshTarget.vm_uuid">
+<span class="sig-name descname"><span class="pre">vm_uuid</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#pysnap.ssh.client.SshTarget.vm_uuid" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.ssh.client.SshTarget.port">
+<span class="sig-name descname"><span class="pre">port</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#pysnap.ssh.client.SshTarget.port" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.ssh.client.SshTarget.user">
+<span class="sig-name descname"><span class="pre">user</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#pysnap.ssh.client.SshTarget.user" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.ssh.client.AccessCheck">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.ssh.client.</span></span><span class="sig-name descname"><span class="pre">AccessCheck</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">status</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/ssh/client.html#AccessCheck"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.client.AccessCheck" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Result of a key login attempt.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>status</strong> (<em>str</em>) – <code class="docutils literal notranslate"><span class="pre">&quot;ok&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;denied&quot;</span></code> (the server refused the key) or
+<code class="docutils literal notranslate"><span class="pre">&quot;unreachable&quot;</span></code> (no ssh server answered).</p></li>
+<li><p><strong>message</strong> (<em>str</em>) – Error output of ssh.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.ssh.client.AccessCheck.status">
+<span class="sig-name descname"><span class="pre">status</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#pysnap.ssh.client.AccessCheck.status" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.ssh.client.AccessCheck.message">
+<span class="sig-name descname"><span class="pre">message</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></span><a class="headerlink" href="#pysnap.ssh.client.AccessCheck.message" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.ssh.client.ssh_command">
+<span class="sig-prename descclassname"><span class="pre">pysnap.ssh.client.</span></span><span class="sig-name descname"><span class="pre">ssh_command</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">store</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tty</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_command</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">()</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/ssh/client.html#ssh_command"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.client.ssh_command" title="Link to this definition">¶</a></dt>
+<dd><p>Build an <code class="docutils literal notranslate"><span class="pre">ssh</span></code> command line.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>target</strong> (<a class="reference internal" href="#pysnap.ssh.client.SshTarget" title="pysnap.ssh.client.SshTarget"><em>SshTarget</em></a>) – Connection target.</p></li>
+<li><p><strong>store</strong> (<a class="reference internal" href="#pysnap.ssh.keys.SshKeyStore" title="pysnap.ssh.keys.SshKeyStore"><em>SshKeyStore</em></a>) – PySnap key store.</p></li>
+<li><p><strong>batch</strong> (<em>bool</em>) – Use the PySnap key only and never ask for a password.</p></li>
+<li><p><strong>tty</strong> (<em>bool</em>) – Request a terminal on the guest (<code class="docutils literal notranslate"><span class="pre">-tt</span></code>).</p></li>
+<li><p><strong>remote_command</strong> (<em>str</em><em> | </em><em>None</em>) – Command for the guest shell; a login shell without.</p></li>
+<li><p><strong>extra</strong> (<em>Sequence</em><em>[</em><em>str</em><em>]</em>) – Further ssh options placed before the destination.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Argument list.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.ssh.client.check_key_access">
+<span class="sig-prename descclassname"><span class="pre">pysnap.ssh.client.</span></span><span class="sig-name descname"><span class="pre">check_key_access</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">store</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/ssh/client.html#check_key_access"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.client.check_key_access" title="Link to this definition">¶</a></dt>
+<dd><p>Try to log in with the PySnap key.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>target</strong> (<a class="reference internal" href="#pysnap.ssh.client.SshTarget" title="pysnap.ssh.client.SshTarget"><em>SshTarget</em></a>) – Connection target.</p></li>
+<li><p><strong>store</strong> (<a class="reference internal" href="#pysnap.ssh.keys.SshKeyStore" title="pysnap.ssh.keys.SshKeyStore"><em>SshKeyStore</em></a>) – PySnap key store.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Whether the key works, is refused or no server answers.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#pysnap.ssh.client.AccessCheck" title="pysnap.ssh.client.AccessCheck"><em>AccessCheck</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.ssh.client.run_remote">
+<span class="sig-prename descclassname"><span class="pre">pysnap.ssh.client.</span></span><span class="sig-name descname"><span class="pre">run_remote</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">store</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">command</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/ssh/client.html#run_remote"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.client.run_remote" title="Link to this definition">¶</a></dt>
+<dd><p>Run one command on the guest with the PySnap key.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>target</strong> (<a class="reference internal" href="#pysnap.ssh.client.SshTarget" title="pysnap.ssh.client.SshTarget"><em>SshTarget</em></a>) – Connection target.</p></li>
+<li><p><strong>store</strong> (<a class="reference internal" href="#pysnap.ssh.keys.SshKeyStore" title="pysnap.ssh.keys.SshKeyStore"><em>SshKeyStore</em></a>) – PySnap key store.</p></li>
+<li><p><strong>command</strong> (<em>str</em>) – Shell command line for the guest.</p></li>
+<li><p><strong>timeout</strong> (<em>float</em><em> | </em><em>None</em>) – Seconds to wait.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Completed process with bytes output.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>CompletedProcess</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.ssh.client.open_terminal">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.ssh.client.</span></span><span class="sig-name descname"><span class="pre">open_terminal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">store</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">columns</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rows</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/ssh/client.html#open_terminal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.client.open_terminal" title="Link to this definition">¶</a></dt>
+<dd><p>Start an interactive guest shell on a pseudo terminal.</p>
+<p>The guest terminal gets the given size first; output of ssh itself
+(errors) is merged into the stream.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>target</strong> (<a class="reference internal" href="#pysnap.ssh.client.SshTarget" title="pysnap.ssh.client.SshTarget"><em>SshTarget</em></a>) – Connection target.</p></li>
+<li><p><strong>store</strong> (<a class="reference internal" href="#pysnap.ssh.keys.SshKeyStore" title="pysnap.ssh.keys.SshKeyStore"><em>SshKeyStore</em></a>) – PySnap key store.</p></li>
+<li><p><strong>columns</strong> (<em>int</em>) – Terminal width.</p></li>
+<li><p><strong>rows</strong> (<em>int</em>) – Terminal height.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Reader, writer and the ssh process.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[<em>StreamReader</em>, <em>StreamWriter</em>, <em>Process</em>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.ssh.client.install_script">
+<span class="sig-prename descclassname"><span class="pre">pysnap.ssh.client.</span></span><span class="sig-name descname"><span class="pre">install_script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">public_key</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_root</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/ssh/client.html#install_script"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.client.install_script" title="Link to this definition">¶</a></dt>
+<dd><p>Return the guest shell script that adds the PySnap key.</p>
+<p>The key is appended to <code class="docutils literal notranslate"><span class="pre">~/.ssh/authorized_keys</span></code> unless it is there
+already. With <code class="docutils literal notranslate"><span class="pre">with_root</span></code>, a user other than root then runs the same
+for root through <code class="docutils literal notranslate"><span class="pre">su</span></code>; the guest asks for the root password, and an
+empty or wrong one only skips root.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>public_key</strong> (<em>str</em>) – Public key line.</p></li>
+<li><p><strong>with_root</strong> (<em>bool</em>) – Also install the key for root.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Script for <code class="docutils literal notranslate"><span class="pre">sh</span> <span class="pre">-c</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.ssh.client.install_key_interactively">
+<span class="sig-prename descclassname"><span class="pre">pysnap.ssh.client.</span></span><span class="sig-name descname"><span class="pre">install_key_interactively</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">store</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/ssh/client.html#install_key_interactively"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.client.install_key_interactively" title="Link to this definition">¶</a></dt>
+<dd><p>Log in with a password in the current terminal and add the key.</p>
+<p>ssh asks for the password of <code class="docutils literal notranslate"><span class="pre">target.user</span></code>; the guest may ask for the
+root password. Nothing is captured, the user sees the whole dialogue.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>target</strong> (<a class="reference internal" href="#pysnap.ssh.client.SshTarget" title="pysnap.ssh.client.SshTarget"><em>SshTarget</em></a>) – Connection target with the password login user.</p></li>
+<li><p><strong>store</strong> (<a class="reference internal" href="#pysnap.ssh.keys.SshKeyStore" title="pysnap.ssh.keys.SshKeyStore"><em>SshKeyStore</em></a>) – PySnap key store.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Exit status of ssh.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.ssh.client.check_or_raise">
+<span class="sig-prename descclassname"><span class="pre">pysnap.ssh.client.</span></span><span class="sig-name descname"><span class="pre">check_or_raise</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">store</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/ssh/client.html#check_or_raise"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.client.check_or_raise" title="Link to this definition">¶</a></dt>
+<dd><p>Raise a helpful error unless the PySnap key logs in.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>target</strong> (<a class="reference internal" href="#pysnap.ssh.client.SshTarget" title="pysnap.ssh.client.SshTarget"><em>SshTarget</em></a>) – Connection target.</p></li>
+<li><p><strong>store</strong> (<a class="reference internal" href="#pysnap.ssh.keys.SshKeyStore" title="pysnap.ssh.keys.SshKeyStore"><em>SshKeyStore</em></a>) – PySnap key store.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="pysnap.html#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><strong>PySnapError</strong></a> – When the key is refused or no server answers.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-pysnap.ssh.keys">
+<span id="pysnap-ssh-keys-module"></span><h2>pysnap.ssh.keys module<a class="headerlink" href="#module-pysnap.ssh.keys" title="Link to this heading">¶</a></h2>
+<p>The PySnap ssh key pair and per-VM <code class="docutils literal notranslate"><span class="pre">known_hosts</span></code> files.</p>
+<p>Everything lives in <code class="docutils literal notranslate"><span class="pre">~/.pysnap/ssh</span></code> (mode 0700): the key pair
+<code class="docutils literal notranslate"><span class="pre">pysnap_vm_access_ed25519</span></code> with its <code class="docutils literal notranslate"><span class="pre">.pub</span></code> file, created once by
+<code class="docutils literal notranslate"><span class="pre">ssh-keygen</span></code> without a passphrase, and <code class="docutils literal notranslate"><span class="pre">known_hosts.d/&lt;VM</span> <span class="pre">UUID&gt;</span></code>, one
+<code class="docutils literal notranslate"><span class="pre">known_hosts</span></code> file per VM. Both the directory and the file names are unique
+to PySnap, and existing files are never overwritten.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="pysnap.ssh.keys.find_executable">
+<span class="sig-prename descclassname"><span class="pre">pysnap.ssh.keys.</span></span><span class="sig-name descname"><span class="pre">find_executable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/ssh/keys.html#find_executable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.keys.find_executable" title="Link to this definition">¶</a></dt>
+<dd><p>Return the path of an OpenSSH program.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>name</strong> (<em>str</em>) – <code class="docutils literal notranslate"><span class="pre">ssh</span></code> or <code class="docutils literal notranslate"><span class="pre">ssh-keygen</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Executable path.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="pysnap.html#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><strong>PySnapError</strong></a> – When the program is not installed.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.ssh.keys.SshKeyStore">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.ssh.keys.</span></span><span class="sig-name descname"><span class="pre">SshKeyStore</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/ssh/keys.html#SshKeyStore"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.keys.SshKeyStore" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Locate and create the PySnap key pair and known_hosts files.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>root</strong> (<em>Path</em><em> | </em><em>None</em>)</p>
+</dd>
+</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="pysnap.ssh.keys.SshKeyStore.private_key">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">private_key</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></span><a class="reference internal" href="../_modules/pysnap/ssh/keys.html#SshKeyStore.private_key"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.keys.SshKeyStore.private_key" title="Link to this definition">¶</a></dt>
+<dd><p>Return the private key path.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="pysnap.ssh.keys.SshKeyStore.public_key">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">public_key</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></span><a class="reference internal" href="../_modules/pysnap/ssh/keys.html#SshKeyStore.public_key"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.keys.SshKeyStore.public_key" title="Link to this definition">¶</a></dt>
+<dd><p>Return the public key path.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.ssh.keys.SshKeyStore.known_hosts">
+<span class="sig-name descname"><span class="pre">known_hosts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vm_uuid</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/ssh/keys.html#SshKeyStore.known_hosts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.keys.SshKeyStore.known_hosts" title="Link to this definition">¶</a></dt>
+<dd><p>Return the known_hosts file of one VM, creating its directory.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vm_uuid</strong> (<em>str</em>) – VirtualBox UUID of the VM.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>File path; the file itself is written by ssh.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="pysnap.html#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><strong>PySnapError</strong></a> – For an unusable UUID.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Path</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.ssh.keys.SshKeyStore.ensure_key">
+<span class="sig-name descname"><span class="pre">ensure_key</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/ssh/keys.html#SshKeyStore.ensure_key"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.keys.SshKeyStore.ensure_key" title="Link to this definition">¶</a></dt>
+<dd><p>Return the private key, creating the key pair on first use.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Private key path.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="pysnap.html#pysnap.errors.PySnapError" title="pysnap.errors.PySnapError"><strong>PySnapError</strong></a> – When only one half of the pair exists, when a path
+is taken by something else or <code class="docutils literal notranslate"><span class="pre">ssh-keygen</span></code> fails.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Path</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.ssh.keys.SshKeyStore.public_key_text">
+<span class="sig-name descname"><span class="pre">public_key_text</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/ssh/keys.html#SshKeyStore.public_key_text"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.ssh.keys.SshKeyStore.public_key_text" title="Link to this definition">¶</a></dt>
+<dd><p>Return the public key line, creating the key pair if needed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>One <code class="docutils literal notranslate"><span class="pre">ssh-ed25519</span> <span class="pre">...</span> <span class="pre">comment</span></code> line.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">PySnap</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">pysnap</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="pysnap.html">pysnap package</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">pysnap</a><ul>
+  <li><a href="pysnap.html">pysnap package</a><ul>
+      <li>Previous: <a href="pysnap.runtime.html" title="previous chapter">pysnap.runtime package</a></li>
+      <li>Next: <a href="pysnap.terminal.html" title="next chapter">pysnap.terminal package</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, PySnap Authors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/api/pysnap.ssh.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

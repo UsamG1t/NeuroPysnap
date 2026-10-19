@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pysnap.ssh.keys &#8212; PySnap 2.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../_static/documentation_options.js?v=b21de401"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for pysnap.ssh.keys</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""The PySnap ssh key pair and per-VM ``known_hosts`` files.</span>
+
+<span class="sd">Everything lives in ``~/.pysnap/ssh`` (mode 0700): the key pair</span>
+<span class="sd">``pysnap_vm_access_ed25519`` with its ``.pub`` file, created once by</span>
+<span class="sd">``ssh-keygen`` without a passphrase, and ``known_hosts.d/&lt;VM UUID&gt;``, one</span>
+<span class="sd">``known_hosts`` file per VM. Both the directory and the file names are unique</span>
+<span class="sd">to PySnap, and existing files are never overwritten.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">socket</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">PySnapError</span>
+
+<span class="n">KEY_NAME</span> <span class="o">=</span> <span class="s2">"pysnap_vm_access_ed25519"</span>
+<span class="n">KEY_COMMENT_PREFIX</span> <span class="o">=</span> <span class="s2">"pysnap-vm-access@"</span>
+
+<span class="n">_UUID_PATTERN</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"^[0-9A-Za-z-]{1,64}$"</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="find_executable">
+<a class="viewcode-back" href="../../../api/pysnap.ssh.html#pysnap.ssh.keys.find_executable">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_executable</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return the path of an OpenSSH program.</span>
+
+<span class="sd">    :param name: ``ssh`` or ``ssh-keygen``.</span>
+<span class="sd">    :returns: Executable path.</span>
+<span class="sd">    :raises PySnapError: When the program is not installed.</span>
+<span class="sd">    """</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"The OpenSSH program </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> was not found. Install the OpenSSH client "</span>
+            <span class="s2">"(it is part of Linux distributions, macOS and Windows 10 and newer)."</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">path</span></div>
+
+
+
+<div class="viewcode-block" id="SshKeyStore">
+<a class="viewcode-back" href="../../../api/pysnap.ssh.html#pysnap.ssh.keys.SshKeyStore">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SshKeyStore</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Locate and create the PySnap key pair and known_hosts files."""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the store.</span>
+
+<span class="sd">        :param root: Directory to use instead of ``~/.pysnap/ssh``.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">root</span> <span class="ow">or</span> <span class="p">(</span><span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()</span> <span class="o">/</span> <span class="s2">".pysnap"</span> <span class="o">/</span> <span class="s2">"ssh"</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SshKeyStore.private_key">
+<a class="viewcode-back" href="../../../api/pysnap.ssh.html#pysnap.ssh.keys.SshKeyStore.private_key">[docs]</a>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">private_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return the private key path."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">/</span> <span class="n">KEY_NAME</span></div>
+
+
+<div class="viewcode-block" id="SshKeyStore.public_key">
+<a class="viewcode-back" href="../../../api/pysnap.ssh.html#pysnap.ssh.keys.SshKeyStore.public_key">[docs]</a>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">public_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return the public key path."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">KEY_NAME</span><span class="si">}</span><span class="s2">.pub"</span></div>
+
+
+<div class="viewcode-block" id="SshKeyStore.known_hosts">
+<a class="viewcode-back" href="../../../api/pysnap.ssh.html#pysnap.ssh.keys.SshKeyStore.known_hosts">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">known_hosts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vm_uuid</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return the known_hosts file of one VM, creating its directory.</span>
+
+<span class="sd">        :param vm_uuid: VirtualBox UUID of the VM.</span>
+<span class="sd">        :returns: File path; the file itself is written by ssh.</span>
+<span class="sd">        :raises PySnapError: For an unusable UUID.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_UUID_PATTERN</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">vm_uuid</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Invalid virtual machine UUID "</span><span class="si">{</span><span class="n">vm_uuid</span><span class="si">}</span><span class="s1">".'</span><span class="p">)</span>
+        <span class="n">directory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_directory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">/</span> <span class="s2">"known_hosts.d"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">directory</span> <span class="o">/</span> <span class="n">vm_uuid</span></div>
+
+
+<div class="viewcode-block" id="SshKeyStore.ensure_key">
+<a class="viewcode-back" href="../../../api/pysnap.ssh.html#pysnap.ssh.keys.SshKeyStore.ensure_key">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ensure_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return the private key, creating the key pair on first use.</span>
+
+<span class="sd">        :returns: Private key path.</span>
+<span class="sd">        :raises PySnapError: When only one half of the pair exists, when a path</span>
+<span class="sd">            is taken by something else or ``ssh-keygen`` fails.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_directory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">)</span>
+        <span class="n">private_exists</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">lexists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">private_key</span><span class="p">)</span>
+        <span class="n">public_exists</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">lexists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">public_key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">private_exists</span> <span class="ow">and</span> <span class="n">public_exists</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">private_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">public_key</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="ow">or</span> <span class="n">path</span><span class="o">.</span><span class="n">is_symlink</span><span class="p">():</span>
+                    <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> is not a regular file; PySnap does not use it."</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">private_key</span>
+        <span class="k">if</span> <span class="n">private_exists</span> <span class="ow">or</span> <span class="n">public_exists</span><span class="p">:</span>
+            <span class="n">present</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">private_key</span> <span class="k">if</span> <span class="n">private_exists</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">public_key</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Only </span><span class="si">{</span><span class="n">present</span><span class="si">}</span><span class="s2"> exists; PySnap does not overwrite it. Move it away "</span>
+                <span class="s2">"to let PySnap create a new key pair."</span>
+            <span class="p">)</span>
+        <span class="n">comment</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">KEY_COMMENT_PREFIX</span><span class="si">}{</span><span class="n">socket</span><span class="o">.</span><span class="n">gethostname</span><span class="p">()</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'host'</span><span class="si">}</span><span class="s2">"</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">find_executable</span><span class="p">(</span><span class="s2">"ssh-keygen"</span><span class="p">),</span> <span class="s2">"-q"</span><span class="p">,</span> <span class="s2">"-t"</span><span class="p">,</span> <span class="s2">"ed25519"</span><span class="p">,</span> <span class="s2">"-N"</span><span class="p">,</span> <span class="s2">""</span><span class="p">,</span> <span class="s2">"-C"</span><span class="p">,</span> <span class="n">comment</span><span class="p">,</span>
+             <span class="s2">"-f"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">private_key</span><span class="p">)],</span>
+            <span class="n">stdin</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span>
+            <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ssh-keygen failed: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="n">result</span><span class="o">.</span><span class="n">returncode</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">private_key</span></div>
+
+
+<div class="viewcode-block" id="SshKeyStore.public_key_text">
+<a class="viewcode-back" href="../../../api/pysnap.ssh.html#pysnap.ssh.keys.SshKeyStore.public_key_text">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">public_key_text</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return the public key line, creating the key pair if needed.</span>
+
+<span class="sd">        :returns: One ``ssh-ed25519 ... comment`` line.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ensure_key</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">public_key</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"ascii"</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span></div>
+
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_ensure_directory</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Create a private directory or check an existing one."""</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">lexists</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">is_symlink</span><span class="p">()</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">is_dir</span><span class="p">()):</span>
+            <span class="k">raise</span> <span class="n">PySnapError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> exists and is not a directory; PySnap does not use it."</span><span class="p">)</span>
+        <span class="n">path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="mo">0o700</span><span class="p">,</span> <span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">path</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">PySnap</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/modules.html">pysnap</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, PySnap Authors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

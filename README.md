@@ -1,9 +1,9 @@
 # PySnap
 
-PySnap 2.1.0 is a Python 3.11+ command line package for importing VirtualBox OVA/OVF
+PySnap 2.2.0 is a Python 3.11+ command line package for importing VirtualBox OVA/OVF
 appliances, creating linked clones, configuring internal networks, starting
-virtual machines in headless mode, attaching to them through a built-in serial
-terminal, and removing virtual machines with dependency checks.
+virtual machines in headless mode, attaching to them through a built-in
+terminal over the serial console or ssh, and removing virtual machines with dependency checks.
 
 ## Features
 
@@ -50,7 +50,7 @@ terminal, and removing virtual machines with dependency checks.
   information and statistics: identity, timing, commands, pauses, typing,
   pasted input, addresses and integrity checks; grade a report against a
   TOML check file with expected commands, output blocks and labeled values;
-  copy reports out of running VMs through the serial console; compare
+  copy reports out of running VMs through the serial console or ssh; compare
   reports pairwise for signs of a shared origin.
 - Run an end-to-end integration test that now verifies VM startup and monitor
   state transitions in addition to creation and cleanup.
@@ -122,7 +122,8 @@ pysnap docs
 pysnap docs --browser /usr/bin/chromium
 ```
 
-Start a VM in headless mode and attach to its serial console:
+Start a VM in headless mode and attach to its serial console or, for VMs
+reached through ssh, to an ssh login shell:
 
 ```bash
 pysnap connect srv
