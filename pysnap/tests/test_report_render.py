@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 from pysnap.report.models import CellStyle, PromptInfo, ReportArchive
 from pysnap.report.recording import parse_recording
@@ -12,6 +14,7 @@ from pysnap.report.render import (
     parse_prompt,
     render_transcript,
 )
+from pysnap.terminal.emulator import ScreenStream
 from pysnap.tests.report_factory import ReportBuilder
 
 
@@ -24,6 +27,49 @@ def _render(builder: ReportBuilder, **kwargs):
 def _texts(transcript) -> list[str]:
     """Return the entered commands of a transcript."""
     return [command.text for command in transcript.commands]
+
+
+class EditorOutputTests(unittest.TestCase):
+    """Render sessions in which editors ran with an xterm terminal type."""
+
+    def test_editor_sequences_do_not_break_the_transcript(self) -> None:
+        """Keep the commands around vim and nano and their screens."""
+        data = Path(__file__).parent / "data"
+        builder = ReportBuilder(columns=80, lines=24).show_prompt()
+        builder.run("vim notes")
+        builder.output((data / "vim-xterm.bin").read_bytes())
+        builder.output("\x1b[2J\x1b[H" + builder.prompt)
+        builder.run("nano notes")
+        builder.output((data / "nano-cut-xterm.bin").read_bytes())
+        builder.output("\x1b[2J\x1b[H" + builder.prompt)
+        builder.run("ls", "notes\x1bPhidden-payload\x1b\\\n")
+        transcript = _render(builder)
+        self.assertEqual(_texts(transcript), ["vim notes", "nano notes", "ls"])
+        texts = [line.text.rstrip() for line in transcript.lines]
+        self.assertIn("inserted text", texts)
+        nano_screen = (data / "nano-cut-xterm.txt").read_text().splitlines()
+        for row in nano_screen[1:20]:
+            self.assertIn(row, texts)
+        self.assertNotIn("hidden-payload", "\n".join(texts))
+
+    def test_survives_parser_errors(self) -> None:
+        """Lose only the output chunk on which pyte fails."""
+        builder = ReportBuilder().show_prompt()
+        builder.run("echo one", "one\n")
+        builder.run("echo two", "two\n")
+        original = ScreenStream.feed
+        calls = []
+
+        def failing(stream, data):
+            calls.append(data)
+            if b"one" in data:
+                raise TypeError("broken")
+            return original(stream, data)
+
+        with patch.object(ScreenStream, "feed", failing):
+            transcript = _render(builder)
+        self.assertEqual(_texts(transcript), ["echo one", "echo two"])
+        self.assertIn("two", [line.text.rstrip() for line in transcript.lines])
 
 
 class PromptTests(unittest.TestCase):

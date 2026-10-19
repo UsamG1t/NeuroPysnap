@@ -377,6 +377,35 @@ live ``pysnap connect`` terminal skips them like a regular terminal does,
 while report views show them as ``?`` so that hidden characters in a student
 report stay visible to the reader.
 
+Control Sequence Strategy
+-------------------------
+
+``pyte`` 0.8 fails on several sequences that current programs send, for
+example Vim with an xterm ``TERM``: a private CSI sequence other than a DEC
+mode (``ESC [ ? 4 m``) raises ``TypeError``, ``>``, ``=`` and ``<`` prefixes
+are ignored so that ``ESC [ > 4 ; 2 m`` switches on underline, intermediate
+bytes and colon sub-parameters end a sequence early and leave its rest on the
+screen, and DCS, SOS, PM and APC payloads are drawn as text. The
+``SequenceFilter`` of ``TerminalEmulator`` therefore sits in front of
+``pyte``: it keeps text, C0 controls, ordinary CSI sequences, DEC modes
+(``? … h``/``l``), selective erase and the other ``ESC`` sequences, rewrites
+colon SGR parameters (``38:2::R:G:B``, ``4:3``) to the semicolon form and drops
+the rest together with all control strings. Its state survives chunk
+boundaries; a CSI sequence longer than 256 bytes is skipped to its final byte
+and a control string longer than 64 KiB ends, so that garbage output cannot
+hide the screen for good. Should ``pyte`` still fail, the emulator starts a
+new parser and the session goes on.
+
+``pyte`` 0.8 also lacks the scroll commands ``CSI n S`` and ``CSI n T``, with
+which nano scrolls its editing area on an xterm. ``ScreenStream`` dispatches
+them to ``ScrollRegionMixin``: the lines inside the scrolling margins move by
+``index`` and ``reverse_index`` while the cursor stays, so screens that track
+lines leaving the top see them as usual.
+
+``pysnap.report.render`` replays recordings with the same filter, stream and
+scroll commands, so a report in which the student used vim or nano renders
+like the live terminal; a ``pyte`` failure loses only the chunk it occurred in.
+
 Documentation Packaging Strategy
 --------------------------------
 

@@ -33,7 +33,12 @@ from pysnap.report.models import (
     Transcript,
     TranscriptLine,
 )
-from pysnap.terminal.emulator import is_invisible_character
+from pysnap.terminal.emulator import (
+    ScreenStream,
+    ScrollRegionMixin,
+    SequenceFilter,
+    is_invisible_character,
+)
 
 DEFAULT_COLUMNS = 80
 DEFAULT_LINES = 24
@@ -62,7 +67,7 @@ _UNSAFE_CHARACTERS = re.compile(
 )
 
 
-class _CaptureScreen(pyte.Screen):
+class _CaptureScreen(ScrollRegionMixin, pyte.Screen):
     """Hand every line that leaves the visible screen to a callback."""
 
     def __init__(
@@ -147,7 +152,8 @@ class _Renderer:
             self._clamp_size(recording.lines or DEFAULT_LINES),
             self._keep_line,
         )
-        self.stream = pyte.ByteStream(self.screen)
+        self.stream = ScreenStream(self.screen)
+        self.sequence_filter = SequenceFilter()
         self.commands: list[dict] = []
         self.line_start: tuple[int, int] | None = None
         self.first_event = 0
@@ -231,14 +237,26 @@ class _Renderer:
             self.line_start = None
 
     def _handle_output(self, data: bytes) -> None:
-        """Feed output, capturing a submitted command before its line feed."""
+        """Feed output, capturing a submitted command before its line feed.
+
+        Control sequences ``pyte`` cannot handle are filtered first, as in the
+        live terminal (see :class:`~pysnap.terminal.emulator.SequenceFilter`).
+        """
+        data = self.sequence_filter.feed(data)
         if self.pending_enter is not None:
             newline = data.find(b"\n")
             if newline >= 0:
-                self.stream.feed(data[:newline])
+                self._feed(data[:newline])
                 self._capture_command()
                 data = data[newline:]
-        self.stream.feed(data)
+        self._feed(data)
+
+    def _feed(self, data: bytes) -> None:
+        """Parse output; a ``pyte`` failure loses only this part of it."""
+        try:
+            self.stream.feed(data)
+        except Exception:
+            self.stream = ScreenStream(self.screen)
 
     def _capture_command(self) -> None:
         """Read the submitted input line from the screen."""

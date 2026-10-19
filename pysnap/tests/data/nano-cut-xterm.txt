@@ -1,0 +1,24 @@
+  GNU nano 7.2                   /tmp/nano-work.txt                   Modified
+line 4 of the nano sample
+line 1 of the nano sample
+line 2 of the nano sample
+line 3 of the nano sample
+Кириллица и ширина: 中文字符 тест
+line 8 of the nano sample
+        tab     separated       line
+line 10 of the nano sample
+line 11 of the nano sample
+line 12 of the nano sample
+line 13 of the nano sample
+line 14 of the nano sample
+line 15 of the nano sample
+line 16 of the nano sample
+line 17 of the nano sample
+line 18 of the nano sample
+line 19 of the nano sample
+line 20 of the nano sample
+line 21 of the nano sample
+line 22 of the nano sample
+
+^G Help      ^O Write Out ^W Where Is  ^K Cut       ^T Execute   ^C Location
+^X Exit      ^R Read File ^\ Replace   ^U Paste     ^J Justify   ^/ Go To Line

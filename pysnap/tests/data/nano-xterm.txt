@@ -1,0 +1,24 @@
+  GNU nano 7.2                    /tmp/sample.txt                     Modified
+typed hereline 19 of the sample file with some text
+line 20 of the sample file with some text
+line 21 of the sample file with some text
+line 22 of the sample file with some text
+line 23 of the sample file with some text
+line 24 of the sample file with some text
+line 25 of the sample file with some text
+line 26 of the sample file with some text
+line 27 of the sample file with some text
+line 28 of the sample file with some text
+line 29 of the sample file with some text
+line 30 of the sample file with some text
+line 31 of the sample file with some text
+line 32 of the sample file with some text
+line 33 of the sample file with some text
+line 34 of the sample file with some text
+line 35 of the sample file with some text
+line 36 of the sample file with some text
+line 37 of the sample file with some text
+line 38 of the sample file with some text
+                               [ Read 200 lines ]
+^G Help      ^O Write Out ^W Where Is  ^K Cut       ^T Execute   ^C Location
+^X Exit      ^R Read File ^\ Replace   ^U Paste     ^J Justify   ^/ Go To Line
