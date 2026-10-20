@@ -1,6 +1,6 @@
 # PySnap
 
-PySnap 2.2.0 is a Python 3.11+ command line package for importing VirtualBox OVA/OVF
+PySnap 2.2.1 is a Python 3.11+ command line package for importing VirtualBox OVA/OVF
 appliances, creating linked clones, configuring internal networks, starting
 virtual machines in headless mode, attaching to them through a built-in
 terminal over the serial console or ssh, and removing virtual machines with dependency checks.
@@ -30,8 +30,8 @@ terminal over the serial console or ssh, and removing virtual machines with depe
   cross-platform Python terminal interface.
 - Track outer-terminal resize events during ``connect`` sessions and answer
   xterm-compatible size queries for guest-side tools.
-- Select terminal text with the mouse and copy it explicitly with
-  ``Ctrl+Shift+C`` without interrupting utilities running in the guest.
+- Select terminal text with the mouse; it is copied to the host clipboard
+  when the button is released.
 - Open the bundled HTML documentation directly from the installed package.
 - Monitor active and changing virtual machines with compact runtime states.
 - Stop one running VM or all running VMs through `acpipowerbutton`.
@@ -132,16 +132,14 @@ pysnap connect srv
 While attached, PySnap keeps the guest-visible area synchronized with the
 current terminal size. On Linux guests, xterm-compatible tools such as
 ``resize`` can use the serial connection to rediscover the updated geometry.
-PySnap also keeps a local scrollback buffer: ``Alt+Up`` and ``Alt+Down``
-move through it, ``Alt+Left`` jumps to the oldest retained output, and
-``Alt+Right`` returns to the live bottom. On Linux, the mouse wheel can drive
-the same local scrollback. Dragging with the left mouse button selects visible
-terminal text, and ``Ctrl+Shift+C`` copies the captured selection to the host
-clipboard. Classic terminals deliver ``Ctrl+Shift+C`` and ``Ctrl+C`` as the
-same byte, so PySnap disambiguates by selection state: while a selection is
-captured the chord only copies, and without one it forwards a real ``Ctrl+C``
-to the guest. The captured text survives ongoing guest output, so copying
-never interrupts utilities that keep printing in the background.
+All keys go to the guest, so editors such as vim and nano work as in a
+regular terminal. PySnap commands start with ``Ctrl+]``: then ``q`` detaches,
+``Up``/``Down``/``PgUp``/``PgDn``/``Home``/``End`` scroll the local scrollback
+buffer, ``Ctrl+]`` sends ``Ctrl+]`` to the guest and ``Esc`` goes back. On
+Linux, the mouse wheel drives the same local scrollback, or sends cursor keys
+to full-screen programs such as less. Dragging with the left mouse button
+selects visible terminal text, which is copied to the host clipboard when the
+button is released.
 
 Plug a stopped VM into the same serial-console workflow used by imported
 protocol images:

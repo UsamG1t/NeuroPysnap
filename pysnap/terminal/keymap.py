@@ -42,6 +42,11 @@ def key_press_to_bytes(key_press: KeyPress) -> bytes | None:
     key = key_press.key
     data = key_press.data
 
+    if isinstance(key, Keys) and data == "":
+        # prompt_toolkit splits some sequences, such as Alt+Up from an xterm
+        # (``ESC [ 1 ; 3 A``), into several keys; the first one carries all
+        # bytes and the following ones carry none.
+        return None
     if isinstance(key, Keys):
         if key in SPECIAL_KEY_SEQUENCES:
             return SPECIAL_KEY_SEQUENCES[key]

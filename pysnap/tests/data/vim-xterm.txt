@@ -1,0 +1,24 @@
+line 28 of the sample file with some text
+line 29 of the sample file with some text
+line 30 of the sample file with some text
+line 31 of the sample file with some text
+line 32 of the sample file with some text
+line 33 of the sample file with some text
+line 34 of the sample file with some text
+line 35 of the sample file with some text
+line 36 of the sample file with some text
+line 37 of the sample file with some text
+line 38 of the sample file with some text
+line 39 of the sample file with some text
+line 40 of the sample file with some text
+line 41 of the sample file with some text
+line 42 of the sample file with some text
+line 43 of the sample file with some text
+line 44 of the sample file with some text
+line 45 of the sample file with some text
+line 46 of the sample file with some text
+line 47 of the sample file with some text
+line 48 of the sample file with some text
+line 49 of the sample file with some text
+inserted text
+                                                              47,13         15%

@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pysnap.cli.app &#8212; PySnap 2.2.0 documentation</title>
+    <title>pysnap.cli.app &#8212; PySnap 2.2.1 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
-    <script src="../../../_static/documentation_options.js?v=b21de401"></script>
+    <script src="../../../_static/documentation_options.js?v=16656018"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -695,11 +695,14 @@
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
             <span class="s2">"Start a VM in headless mode when needed and attach the PySnap "</span>
             <span class="s2">"terminal to its serial console (COM1) or, for VMs reached through "</span>
-            <span class="s2">"ssh (see pysnap show), to an ssh login shell. Ctrl-Q detaches without "</span>
-            <span class="s2">"stopping the VM, Ctrl-L redraws, Alt-Up/Down scroll the local "</span>
-            <span class="s2">"history line by line and Alt-Left/Right jump to its start or back "</span>
-            <span class="s2">"to the live output, Ctrl-Shift-C copies text selected with the "</span>
-            <span class="s2">"mouse. A paused VM can be attached through COM1: keys wait until "</span>
+            <span class="s2">"ssh (see pysnap show), to an ssh login shell. All keys go to the "</span>
+            <span class="s2">"guest except Ctrl-], which starts a PySnap command: q detaches "</span>
+            <span class="s2">"without stopping the VM, Up/Down/PgUp/PgDn/Home/End scroll the local "</span>
+            <span class="s2">"history, Ctrl-] sends Ctrl-] itself and Esc goes back. Text selected "</span>
+            <span class="s2">"with the mouse is copied to the host clipboard when the button is "</span>
+            <span class="s2">"released; the mouse wheel scrolls the local history, or sends cursor "</span>
+            <span class="s2">"keys to full-screen programs such as less and vim. A paused VM can "</span>
+            <span class="s2">"be attached through COM1: keys wait until "</span>
             <span class="s2">"pysnap resume. Over ssh, PySnap waits for the guest ssh server, "</span>
             <span class="s2">"installs its key on the first connect when the guest refuses it "</span>
             <span class="s2">"(see pysnap ssh-key) and ends the session when the login shell exits."</span>

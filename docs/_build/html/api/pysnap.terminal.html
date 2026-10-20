@@ -5,12 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>pysnap.terminal package &#8212; PySnap 2.2.0 documentation</title>
+    <title>pysnap.terminal package &#8212; PySnap 2.2.1 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
-    <script src="../_static/documentation_options.js?v=b21de401"></script>
+    <script src="../_static/documentation_options.js?v=16656018"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -70,6 +70,215 @@ terminals that support it.</p>
 <section id="module-pysnap.terminal.emulator">
 <span id="pysnap-terminal-emulator-module"></span><h2>pysnap.terminal.emulator module<a class="headerlink" href="#module-pysnap.terminal.emulator" title="Link to this heading">¶</a></h2>
 <p>Terminal emulation utilities built on top of <code class="xref py py-mod docutils literal notranslate"><span class="pre">pyte</span></code>.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.SequenceFilter">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.terminal.emulator.</span></span><span class="sig-name descname"><span class="pre">SequenceFilter</span></span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#SequenceFilter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.SequenceFilter" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Remove control sequences <code class="docutils literal notranslate"><span class="pre">pyte</span></code> cannot handle before it parses them.</p>
+<p><code class="docutils literal notranslate"><span class="pre">pyte</span></code> 0.8 fails on some sequences that current programs send, for
+example editors such as Vim with an xterm <code class="docutils literal notranslate"><span class="pre">TERM</span></code>:</p>
+<ul class="simple">
+<li><p>private CSI sequences other than DEC modes, such as <code class="docutils literal notranslate"><span class="pre">ESC</span> <span class="pre">[</span> <span class="pre">?</span> <span class="pre">4</span> <span class="pre">m</span></code>,
+raise <code class="docutils literal notranslate"><span class="pre">TypeError</span></code>;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">=</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;</span></code> prefixes are ignored, so <code class="docutils literal notranslate"><span class="pre">ESC</span> <span class="pre">[</span> <span class="pre">&gt;</span> <span class="pre">4</span> <span class="pre">;</span> <span class="pre">2</span> <span class="pre">m</span></code>
+switches on underline;</p></li>
+<li><p>intermediate bytes (<code class="docutils literal notranslate"><span class="pre">ESC</span> <span class="pre">[</span> <span class="pre">0</span> <span class="pre">%</span> <span class="pre">m</span></code>) and colon sub-parameters
+(<code class="docutils literal notranslate"><span class="pre">ESC</span> <span class="pre">[</span> <span class="pre">3</span> <span class="pre">8</span> <span class="pre">:</span> <span class="pre">2</span> <span class="pre">:</span> <span class="pre">:</span> <span class="pre">1</span> <span class="pre">:</span> <span class="pre">2</span> <span class="pre">:</span> <span class="pre">3</span> <span class="pre">m</span></code>) end the sequence early and the rest
+is drawn as text;</p></li>
+<li><p>the payload of DCS, SOS, PM and APC strings is drawn as text.</p></li>
+</ul>
+<p>The filter keeps the sequences <code class="docutils literal notranslate"><span class="pre">pyte</span></code> handles, rewrites colon SGR
+parameters to the semicolon form and drops the rest, together with all
+control strings (including OSC: window titles are not used). Its state
+survives chunk boundaries, so a sequence split between two reads is
+handled like a whole one.</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.SequenceFilter.feed">
+<span class="sig-name descname"><span class="pre">feed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#SequenceFilter.feed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.SequenceFilter.feed" title="Link to this definition">¶</a></dt>
+<dd><p>Return the bytes of <code class="docutils literal notranslate"><span class="pre">data</span></code> that <code class="docutils literal notranslate"><span class="pre">pyte</span></code> may parse.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> (<em>bytes</em>) – Raw guest output.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Filtered output; parts of an unfinished sequence are kept
+until the next call.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bytes</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.ScrollRegionMixin">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.terminal.emulator.</span></span><span class="sig-name descname"><span class="pre">ScrollRegionMixin</span></span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#ScrollRegionMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.ScrollRegionMixin" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Add the CSI <code class="docutils literal notranslate"><span class="pre">S</span></code> and <code class="docutils literal notranslate"><span class="pre">T</span></code> scroll commands that <code class="docutils literal notranslate"><span class="pre">pyte</span></code> 0.8 lacks.</p>
+<p>Programs such as nano scroll their editing area with them when the
+terminal is an xterm. The scroll happens inside the scrolling margins and
+does not move the cursor; it reuses <code class="docutils literal notranslate"><span class="pre">index</span></code> and <code class="docutils literal notranslate"><span class="pre">reverse_index</span></code> so
+that screens which track lines leaving the screen see them as usual.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.ScrollRegionMixin.scroll_up">
+<span class="sig-name descname"><span class="pre">scroll_up</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#ScrollRegionMixin.scroll_up"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.ScrollRegionMixin.scroll_up" title="Link to this definition">¶</a></dt>
+<dd><p>Scroll the lines inside the margins up (SU).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>count</strong> (<em>int</em>) – Number of lines.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.ScrollRegionMixin.scroll_down">
+<span class="sig-name descname"><span class="pre">scroll_down</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#ScrollRegionMixin.scroll_down"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.ScrollRegionMixin.scroll_down" title="Link to this definition">¶</a></dt>
+<dd><p>Scroll the lines inside the margins down (SD).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>count</strong> (<em>int</em>) – Number of lines.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.ScreenStream">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.terminal.emulator.</span></span><span class="sig-name descname"><span class="pre">ScreenStream</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#ScreenStream"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.ScreenStream" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ByteStream</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">pyte</span></code> byte stream that also dispatches CSI <code class="docutils literal notranslate"><span class="pre">S</span></code> and <code class="docutils literal notranslate"><span class="pre">T</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>args</strong> (<em>Any</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Any</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.ScreenStream.csi">
+<span class="sig-name descname"><span class="pre">csi</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'S':</span> <span class="pre">'scroll_up',</span> <span class="pre">'T':</span> <span class="pre">'scroll_down'}</span></span><a class="headerlink" href="#pysnap.terminal.emulator.ScreenStream.csi" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.AlternateScreenMixin">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pysnap.terminal.emulator.</span></span><span class="sig-name descname"><span class="pre">AlternateScreenMixin</span></span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#AlternateScreenMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.AlternateScreenMixin" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Give a <code class="docutils literal notranslate"><span class="pre">pyte</span></code> history screen the xterm alternate screen.</p>
+<p>Full-screen programs such as vim, nano and less switch to the alternate
+screen and back when they exit, so the shell screen reappears as it was.
+Lines scrolled on the alternate screen do not enter the history, as in
+xterm. <code class="docutils literal notranslate"><span class="pre">pyte</span></code> 0.8 has no alternate screen: it ignores these modes.</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.AlternateScreenMixin.in_alternate_screen">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">in_alternate_screen</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#AlternateScreenMixin.in_alternate_screen"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.AlternateScreenMixin.in_alternate_screen" title="Link to this definition">¶</a></dt>
+<dd><p>Return whether the alternate screen is shown.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.AlternateScreenMixin.set_mode">
+<span class="sig-name descname"><span class="pre">set_mode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">modes</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#AlternateScreenMixin.set_mode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.AlternateScreenMixin.set_mode" title="Link to this definition">¶</a></dt>
+<dd><p>Handle the alternate screen modes; <code class="docutils literal notranslate"><span class="pre">pyte</span></code> records all modes as usual.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>modes</strong> (<em>int</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>object</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.AlternateScreenMixin.reset_mode">
+<span class="sig-name descname"><span class="pre">reset_mode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">modes</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#AlternateScreenMixin.reset_mode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.AlternateScreenMixin.reset_mode" title="Link to this definition">¶</a></dt>
+<dd><p>Leave the alternate screen; <code class="docutils literal notranslate"><span class="pre">pyte</span></code> records all modes as usual.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>modes</strong> (<em>int</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>object</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.AlternateScreenMixin.index">
+<span class="sig-name descname"><span class="pre">index</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#AlternateScreenMixin.index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.AlternateScreenMixin.index" title="Link to this definition">¶</a></dt>
+<dd><p>Scroll without filling the history while the alternate screen is shown.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.AlternateScreenMixin.reverse_index">
+<span class="sig-name descname"><span class="pre">reverse_index</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#AlternateScreenMixin.reverse_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.AlternateScreenMixin.reverse_index" title="Link to this definition">¶</a></dt>
+<dd><p>Scroll back without touching the history on the alternate screen.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.AlternateScreenMixin.resize">
+<span class="sig-name descname"><span class="pre">resize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lines</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#AlternateScreenMixin.resize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.AlternateScreenMixin.resize" title="Link to this definition">¶</a></dt>
+<dd><p>Resize both screens while the alternate one is shown.</p>
+<p>The shell screen loses its top lines to the history and its cells
+beyond the new width, as <code class="docutils literal notranslate"><span class="pre">pyte</span></code> does for the visible screen.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>lines</strong> (<em>int</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>columns</strong> (<em>int</em><em> | </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.AlternateScreenMixin.reset">
+<span class="sig-name descname"><span class="pre">reset</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#AlternateScreenMixin.reset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.AlternateScreenMixin.reset" title="Link to this definition">¶</a></dt>
+<dd><p>Return to the shell screen on a full reset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 <dl class="py function">
 <dt class="sig sig-object py" id="pysnap.terminal.emulator.is_invisible_character">
 <span class="sig-prename descclassname"><span class="pre">pysnap.terminal.emulator.</span></span><span class="sig-name descname"><span class="pre">is_invisible_character</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">char</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#is_invisible_character"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.is_invisible_character" title="Link to this definition">¶</a></dt>
@@ -111,9 +320,11 @@ with the previous character.</p>
 the manually rotated history buffers and lose lines, so the view
 first returns to the live bottom. This mirrors the common
 jump-to-bottom-on-output behavior of desktop terminals.</p>
+<p>Control sequences <code class="docutils literal notranslate"><span class="pre">pyte</span></code> cannot handle are filtered first (see
+<a class="reference internal" href="#pysnap.terminal.emulator.SequenceFilter" title="pysnap.terminal.emulator.SequenceFilter"><code class="xref py py-class docutils literal notranslate"><span class="pre">SequenceFilter</span></code></a>).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>data</strong> (<em>bytes</em>) – Raw bytes read from the VM serial socket.</p>
+<dd class="field-odd"><p><strong>data</strong> (<em>bytes</em>) – Raw bytes read from the guest connection.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
@@ -142,6 +353,8 @@ jump-to-bottom-on-output behavior of desktop terminals.</p>
 <dt class="sig sig-object py" id="pysnap.terminal.emulator.TerminalEmulator.scroll_up">
 <span class="sig-name descname"><span class="pre">scroll_up</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lines</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#TerminalEmulator.scroll_up"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.TerminalEmulator.scroll_up" title="Link to this definition">¶</a></dt>
 <dd><p>Scroll the local view toward older history lines.</p>
+<p>The alternate screen of full-screen programs has no history, so
+nothing happens while it is shown.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>lines</strong> (<em>int</em>) – Number of lines to move upward.</p>
@@ -186,6 +399,18 @@ jump-to-bottom-on-output behavior of desktop terminals.</p>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.TerminalEmulator.application_cursor_keys">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">application_cursor_keys</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#TerminalEmulator.application_cursor_keys"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.TerminalEmulator.application_cursor_keys" title="Link to this definition">¶</a></dt>
+<dd><p>Return whether the guest asked for application cursor keys (DECCKM).</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="pysnap.terminal.emulator.TerminalEmulator.in_alternate_screen">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">in_alternate_screen</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="reference internal" href="../_modules/pysnap/terminal/emulator.html#TerminalEmulator.in_alternate_screen"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pysnap.terminal.emulator.TerminalEmulator.in_alternate_screen" title="Link to this definition">¶</a></dt>
+<dd><p>Return whether a full-screen program shows the alternate screen.</p>
 </dd></dl>
 
 <dl class="py property">

@@ -327,27 +327,38 @@ Over ssh, ``connect`` logs in with the PySnap key as the ssh user of the VM:
   paused guest cannot answer the login
 - one ``connect`` session per VM is allowed, as on the serial console
 
-The terminal session is detached with ``Ctrl-Q``. Detaching does not stop the
-virtual machine. ``Ctrl-L`` redraws the local interface.
+All keys go to the guest, so editors and shells get ``Esc``, ``Ctrl-L``,
+``Ctrl-Q``, ``Alt`` combinations and function keys as in a regular terminal.
+PySnap commands start with ``Ctrl-]``, which guest programs hardly use, as in
+``telnet``; the status line then lists the command keys:
 
-PySnap also keeps a local scrollback buffer for the attached session:
+- ``q`` detaches the session; detaching does not stop the virtual machine
+- ``Up`` and ``Down`` scroll the local scrollback buffer by one line,
+  ``PgUp`` and ``PgDn`` by one screen, ``Home`` jumps to the oldest retained
+  output and ``End`` back to the live output; the command keys stay active
+  for further scrolling
+- ``Ctrl-]`` sends ``Ctrl-]`` itself to the guest
+- ``Esc`` or any other key leaves the command keys without sending anything
 
-- ``Alt-Up`` scrolls one line toward older output
-- ``Alt-Down`` scrolls one line toward newer output
-- ``Alt-Left`` jumps to the oldest retained output
-- ``Alt-Right`` jumps back to the live output bottom
-- dragging with the left mouse button selects visible terminal text and
-  captures it for copying
-- ``Ctrl-Shift-C`` copies the captured selection to the host clipboard
-- on Linux, the mouse wheel or touchpad scroll gesture also moves through the
-  local scrollback buffer
+The mouse works as well:
 
-Classic terminal emulators deliver ``Ctrl-Shift-C`` and ``Ctrl-C`` as the same
-byte, so PySnap disambiguates them by selection state. While a captured
-selection exists, the chord only copies. Without one, it forwards a real
-``Ctrl-C`` interrupt to the guest. Incoming guest output removes the visible
-highlight but keeps the captured text, so copying stays possible while
-utilities keep printing in the background.
+- dragging with the left mouse button selects visible terminal text; when
+  the button is released, the text is copied to the host clipboard
+- on Linux, the mouse wheel or touchpad scroll gesture moves the local
+  scrollback buffer by three lines
+- full-screen programs such as vim, nano and less use the alternate screen:
+  while they run, the local scrollback is off and the wheel sends three
+  cursor keys per step to the program instead, as xterm does; when they exit,
+  the shell screen comes back as it was, and their screens never enter the
+  scrollback
+
+Many terminal emulators keep ``Ctrl-Shift-C`` for their own copy command,
+which is why PySnap copies on release. Terminals that pass ``Ctrl-Shift-C``
+on deliver it as the same byte as ``Ctrl-C``, so PySnap disambiguates them by
+selection state: while a selected text exists, the chord copies it again;
+without one, it forwards a real ``Ctrl-C`` interrupt to the guest. Typing any
+other key drops the selection. Incoming guest output removes the visible
+highlight but keeps the selected text.
 
 While the session is attached, PySnap continuously tracks the outer terminal
 size and resizes the visible guest text area to match it. This also works
@@ -367,9 +378,10 @@ for ``VBoxManage`` when the command is not exported in ``PATH``.
 
 A paused VM can be attached through ``UART1`` too: the status line shows
 ``Paused``, keys are held back and nothing is sent to the guest until
-``pysnap resume``. Then the keys work again, and when the guest has not printed anything yet PySnap sends
-the usual waking newline. When a VM is paused during a session, the session
-stays open in the same way, so ``Ctrl-Q`` on a paused VM and a new
+``pysnap resume``; the ``Ctrl-]`` commands keep working. Then the keys work
+again, and when the guest has not printed anything yet PySnap sends the usual
+waking newline. When a VM is paused during a session, the session stays open
+in the same way, so ``Ctrl-]`` ``q`` on a paused VM and a new
 ``connect`` lead to the same state. If the paused VM does not accept the
 serial connection within three seconds, ``connect`` fails with a hint to run
 ``pysnap resume``.
@@ -774,7 +786,7 @@ On the serial console:
   run the transfer on its connection. The terminal shows a message in the
   status line, keys are paused until the transfer ends, and afterwards the
   screen is cleared and a fresh prompt appears. Sessions started by an older
-  PySnap cannot do this; detach them with ``Ctrl-Q`` first
+  PySnap cannot do this; detach them with ``Ctrl-]`` ``q`` first
 - the console is logged in and at a shell prompt; PySnap checks this with
   ``echo PYSNAP_$((20+22))`` and stops when the answer does not arrive
 - no ``report`` recording is running: PySnap presses ``Ctrl-U`` and Enter once, and when the

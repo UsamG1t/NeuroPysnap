@@ -235,7 +235,7 @@ class SessionLoopTests(unittest.TestCase):
         data, records, messages, closed = self._run(False, linger=2.3)
         self.assertEqual(data, b"")
         self.assertEqual(records, [("vm", 2400, None)])
-        self.assertIn("Connected through ssh. Ctrl-Q detaches.", messages)
+        self.assertIn("Connected through ssh. Ctrl-] q detaches.", messages)
         self.assertNotIn("Connected. Press Enter if the guest stays silent.", messages)
         self.assertIn("ssh connection closed.", " ".join(messages))
         self.assertEqual(closed, [True])
