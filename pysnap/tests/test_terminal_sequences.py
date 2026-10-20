@@ -124,12 +124,106 @@ class ScrollRegionTests(unittest.TestCase):
         self.assertEqual(self._rows(emulator), ["a", "", "b", "c", "e"])
 
 
+class AlternateScreenTests(unittest.TestCase):
+    """Verify the alternate screen of full-screen programs."""
+
+    def _emulator(self) -> TerminalEmulator:
+        emulator = TerminalEmulator(6, 3, history=50)
+        emulator.feed(b"s1\r\ns2\r\ns3\x1b[2;2H")
+        return emulator
+
+    def _rows(self, emulator: TerminalEmulator) -> list[str]:
+        return [line.rstrip() for line in emulator.screen.display]
+
+    def _cursor(self, emulator: TerminalEmulator) -> tuple[int, int]:
+        return emulator.screen.cursor.y, emulator.screen.cursor.x
+
+    def test_1049_switches_and_restores_the_cursor(self) -> None:
+        """Show a clear screen, keep its lines out of the history, come back."""
+        emulator = self._emulator()
+        emulator.feed(b"\x1b[?1049h")
+        self.assertTrue(emulator.screen.in_alternate_screen)
+        self.assertEqual(self._rows(emulator), ["", "", ""])
+        emulator.feed(b"\x1b[Ha\r\nb\r\nc\r\nd\r\ne")
+        self.assertEqual(self._rows(emulator), ["c", "d", "e"])
+        self.assertEqual(len(emulator.screen.history.top), 0)
+        emulator.feed(b"\x1b[?1049l")
+        self.assertFalse(emulator.screen.in_alternate_screen)
+        self.assertEqual(self._rows(emulator), ["s1", "s2", "s3"])
+        self.assertEqual(self._cursor(emulator), (1, 1))
+
+    def test_1047_and_47_keep_the_cursor_1048_only_saves_it(self) -> None:
+        """Switch without restoring the cursor; 1048 restores it alone."""
+        for mode in (b"47", b"1047"):
+            with self.subTest(mode=mode):
+                emulator = self._emulator()
+                emulator.feed(b"\x1b[?" + mode + b"h\x1b[3;5Hx\x1b[?" + mode + b"l")
+                self.assertEqual(self._rows(emulator), ["s1", "s2", "s3"])
+                self.assertEqual(self._cursor(emulator), (2, 5))
+        emulator = self._emulator()
+        emulator.feed(b"\x1b[?1048h\x1b[3;5H\x1b[?1048l")
+        self.assertEqual(self._cursor(emulator), (1, 1))
+        self.assertFalse(emulator.screen.in_alternate_screen)
+
+    def test_other_modes_in_the_same_sequence_still_apply(self) -> None:
+        """Pass the remaining modes of a combined sequence on."""
+        emulator = self._emulator()
+        emulator.feed(b"\x1b[?25l\x1b[?1049;25h")
+        self.assertTrue(emulator.screen.in_alternate_screen)
+        self.assertFalse(emulator.screen.cursor.hidden)
+        emulator.feed(b"\x1b[?1049;25l")
+        self.assertFalse(emulator.screen.in_alternate_screen)
+        self.assertTrue(emulator.screen.cursor.hidden)
+
+    def test_repeated_switches_and_reset(self) -> None:
+        """Ignore a second switch and leave the alternate screen on reset."""
+        emulator = self._emulator()
+        emulator.feed(b"\x1b[?1049h\x1b[?1049hx\x1b[?1049l")
+        self.assertEqual(self._rows(emulator), ["s1", "s2", "s3"])
+        emulator.feed(b"\x1b[?1049l")
+        self.assertEqual(self._rows(emulator), ["s1", "s2", "s3"])
+        emulator.feed(b"\x1b[?1049h\x1bc")
+        self.assertFalse(emulator.screen.in_alternate_screen)
+
+    def test_reverse_scroll_on_the_alternate_screen(self) -> None:
+        """Keep reverse scrolling out of the history too."""
+        emulator = self._emulator()
+        emulator.feed(b"\x1b[?1049h\x1b[Ha\r\x1bM\x1bMb")
+        self.assertEqual(self._rows(emulator), ["b", "", "a"])
+        self.assertEqual(len(emulator.screen.history.bottom), 0)
+
+    def test_no_local_scrollback_on_the_alternate_screen(self) -> None:
+        """Leave the editor screen in place on Alt-Up; scroll the shell again after."""
+        emulator = TerminalEmulator(6, 3, history=50)
+        emulator.feed(b"".join(b"l%d\r\n" % index for index in range(10)))
+        emulator.feed(b"\x1b[?1049hed")
+        emulator.scroll_up(2)
+        emulator.scroll_to_top()
+        self.assertEqual(self._rows(emulator), ["", "", "ed"])
+        self.assertFalse(emulator.is_scrollback_active)
+        emulator.feed(b"\x1b[?1049l")
+        emulator.scroll_up(2)
+        self.assertEqual(self._rows(emulator), ["l6", "l7", "l8"])
+        emulator.scroll_to_top()
+        self.assertEqual(self._rows(emulator)[0], "l0")
+
+    def test_resize_keeps_the_shell_screen(self) -> None:
+        """Move shell lines to the history and cut cells when shrinking."""
+        emulator = TerminalEmulator(6, 3, history=50)
+        emulator.feed(b"abcdef\r\nline2\r\nline3\x1b[?1049h")
+        emulator.resize(4, 2)
+        emulator.feed(b"\x1b[?1049l")
+        self.assertEqual(self._rows(emulator), ["line", "line"])
+        self.assertEqual("".join(cell.data for cell in emulator.screen.history.top[-1].values()).rstrip(), "abcdef")
+        self.assertEqual(emulator.screen.buffer[0][4].data, " ")
+
+
 class EmulatorTests(unittest.TestCase):
     """Verify the emulator with editor output."""
 
     def test_editor_screens_match_a_real_terminal(self) -> None:
         """Render recorded vim and nano output like tmux did."""
-        for name in ("vim-xterm", "nano-xterm", "nano-cut-xterm"):
+        for name in ("vim-xterm", "nano-xterm", "nano-cut-xterm", "vim-exit-xterm", "less-exit-xterm"):
             with self.subTest(name=name):
                 emulator = TerminalEmulator(80, 24)
                 emulator.feed((DATA / f"{name}.bin").read_bytes())

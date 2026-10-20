@@ -341,6 +341,9 @@ PySnap also keeps a local scrollback buffer for the attached session:
 - ``Ctrl-Shift-C`` copies the captured selection to the host clipboard
 - on Linux, the mouse wheel or touchpad scroll gesture also moves through the
   local scrollback buffer
+- full-screen programs such as vim, nano and less use the alternate screen:
+  while they run, the local scrollback is off, and when they exit, the shell
+  screen comes back as it was; their screens never enter the scrollback
 
 Classic terminal emulators deliver ``Ctrl-Shift-C`` and ``Ctrl-C`` as the same
 byte, so PySnap disambiguates them by selection state. While a captured

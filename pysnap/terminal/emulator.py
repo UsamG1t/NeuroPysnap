@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
+import copy
 import re
 import unicodedata
 
 import pyte
 # ``pyte`` decides what to draw with this cached ``wcwidth``; reusing it keeps
 # the rule below identical to the one inside ``Screen.draw``.
-from pyte.screens import HistoryScreen, Margins, wcwidth
+from pyte.screens import HistoryScreen, Margins, StaticDefaultDict, wcwidth
 
 _HEX_COLOR_RE = re.compile(r"^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$")
 _ANSI_BRIGHT_COLOR_ALIASES = {
@@ -251,7 +253,104 @@ class ScreenStream(pyte.ByteStream):
     csi = {**pyte.ByteStream.csi, "S": "scroll_up", "T": "scroll_down"}
 
 
-class _InvisibleSafeHistoryScreen(ScrollRegionMixin, HistoryScreen):
+# DEC private modes of the alternate screen: 47 and 1047 switch, 1049 also
+# saves the cursor before and restores it after; 1048 only saves and
+# restores the cursor.
+_ALTERNATE_MODES = (47, 1047, 1049)
+_SAVE_CURSOR_MODES = (1048, 1049)
+
+
+class AlternateScreenMixin:
+    """Give a ``pyte`` history screen the xterm alternate screen.
+
+    Full-screen programs such as vim, nano and less switch to the alternate
+    screen and back when they exit, so the shell screen reappears as it was.
+    Lines scrolled on the alternate screen do not enter the history, as in
+    xterm. ``pyte`` 0.8 has no alternate screen: it ignores these modes.
+    """
+
+    _main_buffer = None
+    _saved_cursor = None
+
+    @property
+    def in_alternate_screen(self) -> bool:
+        """Return whether the alternate screen is shown."""
+        return self._main_buffer is not None
+
+    def set_mode(self, *modes: int, **kwargs: object) -> None:
+        """Handle the alternate screen modes; ``pyte`` records all modes as usual."""
+        if kwargs.get("private"):
+            if any(mode in _SAVE_CURSOR_MODES for mode in modes):
+                self._saved_cursor = copy.copy(self.cursor)
+            if any(mode in _ALTERNATE_MODES for mode in modes) and self._main_buffer is None:
+                self._main_buffer = self.buffer
+                self.buffer = self._new_buffer()
+                self.dirty.update(range(self.lines))
+        super().set_mode(*modes, **kwargs)
+
+    def reset_mode(self, *modes: int, **kwargs: object) -> None:
+        """Leave the alternate screen; ``pyte`` records all modes as usual."""
+        if kwargs.get("private"):
+            if any(mode in _ALTERNATE_MODES for mode in modes) and self._main_buffer is not None:
+                self.buffer = self._main_buffer
+                self._main_buffer = None
+                self.dirty.update(range(self.lines))
+            if any(mode in _SAVE_CURSOR_MODES for mode in modes) and self._saved_cursor is not None:
+                self.cursor = self._saved_cursor
+                self._saved_cursor = None
+                self.ensure_hbounds()
+                self.ensure_vbounds()
+        super().reset_mode(*modes, **kwargs)
+
+    def index(self) -> None:
+        """Scroll without filling the history while the alternate screen is shown."""
+        if self._main_buffer is not None:
+            pyte.Screen.index(self)
+        else:
+            super().index()
+
+    def reverse_index(self) -> None:
+        """Scroll back without touching the history on the alternate screen."""
+        if self._main_buffer is not None:
+            pyte.Screen.reverse_index(self)
+        else:
+            super().reverse_index()
+
+    def resize(self, lines: int | None = None, columns: int | None = None) -> None:
+        """Resize both screens while the alternate one is shown.
+
+        The shell screen loses its top lines to the history and its cells
+        beyond the new width, as ``pyte`` does for the visible screen.
+        """
+        old_lines, old_columns = self.lines, self.columns
+        super().resize(lines=lines, columns=columns)
+        main = self._main_buffer
+        if main is None:
+            return
+        removed = old_lines - self.lines
+        if removed > 0:
+            for y in range(removed):
+                self.history.top.append(main[y])
+            for y in range(self.lines):
+                main[y] = main[y + removed]
+            for y in range(self.lines, old_lines):
+                main.pop(y, None)
+        if self.columns < old_columns:
+            for line in main.values():
+                for x in range(self.columns, old_columns):
+                    line.pop(x, None)
+
+    def reset(self) -> None:
+        """Return to the shell screen on a full reset."""
+        self._main_buffer = None
+        self._saved_cursor = None
+        super().reset()
+
+    def _new_buffer(self):
+        return defaultdict(lambda: StaticDefaultDict(self.default_char))
+
+
+class _InvisibleSafeHistoryScreen(ScrollRegionMixin, AlternateScreenMixin, HistoryScreen):
     """History screen that does not lose text after invisible characters.
 
     ``pyte`` stops drawing the rest of a chunk at the first character without
@@ -356,8 +455,13 @@ class TerminalEmulator:
     def scroll_up(self, lines: int = 1) -> None:
         """Scroll the local view toward older history lines.
 
+        The alternate screen of full-screen programs has no history, so
+        nothing happens while it is shown.
+
         :param lines: Number of lines to move upward.
         """
+        if self.screen.in_alternate_screen:
+            return
         self._scroll_history_up(max(lines, 1))
 
     def scroll_down(self, lines: int = 1) -> None:
@@ -369,6 +473,8 @@ class TerminalEmulator:
 
     def scroll_to_top(self) -> None:
         """Jump to the oldest locally retained history."""
+        if self.screen.in_alternate_screen:
+            return
         while self._scroll_history_up(self.screen.lines):
             continue
 

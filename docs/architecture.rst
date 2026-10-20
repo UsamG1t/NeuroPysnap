@@ -402,6 +402,16 @@ them to ``ScrollRegionMixin``: the lines inside the scrolling margins move by
 ``index`` and ``reverse_index`` while the cursor stays, so screens that track
 lines leaving the top see them as usual.
 
+``pyte`` 0.8 has no alternate screen either: after vim, nano or less the
+editor picture stayed on the screen and its scrolled lines filled the local
+history. ``AlternateScreenMixin`` of the live terminal handles the DEC modes
+``47``, ``1047`` and ``1049`` (``1049`` and ``1048`` also save and restore the
+cursor): the shell buffer is kept aside while a fresh buffer is shown and comes
+back on exit; lines scrolled on the alternate screen do not enter the history,
+and the local scrollback is off there. A resize while the alternate screen is
+shown also moves the top lines of the kept shell buffer to the history and
+cuts its cells beyond the new width, as ``pyte`` does for the visible screen.
+
 ``pysnap.report.render`` replays recordings with the same filter, stream and
 scroll commands, so a report in which the student used vim or nano renders
 like the live terminal; a ``pyte`` failure loses only the chunk it occurred in.
