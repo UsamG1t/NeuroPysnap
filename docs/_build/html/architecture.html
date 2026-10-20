@@ -5,12 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Architecture &#8212; PySnap 2.2.0 documentation</title>
+    <title>Architecture &#8212; PySnap 2.2.1 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
-    <script src="_static/documentation_options.js?v=b21de401"></script>
+    <script src="_static/documentation_options.js?v=16656018"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -136,13 +136,29 @@ and <code class="docutils literal notranslate"><span class="pre">CSI</span> <spa
 </section>
 <section id="terminal-selection-strategy">
 <h2>Terminal Selection Strategy<a class="headerlink" href="#terminal-selection-strategy" title="Link to this heading">¶</a></h2>
-<p>Mouse selection in <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code> only captures text; the copy itself is an
-explicit <code class="docutils literal notranslate"><span class="pre">Ctrl-Shift-C</span></code> action. Classic terminals transmit <code class="docutils literal notranslate"><span class="pre">Ctrl-Shift-C</span></code>
-and <code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code> as the same <code class="docutils literal notranslate"><span class="pre">ETX</span></code> byte, so PySnap resolves the chord by
-selection state: with a captured selection it copies to the host clipboard,
-without one it forwards a real interrupt to the guest. Incoming guest output
-drops only the visible highlight and keeps the captured text, which makes
-copying safe while background utilities continue printing.</p>
+<p>Mouse selection in <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code> copies the text to the host clipboard
+when the button is released: many terminal emulators keep <code class="docutils literal notranslate"><span class="pre">Ctrl-Shift-C</span></code>
+for their own copy command and never pass it on. Where it does arrive,
+<code class="docutils literal notranslate"><span class="pre">Ctrl-Shift-C</span></code> and <code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code> are the same <code class="docutils literal notranslate"><span class="pre">ETX</span></code> byte, so PySnap resolves
+the chord by selection state: with a selected text it copies again, without
+one it forwards a real interrupt to the guest. Incoming guest output drops
+only the visible highlight and keeps the selected text.</p>
+</section>
+<section id="key-strategy">
+<h2>Key Strategy<a class="headerlink" href="#key-strategy" title="Link to this heading">¶</a></h2>
+<p>Every key goes to the guest except <code class="docutils literal notranslate"><span class="pre">Ctrl-]</span></code>, the PySnap command prefix
+borrowed from <code class="docutils literal notranslate"><span class="pre">telnet</span></code>: editors need <code class="docutils literal notranslate"><span class="pre">Esc</span></code>, <code class="docutils literal notranslate"><span class="pre">Ctrl-L</span></code>, <code class="docutils literal notranslate"><span class="pre">Ctrl-Q</span></code> and
+<code class="docutils literal notranslate"><span class="pre">Alt</span></code> combinations, which earlier versions used for detaching, redrawing
+and scrolling. A <code class="docutils literal notranslate"><span class="pre">Condition</span></code> filter enables the command bindings (<code class="docutils literal notranslate"><span class="pre">q</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Ctrl-]</span></code>, the scroll keys) only after the prefix; any other key, <code class="docutils literal notranslate"><span class="pre">Esc</span></code>
+included, just leaves the mode. As no binding starts with <code class="docutils literal notranslate"><span class="pre">Escape</span></code>, a lone
+<code class="docutils literal notranslate"><span class="pre">Esc</span></code> reaches the guest after the 50 ms the input parser waits for the rest
+of an escape sequence instead of after the half-second key binding timeout.
+<code class="docutils literal notranslate"><span class="pre">key_press_to_bytes</span></code> sends a sequence that <code class="docutils literal notranslate"><span class="pre">prompt_toolkit</span></code> splits into
+several keys, such as <code class="docutils literal notranslate"><span class="pre">ESC</span> <span class="pre">[</span> <span class="pre">1</span> <span class="pre">;</span> <span class="pre">3</span> <span class="pre">A</span></code> (<code class="docutils literal notranslate"><span class="pre">Alt+Up</span></code> on an xterm), once with
+the first key and skips the empty rest. On the alternate screen the mouse
+wheel sends cursor keys, in the application form <code class="docutils literal notranslate"><span class="pre">ESC</span> <span class="pre">O</span> <span class="pre">A</span></code> when the guest
+switched DECCKM on.</p>
 </section>
 <section id="proto-settings-strategy">
 <h2>Proto Settings Strategy<a class="headerlink" href="#proto-settings-strategy" title="Link to this heading">¶</a></h2>
@@ -380,6 +396,41 @@ live <code class="docutils literal notranslate"><span class="pre">pysnap</span> 
 while report views show them as <code class="docutils literal notranslate"><span class="pre">?</span></code> so that hidden characters in a student
 report stay visible to the reader.</p>
 </section>
+<section id="control-sequence-strategy">
+<h2>Control Sequence Strategy<a class="headerlink" href="#control-sequence-strategy" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">pyte</span></code> 0.8 fails on several sequences that current programs send, for
+example Vim with an xterm <code class="docutils literal notranslate"><span class="pre">TERM</span></code>: a private CSI sequence other than a DEC
+mode (<code class="docutils literal notranslate"><span class="pre">ESC</span> <span class="pre">[</span> <span class="pre">?</span> <span class="pre">4</span> <span class="pre">m</span></code>) raises <code class="docutils literal notranslate"><span class="pre">TypeError</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">=</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;</span></code> prefixes
+are ignored so that <code class="docutils literal notranslate"><span class="pre">ESC</span> <span class="pre">[</span> <span class="pre">&gt;</span> <span class="pre">4</span> <span class="pre">;</span> <span class="pre">2</span> <span class="pre">m</span></code> switches on underline, intermediate
+bytes and colon sub-parameters end a sequence early and leave its rest on the
+screen, and DCS, SOS, PM and APC payloads are drawn as text. The
+<code class="docutils literal notranslate"><span class="pre">SequenceFilter</span></code> of <code class="docutils literal notranslate"><span class="pre">TerminalEmulator</span></code> therefore sits in front of
+<code class="docutils literal notranslate"><span class="pre">pyte</span></code>: it keeps text, C0 controls, ordinary CSI sequences, DEC modes
+(<code class="docutils literal notranslate"><span class="pre">?</span> <span class="pre">…</span> <span class="pre">h</span></code>/<code class="docutils literal notranslate"><span class="pre">l</span></code>), selective erase and the other <code class="docutils literal notranslate"><span class="pre">ESC</span></code> sequences, rewrites
+colon SGR parameters (<code class="docutils literal notranslate"><span class="pre">38:2::R:G:B</span></code>, <code class="docutils literal notranslate"><span class="pre">4:3</span></code>) to the semicolon form and drops
+the rest together with all control strings. Its state survives chunk
+boundaries; a CSI sequence longer than 256 bytes is skipped to its final byte
+and a control string longer than 64 KiB ends, so that garbage output cannot
+hide the screen for good. Should <code class="docutils literal notranslate"><span class="pre">pyte</span></code> still fail, the emulator starts a
+new parser and the session goes on.</p>
+<p><code class="docutils literal notranslate"><span class="pre">pyte</span></code> 0.8 also lacks the scroll commands <code class="docutils literal notranslate"><span class="pre">CSI</span> <span class="pre">n</span> <span class="pre">S</span></code> and <code class="docutils literal notranslate"><span class="pre">CSI</span> <span class="pre">n</span> <span class="pre">T</span></code>, with
+which nano scrolls its editing area on an xterm. <code class="docutils literal notranslate"><span class="pre">ScreenStream</span></code> dispatches
+them to <code class="docutils literal notranslate"><span class="pre">ScrollRegionMixin</span></code>: the lines inside the scrolling margins move by
+<code class="docutils literal notranslate"><span class="pre">index</span></code> and <code class="docutils literal notranslate"><span class="pre">reverse_index</span></code> while the cursor stays, so screens that track
+lines leaving the top see them as usual.</p>
+<p><code class="docutils literal notranslate"><span class="pre">pyte</span></code> 0.8 has no alternate screen either: after vim, nano or less the
+editor picture stayed on the screen and its scrolled lines filled the local
+history. <code class="docutils literal notranslate"><span class="pre">AlternateScreenMixin</span></code> of the live terminal handles the DEC modes
+<code class="docutils literal notranslate"><span class="pre">47</span></code>, <code class="docutils literal notranslate"><span class="pre">1047</span></code> and <code class="docutils literal notranslate"><span class="pre">1049</span></code> (<code class="docutils literal notranslate"><span class="pre">1049</span></code> and <code class="docutils literal notranslate"><span class="pre">1048</span></code> also save and restore the
+cursor): the shell buffer is kept aside while a fresh buffer is shown and comes
+back on exit; lines scrolled on the alternate screen do not enter the history,
+and the local scrollback is off there. A resize while the alternate screen is
+shown also moves the top lines of the kept shell buffer to the history and
+cuts its cells beyond the new width, as <code class="docutils literal notranslate"><span class="pre">pyte</span></code> does for the visible screen.</p>
+<p><code class="docutils literal notranslate"><span class="pre">pysnap.report.render</span></code> replays recordings with the same filter, stream and
+scroll commands, so a report in which the student used vim or nano renders
+like the live terminal; a <code class="docutils literal notranslate"><span class="pre">pyte</span></code> failure loses only the chunk it occurred in.</p>
+</section>
 <section id="documentation-packaging-strategy">
 <h2>Documentation Packaging Strategy<a class="headerlink" href="#documentation-packaging-strategy" title="Link to this heading">¶</a></h2>
 <p>Sphinx builds the HTML documentation into <code class="docutils literal notranslate"><span class="pre">docs/_build/html</span></code>. During wheel
@@ -425,6 +476,7 @@ without requiring Sphinx at runtime.</p>
 <li class="toctree-l2"><a class="reference internal" href="#metadata-strategy">Metadata Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#serial-port-strategy">Serial Port Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#terminal-selection-strategy">Terminal Selection Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#key-strategy">Key Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#proto-settings-strategy">Proto Settings Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#access-strategy">Access Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#ssh-strategy">ssh Strategy</a></li>
@@ -439,6 +491,7 @@ without requiring Sphinx at runtime.</p>
 <li class="toctree-l2"><a class="reference internal" href="#report-transfer-strategy">Report Transfer Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#report-comparison-strategy">Report Comparison Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#invisible-character-strategy">Invisible Character Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#control-sequence-strategy">Control Sequence Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#documentation-packaging-strategy">Documentation Packaging Strategy</a></li>
 </ul>
 </li>

@@ -110,13 +110,30 @@ and ``CSI 6 n`` so guest-side Linux tools can rediscover the current geometry.
 Terminal Selection Strategy
 ---------------------------
 
-Mouse selection in ``pysnap connect`` only captures text; the copy itself is an
-explicit ``Ctrl-Shift-C`` action. Classic terminals transmit ``Ctrl-Shift-C``
-and ``Ctrl-C`` as the same ``ETX`` byte, so PySnap resolves the chord by
-selection state: with a captured selection it copies to the host clipboard,
-without one it forwards a real interrupt to the guest. Incoming guest output
-drops only the visible highlight and keeps the captured text, which makes
-copying safe while background utilities continue printing.
+Mouse selection in ``pysnap connect`` copies the text to the host clipboard
+when the button is released: many terminal emulators keep ``Ctrl-Shift-C``
+for their own copy command and never pass it on. Where it does arrive,
+``Ctrl-Shift-C`` and ``Ctrl-C`` are the same ``ETX`` byte, so PySnap resolves
+the chord by selection state: with a selected text it copies again, without
+one it forwards a real interrupt to the guest. Incoming guest output drops
+only the visible highlight and keeps the selected text.
+
+Key Strategy
+------------
+
+Every key goes to the guest except ``Ctrl-]``, the PySnap command prefix
+borrowed from ``telnet``: editors need ``Esc``, ``Ctrl-L``, ``Ctrl-Q`` and
+``Alt`` combinations, which earlier versions used for detaching, redrawing
+and scrolling. A ``Condition`` filter enables the command bindings (``q``,
+``Ctrl-]``, the scroll keys) only after the prefix; any other key, ``Esc``
+included, just leaves the mode. As no binding starts with ``Escape``, a lone
+``Esc`` reaches the guest after the 50 ms the input parser waits for the rest
+of an escape sequence instead of after the half-second key binding timeout.
+``key_press_to_bytes`` sends a sequence that ``prompt_toolkit`` splits into
+several keys, such as ``ESC [ 1 ; 3 A`` (``Alt+Up`` on an xterm), once with
+the first key and skips the empty rest. On the alternate screen the mouse
+wheel sends cursor keys, in the application form ``ESC O A`` when the guest
+switched DECCKM on.
 
 Proto Settings Strategy
 -----------------------
@@ -376,6 +393,45 @@ without width that is not a combining mark, such as U+200B or U+202E. The
 live ``pysnap connect`` terminal skips them like a regular terminal does,
 while report views show them as ``?`` so that hidden characters in a student
 report stay visible to the reader.
+
+Control Sequence Strategy
+-------------------------
+
+``pyte`` 0.8 fails on several sequences that current programs send, for
+example Vim with an xterm ``TERM``: a private CSI sequence other than a DEC
+mode (``ESC [ ? 4 m``) raises ``TypeError``, ``>``, ``=`` and ``<`` prefixes
+are ignored so that ``ESC [ > 4 ; 2 m`` switches on underline, intermediate
+bytes and colon sub-parameters end a sequence early and leave its rest on the
+screen, and DCS, SOS, PM and APC payloads are drawn as text. The
+``SequenceFilter`` of ``TerminalEmulator`` therefore sits in front of
+``pyte``: it keeps text, C0 controls, ordinary CSI sequences, DEC modes
+(``? … h``/``l``), selective erase and the other ``ESC`` sequences, rewrites
+colon SGR parameters (``38:2::R:G:B``, ``4:3``) to the semicolon form and drops
+the rest together with all control strings. Its state survives chunk
+boundaries; a CSI sequence longer than 256 bytes is skipped to its final byte
+and a control string longer than 64 KiB ends, so that garbage output cannot
+hide the screen for good. Should ``pyte`` still fail, the emulator starts a
+new parser and the session goes on.
+
+``pyte`` 0.8 also lacks the scroll commands ``CSI n S`` and ``CSI n T``, with
+which nano scrolls its editing area on an xterm. ``ScreenStream`` dispatches
+them to ``ScrollRegionMixin``: the lines inside the scrolling margins move by
+``index`` and ``reverse_index`` while the cursor stays, so screens that track
+lines leaving the top see them as usual.
+
+``pyte`` 0.8 has no alternate screen either: after vim, nano or less the
+editor picture stayed on the screen and its scrolled lines filled the local
+history. ``AlternateScreenMixin`` of the live terminal handles the DEC modes
+``47``, ``1047`` and ``1049`` (``1049`` and ``1048`` also save and restore the
+cursor): the shell buffer is kept aside while a fresh buffer is shown and comes
+back on exit; lines scrolled on the alternate screen do not enter the history,
+and the local scrollback is off there. A resize while the alternate screen is
+shown also moves the top lines of the kept shell buffer to the history and
+cuts its cells beyond the new width, as ``pyte`` does for the visible screen.
+
+``pysnap.report.render`` replays recordings with the same filter, stream and
+scroll commands, so a report in which the student used vim or nano renders
+like the live terminal; a ``pyte`` failure loses only the chunk it occurred in.
 
 Documentation Packaging Strategy
 --------------------------------

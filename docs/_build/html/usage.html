@@ -5,12 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Usage Guide &#8212; PySnap 2.2.0 documentation</title>
+    <title>Usage Guide &#8212; PySnap 2.2.1 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
-    <script src="_static/documentation_options.js?v=b21de401"></script>
+    <script src="_static/documentation_options.js?v=16656018"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -321,26 +321,38 @@ session ends when the login shell exits (<code class="docutils literal notransla
 paused guest cannot answer the login</p></li>
 <li><p>one <code class="docutils literal notranslate"><span class="pre">connect</span></code> session per VM is allowed, as on the serial console</p></li>
 </ul>
-<p>The terminal session is detached with <code class="docutils literal notranslate"><span class="pre">Ctrl-Q</span></code>. Detaching does not stop the
-virtual machine. <code class="docutils literal notranslate"><span class="pre">Ctrl-L</span></code> redraws the local interface.</p>
-<p>PySnap also keeps a local scrollback buffer for the attached session:</p>
+<p>All keys go to the guest, so editors and shells get <code class="docutils literal notranslate"><span class="pre">Esc</span></code>, <code class="docutils literal notranslate"><span class="pre">Ctrl-L</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Ctrl-Q</span></code>, <code class="docutils literal notranslate"><span class="pre">Alt</span></code> combinations and function keys as in a regular terminal.
+PySnap commands start with <code class="docutils literal notranslate"><span class="pre">Ctrl-]</span></code>, which guest programs hardly use, as in
+<code class="docutils literal notranslate"><span class="pre">telnet</span></code>; the status line then lists the command keys:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">Alt-Up</span></code> scrolls one line toward older output</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">Alt-Down</span></code> scrolls one line toward newer output</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">Alt-Left</span></code> jumps to the oldest retained output</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">Alt-Right</span></code> jumps back to the live output bottom</p></li>
-<li><p>dragging with the left mouse button selects visible terminal text and
-captures it for copying</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">Ctrl-Shift-C</span></code> copies the captured selection to the host clipboard</p></li>
-<li><p>on Linux, the mouse wheel or touchpad scroll gesture also moves through the
-local scrollback buffer</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">q</span></code> detaches the session; detaching does not stop the virtual machine</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Up</span></code> and <code class="docutils literal notranslate"><span class="pre">Down</span></code> scroll the local scrollback buffer by one line,
+<code class="docutils literal notranslate"><span class="pre">PgUp</span></code> and <code class="docutils literal notranslate"><span class="pre">PgDn</span></code> by one screen, <code class="docutils literal notranslate"><span class="pre">Home</span></code> jumps to the oldest retained
+output and <code class="docutils literal notranslate"><span class="pre">End</span></code> back to the live output; the command keys stay active
+for further scrolling</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Ctrl-]</span></code> sends <code class="docutils literal notranslate"><span class="pre">Ctrl-]</span></code> itself to the guest</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Esc</span></code> or any other key leaves the command keys without sending anything</p></li>
 </ul>
-<p>Classic terminal emulators deliver <code class="docutils literal notranslate"><span class="pre">Ctrl-Shift-C</span></code> and <code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code> as the same
-byte, so PySnap disambiguates them by selection state. While a captured
-selection exists, the chord only copies. Without one, it forwards a real
-<code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code> interrupt to the guest. Incoming guest output removes the visible
-highlight but keeps the captured text, so copying stays possible while
-utilities keep printing in the background.</p>
+<p>The mouse works as well:</p>
+<ul class="simple">
+<li><p>dragging with the left mouse button selects visible terminal text; when
+the button is released, the text is copied to the host clipboard</p></li>
+<li><p>on Linux, the mouse wheel or touchpad scroll gesture moves the local
+scrollback buffer by three lines</p></li>
+<li><p>full-screen programs such as vim, nano and less use the alternate screen:
+while they run, the local scrollback is off and the wheel sends three
+cursor keys per step to the program instead, as xterm does; when they exit,
+the shell screen comes back as it was, and their screens never enter the
+scrollback</p></li>
+</ul>
+<p>Many terminal emulators keep <code class="docutils literal notranslate"><span class="pre">Ctrl-Shift-C</span></code> for their own copy command,
+which is why PySnap copies on release. Terminals that pass <code class="docutils literal notranslate"><span class="pre">Ctrl-Shift-C</span></code>
+on deliver it as the same byte as <code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code>, so PySnap disambiguates them by
+selection state: while a selected text exists, the chord copies it again;
+without one, it forwards a real <code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code> interrupt to the guest. Typing any
+other key drops the selection. Incoming guest output removes the visible
+highlight but keeps the selected text.</p>
 <p>While the session is attached, PySnap continuously tracks the outer terminal
 size and resizes the visible guest text area to match it. This also works
 after reconnecting to an already running VM.</p>
@@ -355,9 +367,10 @@ for <code class="docutils literal notranslate"><span class="pre">VBoxManage</spa
 </div>
 <p>A paused VM can be attached through <code class="docutils literal notranslate"><span class="pre">UART1</span></code> too: the status line shows
 <code class="docutils literal notranslate"><span class="pre">Paused</span></code>, keys are held back and nothing is sent to the guest until
-<code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">resume</span></code>. Then the keys work again, and when the guest has not printed anything yet PySnap sends
-the usual waking newline. When a VM is paused during a session, the session
-stays open in the same way, so <code class="docutils literal notranslate"><span class="pre">Ctrl-Q</span></code> on a paused VM and a new
+<code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">resume</span></code>; the <code class="docutils literal notranslate"><span class="pre">Ctrl-]</span></code> commands keep working. Then the keys work
+again, and when the guest has not printed anything yet PySnap sends the usual
+waking newline. When a VM is paused during a session, the session stays open
+in the same way, so <code class="docutils literal notranslate"><span class="pre">Ctrl-]</span></code> <code class="docutils literal notranslate"><span class="pre">q</span></code> on a paused VM and a new
 <code class="docutils literal notranslate"><span class="pre">connect</span></code> lead to the same state. If the paused VM does not accept the
 serial connection within three seconds, <code class="docutils literal notranslate"><span class="pre">connect</span></code> fails with a hint to run
 <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">resume</span></code>.</p>
@@ -721,7 +734,7 @@ VirtualBox serves one client, so <code class="docutils literal notranslate"><spa
 run the transfer on its connection. The terminal shows a message in the
 status line, keys are paused until the transfer ends, and afterwards the
 screen is cleared and a fresh prompt appears. Sessions started by an older
-PySnap cannot do this; detach them with <code class="docutils literal notranslate"><span class="pre">Ctrl-Q</span></code> first</p></li>
+PySnap cannot do this; detach them with <code class="docutils literal notranslate"><span class="pre">Ctrl-]</span></code> <code class="docutils literal notranslate"><span class="pre">q</span></code> first</p></li>
 <li><p>the console is logged in and at a shell prompt; PySnap checks this with
 <code class="docutils literal notranslate"><span class="pre">echo</span> <span class="pre">PYSNAP_$((20+22))</span></code> and stops when the answer does not arrive</p></li>
 <li><p>no <code class="docutils literal notranslate"><span class="pre">report</span></code> recording is running: PySnap presses <code class="docutils literal notranslate"><span class="pre">Ctrl-U</span></code> and Enter once, and when the

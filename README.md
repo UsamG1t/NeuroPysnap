@@ -1,6 +1,6 @@
 # PySnap
 
-PySnap 2.2.0 is a Python 3.11+ command line package for importing VirtualBox OVA/OVF
+PySnap 2.2.1 is a Python 3.11+ command line package for importing VirtualBox OVA/OVF
 appliances, creating linked clones, configuring internal networks, starting
 virtual machines in headless mode, attaching to them through a built-in
 terminal over the serial console or ssh, and removing virtual machines with dependency checks.

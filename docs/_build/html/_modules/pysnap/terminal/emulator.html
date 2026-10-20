@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pysnap.terminal.emulator &#8212; PySnap 2.2.0 documentation</title>
+    <title>pysnap.terminal.emulator &#8212; PySnap 2.2.1 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
-    <script src="../../../_static/documentation_options.js?v=b21de401"></script>
+    <script src="../../../_static/documentation_options.js?v=16656018"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -36,13 +36,15 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">unicodedata</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">pyte</span>
 <span class="c1"># ``pyte`` decides what to draw with this cached ``wcwidth``; reusing it keeps</span>
 <span class="c1"># the rule below identical to the one inside ``Screen.draw``.</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pyte.screens</span><span class="w"> </span><span class="kn">import</span> <span class="n">HistoryScreen</span><span class="p">,</span> <span class="n">wcwidth</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyte.screens</span><span class="w"> </span><span class="kn">import</span> <span class="n">HistoryScreen</span><span class="p">,</span> <span class="n">Margins</span><span class="p">,</span> <span class="n">StaticDefaultDict</span><span class="p">,</span> <span class="n">wcwidth</span>
 
 <span class="n">_HEX_COLOR_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"^[0-9a-fA-F]</span><span class="si">{3}</span><span class="s2">([0-9a-fA-F]</span><span class="si">{3}</span><span class="s2">)?$"</span><span class="p">)</span>
 <span class="n">_ANSI_BRIGHT_COLOR_ALIASES</span> <span class="o">=</span> <span class="p">{</span>
@@ -59,7 +61,374 @@
 <span class="p">}</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">_InvisibleSafeHistoryScreen</span><span class="p">(</span><span class="n">HistoryScreen</span><span class="p">):</span>
+<span class="n">_ESC</span> <span class="o">=</span> <span class="mh">0x1B</span>
+<span class="n">_BEL</span> <span class="o">=</span> <span class="mh">0x07</span>
+<span class="n">_CAN_OR_SUB</span> <span class="o">=</span> <span class="p">(</span><span class="mh">0x18</span><span class="p">,</span> <span class="mh">0x1A</span><span class="p">)</span>
+<span class="c1"># ``ESC`` followed by one of these opens a control string: OSC ``]``, DCS</span>
+<span class="c1"># ``P``, SOS ``X``, PM ``^`` and APC ``_``.</span>
+<span class="n">_STRING_INTRODUCERS</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">"]PX^_"</span>
+<span class="c1"># Private CSI sequences that ``pyte`` implements: DEC modes and selective</span>
+<span class="c1"># erase.</span>
+<span class="n">_PRIVATE_FINALS</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">"hlJK"</span>
+<span class="n">_MAX_CSI_LENGTH</span> <span class="o">=</span> <span class="mi">256</span>
+<span class="c1"># A control string that never ends would hide all further output; after this</span>
+<span class="c1"># many bytes the rest is shown again.</span>
+<span class="n">_MAX_STRING_LENGTH</span> <span class="o">=</span> <span class="mi">65536</span>
+<span class="c1"># ``pyte`` keeps private DEC modes shifted by five bits; mode 1 is DECCKM.</span>
+<span class="n">_DECCKM</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">5</span>
+
+
+<div class="viewcode-block" id="SequenceFilter">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.SequenceFilter">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SequenceFilter</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Remove control sequences ``pyte`` cannot handle before it parses them.</span>
+
+<span class="sd">    ``pyte`` 0.8 fails on some sequences that current programs send, for</span>
+<span class="sd">    example editors such as Vim with an xterm ``TERM``:</span>
+
+<span class="sd">    - private CSI sequences other than DEC modes, such as ``ESC [ ? 4 m``,</span>
+<span class="sd">      raise ``TypeError``;</span>
+<span class="sd">    - ``&gt;``, ``=`` and ``&lt;`` prefixes are ignored, so ``ESC [ &gt; 4 ; 2 m``</span>
+<span class="sd">      switches on underline;</span>
+<span class="sd">    - intermediate bytes (``ESC [ 0 % m``) and colon sub-parameters</span>
+<span class="sd">      (``ESC [ 3 8 : 2 : : 1 : 2 : 3 m``) end the sequence early and the rest</span>
+<span class="sd">      is drawn as text;</span>
+<span class="sd">    - the payload of DCS, SOS, PM and APC strings is drawn as text.</span>
+
+<span class="sd">    The filter keeps the sequences ``pyte`` handles, rewrites colon SGR</span>
+<span class="sd">    parameters to the semicolon form and drops the rest, together with all</span>
+<span class="sd">    control strings (including OSC: window titles are not used). Its state</span>
+<span class="sd">    survives chunk boundaries, so a sequence split between two reads is</span>
+<span class="sd">    handled like a whole one.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Start in the ground state."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="o">=</span> <span class="s2">"ground"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sequence</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_string_length</span> <span class="o">=</span> <span class="mi">0</span>
+
+<div class="viewcode-block" id="SequenceFilter.feed">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.SequenceFilter.feed">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">feed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return the bytes of ``data`` that ``pyte`` may parse.</span>
+
+<span class="sd">        :param data: Raw guest output.</span>
+<span class="sd">        :returns: Filtered output; parts of an unfinished sequence are kept</span>
+<span class="sd">            until the next call.</span>
+<span class="sd">        """</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">byte</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span>
+            <span class="k">if</span> <span class="n">state</span> <span class="o">==</span> <span class="s2">"ground"</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">byte</span> <span class="o">==</span> <span class="n">_ESC</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_begin_escape</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">byte</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">state</span> <span class="o">==</span> <span class="s2">"escape"</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">byte</span> <span class="o">==</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">"["</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_sequence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">byte</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="o">=</span> <span class="s2">"csi"</span>
+                <span class="k">elif</span> <span class="n">byte</span> <span class="ow">in</span> <span class="n">_STRING_INTRODUCERS</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_begin_string</span><span class="p">()</span>
+                <span class="k">elif</span> <span class="n">byte</span> <span class="o">==</span> <span class="n">_ESC</span><span class="p">:</span>
+                    <span class="n">output</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sequence</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_begin_escape</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">output</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sequence</span>
+                    <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">byte</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_reset</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="n">state</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"csi"</span><span class="p">,</span> <span class="s2">"csi-ignore"</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_feed_csi</span><span class="p">(</span><span class="n">byte</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_feed_string</span><span class="p">(</span><span class="n">byte</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">output</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_feed_csi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">byte</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="nb">bytearray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Collect one CSI byte and pass or drop a finished sequence."""</span>
+        <span class="k">if</span> <span class="n">byte</span> <span class="o">==</span> <span class="n">_ESC</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_begin_escape</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">byte</span> <span class="ow">in</span> <span class="n">_CAN_OR_SUB</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reset</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="o">==</span> <span class="s2">"csi-ignore"</span><span class="p">:</span>
+            <span class="k">if</span> <span class="mh">0x40</span> <span class="o">&lt;=</span> <span class="n">byte</span> <span class="o">&lt;=</span> <span class="mh">0x7E</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_reset</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">byte</span> <span class="o">&lt;</span> <span class="mh">0x20</span><span class="p">:</span>
+            <span class="c1"># C0 controls inside a sequence act at once, as in ``pyte``.</span>
+            <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">byte</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="mh">0x40</span> <span class="o">&lt;=</span> <span class="n">byte</span> <span class="o">&lt;=</span> <span class="mh">0x7E</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sequence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">byte</span><span class="p">)</span>
+            <span class="n">output</span> <span class="o">+=</span> <span class="n">_accepted_csi</span><span class="p">(</span><span class="nb">bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sequence</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reset</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sequence</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">_MAX_CSI_LENGTH</span><span class="p">:</span>
+            <span class="c1"># Too long to be real: skip it up to its final byte.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="o">=</span> <span class="s2">"csi-ignore"</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sequence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">byte</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_feed_string</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">byte</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="nb">bytearray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Skip one byte of a control string."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_string_length</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="o">==</span> <span class="s2">"string-escape"</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">byte</span> <span class="o">==</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">"</span><span class="se">\\</span><span class="s2">"</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_reset</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># ESC ends the string and starts a new sequence.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_reset</span><span class="p">()</span>
+                <span class="n">output</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="nb">bytes</span><span class="p">([</span><span class="n">_ESC</span><span class="p">,</span> <span class="n">byte</span><span class="p">]))</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="n">byte</span> <span class="o">==</span> <span class="n">_BEL</span> <span class="ow">or</span> <span class="n">byte</span> <span class="ow">in</span> <span class="n">_CAN_OR_SUB</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reset</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">byte</span> <span class="o">==</span> <span class="n">_ESC</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="o">=</span> <span class="s2">"string-escape"</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_string_length</span> <span class="o">&gt;</span> <span class="n">_MAX_STRING_LENGTH</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reset</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_begin_escape</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="o">=</span> <span class="s2">"escape"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sequence</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">([</span><span class="n">_ESC</span><span class="p">])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_begin_string</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="o">=</span> <span class="s2">"string"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sequence</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_string_length</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="o">=</span> <span class="s2">"ground"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sequence</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">()</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_accepted_csi</span><span class="p">(</span><span class="n">sequence</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return a finished CSI sequence in a form ``pyte`` handles, or nothing.</span>
+
+<span class="sd">    :param sequence: ``ESC [`` parameters, intermediates and the final byte.</span>
+<span class="sd">    :returns: The sequence, its rewritten form, or ``b""`` to drop it.</span>
+<span class="sd">    """</span>
+    <span class="n">body</span><span class="p">,</span> <span class="n">final</span> <span class="o">=</span> <span class="n">sequence</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">sequence</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">:]</span>
+    <span class="n">prefix</span> <span class="o">=</span> <span class="n">body</span><span class="p">[:</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">body</span><span class="p">[:</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="sa">b</span><span class="s2">"&lt;"</span><span class="p">,</span> <span class="sa">b</span><span class="s2">"="</span><span class="p">,</span> <span class="sa">b</span><span class="s2">"&gt;"</span><span class="p">,</span> <span class="sa">b</span><span class="s2">"?"</span><span class="p">)</span> <span class="k">else</span> <span class="sa">b</span><span class="s2">""</span>
+    <span class="n">parameters</span> <span class="o">=</span> <span class="n">body</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">prefix</span><span class="p">):]</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="mh">0x20</span> <span class="o">&lt;=</span> <span class="n">byte</span> <span class="o">&lt;=</span> <span class="mh">0x2F</span> <span class="k">for</span> <span class="n">byte</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">b</span><span class="s2">""</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">byte</span> <span class="ow">in</span> <span class="sa">b</span><span class="s2">"&lt;=&gt;?"</span> <span class="k">for</span> <span class="n">byte</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">b</span><span class="s2">""</span>
+    <span class="k">if</span> <span class="n">prefix</span> <span class="o">==</span> <span class="sa">b</span><span class="s2">"?"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sequence</span> <span class="k">if</span> <span class="n">final</span> <span class="ow">in</span> <span class="n">_PRIVATE_FINALS</span> <span class="ow">and</span> <span class="sa">b</span><span class="s2">":"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">parameters</span> <span class="k">else</span> <span class="sa">b</span><span class="s2">""</span>
+    <span class="k">if</span> <span class="n">prefix</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">b</span><span class="s2">""</span>
+    <span class="k">if</span> <span class="sa">b</span><span class="s2">":"</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">final</span> <span class="o">!=</span> <span class="sa">b</span><span class="s2">"m"</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">b</span><span class="s2">""</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="n">_semicolon_sgr</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+    <span class="k">return</span> <span class="sa">b</span><span class="s2">"</span><span class="se">\x1b</span><span class="s2">["</span> <span class="o">+</span> <span class="n">parameters</span> <span class="o">+</span> <span class="n">final</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_semicolon_sgr</span><span class="p">(</span><span class="n">parameters</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Rewrite colon SGR sub-parameters to the semicolon form ``pyte`` knows.</span>
+
+<span class="sd">    ``38:2::R:G:B`` and ``38:2:R:G:B`` become ``38;2;R;G;B`` (also for 48 and</span>
+<span class="sd">    58), ``38:5:N`` becomes ``38;5;N``, the underline styles ``4:1`` to</span>
+<span class="sd">    ``4:5`` become ``4`` and ``4:0`` becomes ``24``; other groups keep their</span>
+<span class="sd">    first number.</span>
+
+<span class="sd">    :param parameters: SGR parameters with at least one colon.</span>
+<span class="sd">    :returns: Semicolon-separated parameters.</span>
+<span class="sd">    """</span>
+    <span class="n">groups</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">parameters</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="sa">b</span><span class="s2">";"</span><span class="p">):</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="n">group</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="sa">b</span><span class="s2">":"</span><span class="p">)</span>
+        <span class="n">head</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">head</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">head</span> <span class="ow">in</span> <span class="p">(</span><span class="sa">b</span><span class="s2">"38"</span><span class="p">,</span> <span class="sa">b</span><span class="s2">"48"</span><span class="p">,</span> <span class="sa">b</span><span class="s2">"58"</span><span class="p">)</span> <span class="ow">and</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="p">[</span><span class="sa">b</span><span class="s2">"2"</span><span class="p">]:</span>
+            <span class="n">rgb</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">rgb</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+                <span class="n">rgb</span> <span class="o">=</span> <span class="n">rgb</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>  <span class="c1"># Skip the color space identifier.</span>
+            <span class="n">groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">b</span><span class="s2">";"</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">head</span><span class="p">,</span> <span class="sa">b</span><span class="s2">"2"</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="n">value</span> <span class="ow">or</span> <span class="sa">b</span><span class="s2">"0"</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">rgb</span><span class="p">)]))</span>
+        <span class="k">elif</span> <span class="n">head</span> <span class="ow">in</span> <span class="p">(</span><span class="sa">b</span><span class="s2">"38"</span><span class="p">,</span> <span class="sa">b</span><span class="s2">"48"</span><span class="p">,</span> <span class="sa">b</span><span class="s2">"58"</span><span class="p">)</span> <span class="ow">and</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="p">[</span><span class="sa">b</span><span class="s2">"5"</span><span class="p">]:</span>
+            <span class="n">groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">b</span><span class="s2">";"</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">head</span><span class="p">,</span> <span class="sa">b</span><span class="s2">"5"</span><span class="p">,</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="k">else</span> <span class="sa">b</span><span class="s2">"0"</span><span class="p">]))</span>
+        <span class="k">elif</span> <span class="n">head</span> <span class="o">==</span> <span class="sa">b</span><span class="s2">"4"</span><span class="p">:</span>
+            <span class="n">groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">b</span><span class="s2">"24"</span> <span class="k">if</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="sa">b</span><span class="s2">"0"</span> <span class="k">else</span> <span class="sa">b</span><span class="s2">"4"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">head</span><span class="p">)</span>
+    <span class="k">return</span> <span class="sa">b</span><span class="s2">";"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">groups</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ScrollRegionMixin">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.ScrollRegionMixin">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ScrollRegionMixin</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Add the CSI ``S`` and ``T`` scroll commands that ``pyte`` 0.8 lacks.</span>
+
+<span class="sd">    Programs such as nano scroll their editing area with them when the</span>
+<span class="sd">    terminal is an xterm. The scroll happens inside the scrolling margins and</span>
+<span class="sd">    does not move the cursor; it reuses ``index`` and ``reverse_index`` so</span>
+<span class="sd">    that screens which track lines leaving the screen see them as usual.</span>
+<span class="sd">    """</span>
+
+<div class="viewcode-block" id="ScrollRegionMixin.scroll_up">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.ScrollRegionMixin.scroll_up">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scroll_up</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Scroll the lines inside the margins up (SU).</span>
+
+<span class="sd">        :param count: Number of lines.</span>
+<span class="sd">        """</span>
+        <span class="n">top</span><span class="p">,</span> <span class="n">bottom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">margins</span> <span class="ow">or</span> <span class="n">Margins</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">y</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">bottom</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">count</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">bottom</span> <span class="o">-</span> <span class="n">top</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">row</span></div>
+
+
+<div class="viewcode-block" id="ScrollRegionMixin.scroll_down">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.ScrollRegionMixin.scroll_down">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scroll_down</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Scroll the lines inside the margins down (SD).</span>
+
+<span class="sd">        :param count: Number of lines.</span>
+<span class="sd">        """</span>
+        <span class="n">top</span><span class="p">,</span> <span class="n">bottom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">margins</span> <span class="ow">or</span> <span class="n">Margins</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">y</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">top</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">count</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">bottom</span> <span class="o">-</span> <span class="n">top</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reverse_index</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cursor</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">row</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ScreenStream">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.ScreenStream">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ScreenStream</span><span class="p">(</span><span class="n">pyte</span><span class="o">.</span><span class="n">ByteStream</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""``pyte`` byte stream that also dispatches CSI ``S`` and ``T``."""</span>
+
+    <span class="n">csi</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">pyte</span><span class="o">.</span><span class="n">ByteStream</span><span class="o">.</span><span class="n">csi</span><span class="p">,</span> <span class="s2">"S"</span><span class="p">:</span> <span class="s2">"scroll_up"</span><span class="p">,</span> <span class="s2">"T"</span><span class="p">:</span> <span class="s2">"scroll_down"</span><span class="p">}</span></div>
+
+
+
+<span class="c1"># DEC private modes of the alternate screen: 47 and 1047 switch, 1049 also</span>
+<span class="c1"># saves the cursor before and restores it after; 1048 only saves and</span>
+<span class="c1"># restores the cursor.</span>
+<span class="n">_ALTERNATE_MODES</span> <span class="o">=</span> <span class="p">(</span><span class="mi">47</span><span class="p">,</span> <span class="mi">1047</span><span class="p">,</span> <span class="mi">1049</span><span class="p">)</span>
+<span class="n">_SAVE_CURSOR_MODES</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1048</span><span class="p">,</span> <span class="mi">1049</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="AlternateScreenMixin">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.AlternateScreenMixin">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AlternateScreenMixin</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Give a ``pyte`` history screen the xterm alternate screen.</span>
+
+<span class="sd">    Full-screen programs such as vim, nano and less switch to the alternate</span>
+<span class="sd">    screen and back when they exit, so the shell screen reappears as it was.</span>
+<span class="sd">    Lines scrolled on the alternate screen do not enter the history, as in</span>
+<span class="sd">    xterm. ``pyte`` 0.8 has no alternate screen: it ignores these modes.</span>
+<span class="sd">    """</span>
+
+    <span class="n">_main_buffer</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_saved_cursor</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="AlternateScreenMixin.in_alternate_screen">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.AlternateScreenMixin.in_alternate_screen">[docs]</a>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">in_alternate_screen</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return whether the alternate screen is shown."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_main_buffer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="AlternateScreenMixin.set_mode">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.AlternateScreenMixin.set_mode">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">modes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Handle the alternate screen modes; ``pyte`` records all modes as usual."""</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"private"</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">mode</span> <span class="ow">in</span> <span class="n">_SAVE_CURSOR_MODES</span> <span class="k">for</span> <span class="n">mode</span> <span class="ow">in</span> <span class="n">modes</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_saved_cursor</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cursor</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">mode</span> <span class="ow">in</span> <span class="n">_ALTERNATE_MODES</span> <span class="k">for</span> <span class="n">mode</span> <span class="ow">in</span> <span class="n">modes</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_main_buffer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_main_buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_buffer</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dirty</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">))</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">set_mode</span><span class="p">(</span><span class="o">*</span><span class="n">modes</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AlternateScreenMixin.reset_mode">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.AlternateScreenMixin.reset_mode">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">modes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Leave the alternate screen; ``pyte`` records all modes as usual."""</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"private"</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">mode</span> <span class="ow">in</span> <span class="n">_ALTERNATE_MODES</span> <span class="k">for</span> <span class="n">mode</span> <span class="ow">in</span> <span class="n">modes</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_main_buffer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_main_buffer</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_main_buffer</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dirty</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">mode</span> <span class="ow">in</span> <span class="n">_SAVE_CURSOR_MODES</span> <span class="k">for</span> <span class="n">mode</span> <span class="ow">in</span> <span class="n">modes</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_saved_cursor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cursor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_saved_cursor</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_saved_cursor</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ensure_hbounds</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ensure_vbounds</span><span class="p">()</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reset_mode</span><span class="p">(</span><span class="o">*</span><span class="n">modes</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AlternateScreenMixin.index">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.AlternateScreenMixin.index">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Scroll without filling the history while the alternate screen is shown."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_main_buffer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">pyte</span><span class="o">.</span><span class="n">Screen</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">index</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="AlternateScreenMixin.reverse_index">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.AlternateScreenMixin.reverse_index">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reverse_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Scroll back without touching the history on the alternate screen."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_main_buffer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">pyte</span><span class="o">.</span><span class="n">Screen</span><span class="o">.</span><span class="n">reverse_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reverse_index</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="AlternateScreenMixin.resize">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.AlternateScreenMixin.resize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">resize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">columns</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Resize both screens while the alternate one is shown.</span>
+
+<span class="sd">        The shell screen loses its top lines to the history and its cells</span>
+<span class="sd">        beyond the new width, as ``pyte`` does for the visible screen.</span>
+<span class="sd">        """</span>
+        <span class="n">old_lines</span><span class="p">,</span> <span class="n">old_columns</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">columns</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">lines</span><span class="o">=</span><span class="n">lines</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">)</span>
+        <span class="n">main</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_main_buffer</span>
+        <span class="k">if</span> <span class="n">main</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">removed</span> <span class="o">=</span> <span class="n">old_lines</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span>
+        <span class="k">if</span> <span class="n">removed</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">removed</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">top</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">main</span><span class="p">[</span><span class="n">y</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">):</span>
+                <span class="n">main</span><span class="p">[</span><span class="n">y</span><span class="p">]</span> <span class="o">=</span> <span class="n">main</span><span class="p">[</span><span class="n">y</span> <span class="o">+</span> <span class="n">removed</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">,</span> <span class="n">old_lines</span><span class="p">):</span>
+                <span class="n">main</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">columns</span> <span class="o">&lt;</span> <span class="n">old_columns</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">main</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">old_columns</span><span class="p">):</span>
+                    <span class="n">line</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AlternateScreenMixin.reset">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.AlternateScreenMixin.reset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return to the shell screen on a full reset."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_main_buffer</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_saved_cursor</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_new_buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">StaticDefaultDict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_char</span><span class="p">))</span></div>
+
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_InvisibleSafeHistoryScreen</span><span class="p">(</span><span class="n">ScrollRegionMixin</span><span class="p">,</span> <span class="n">AlternateScreenMixin</span><span class="p">,</span> <span class="n">HistoryScreen</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""History screen that does not lose text after invisible characters.</span>
 
 <span class="sd">    ``pyte`` stops drawing the rest of a chunk at the first character without</span>
@@ -127,7 +496,8 @@
             <span class="n">history</span><span class="o">=</span><span class="n">history</span><span class="p">,</span>
             <span class="n">invisible_replacement</span><span class="o">=</span><span class="n">invisible_replacement</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">stream</span> <span class="o">=</span> <span class="n">pyte</span><span class="o">.</span><span class="n">ByteStream</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stream</span> <span class="o">=</span> <span class="n">ScreenStream</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sequence_filter</span> <span class="o">=</span> <span class="n">SequenceFilter</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_style_cache</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
 <div class="viewcode-block" id="TerminalEmulator.feed">
@@ -140,11 +510,20 @@
 <span class="sd">        first returns to the live bottom. This mirrors the common</span>
 <span class="sd">        jump-to-bottom-on-output behavior of desktop terminals.</span>
 
-<span class="sd">        :param data: Raw bytes read from the VM serial socket.</span>
+<span class="sd">        Control sequences ``pyte`` cannot handle are filtered first (see</span>
+<span class="sd">        :class:`SequenceFilter`).</span>
+
+<span class="sd">        :param data: Raw bytes read from the guest connection.</span>
 <span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_scrollback_active</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">scroll_to_bottom</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sequence_filter</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="c1"># A sequence ``pyte`` still cannot handle must not end the</span>
+            <span class="c1"># session: the rest of this chunk is lost, parsing goes on.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stream</span> <span class="o">=</span> <span class="n">ScreenStream</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="TerminalEmulator.resize">
@@ -167,8 +546,13 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">scroll_up</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Scroll the local view toward older history lines.</span>
 
+<span class="sd">        The alternate screen of full-screen programs has no history, so</span>
+<span class="sd">        nothing happens while it is shown.</span>
+
 <span class="sd">        :param lines: Number of lines to move upward.</span>
 <span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">in_alternate_screen</span><span class="p">:</span>
+            <span class="k">return</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_scroll_history_up</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span></div>
 
 
@@ -186,6 +570,8 @@
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.scroll_to_top">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">scroll_to_top</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Jump to the oldest locally retained history."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">in_alternate_screen</span><span class="p">:</span>
+            <span class="k">return</span>
         <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scroll_history_up</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span><span class="p">):</span>
             <span class="k">continue</span></div>
 
@@ -196,6 +582,22 @@
 <span class="w">        </span><span class="sd">"""Jump back to the live end of the terminal output."""</span>
         <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scroll_history_down</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span><span class="p">):</span>
             <span class="k">continue</span></div>
+
+
+<div class="viewcode-block" id="TerminalEmulator.application_cursor_keys">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.application_cursor_keys">[docs]</a>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">application_cursor_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return whether the guest asked for application cursor keys (DECCKM)."""</span>
+        <span class="k">return</span> <span class="n">_DECCKM</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">mode</span></div>
+
+
+<div class="viewcode-block" id="TerminalEmulator.in_alternate_screen">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.in_alternate_screen">[docs]</a>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">in_alternate_screen</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return whether a full-screen program shows the alternate screen."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">in_alternate_screen</span></div>
 
 
 <div class="viewcode-block" id="TerminalEmulator.is_scrollback_active">

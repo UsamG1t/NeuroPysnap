@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pysnap.report.extract &#8212; PySnap 2.2.0 documentation</title>
+    <title>pysnap.report.extract &#8212; PySnap 2.2.1 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
-    <script src="../../../_static/documentation_options.js?v=b21de401"></script>
+    <script src="../../../_static/documentation_options.js?v=16656018"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -175,7 +175,7 @@
         <span class="k">if</span> <span class="n">session</span><span class="o">.</span><span class="n">control_port</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">session</span><span class="o">.</span><span class="n">control_token</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">ExtractError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s1">'Virtual machine "</span><span class="si">{</span><span class="n">vm_name</span><span class="si">}</span><span class="s1">" has an attached pysnap connect session '</span>
-                <span class="s2">"without a control channel; detach with Ctrl-Q and try again."</span>
+                <span class="s2">"without a control channel; detach with Ctrl-] q and try again."</span>
             <span class="p">)</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">pysnap.report.control</span><span class="w"> </span><span class="kn">import</span> <span class="n">request_transfer</span>
 
