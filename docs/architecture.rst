@@ -110,13 +110,30 @@ and ``CSI 6 n`` so guest-side Linux tools can rediscover the current geometry.
 Terminal Selection Strategy
 ---------------------------
 
-Mouse selection in ``pysnap connect`` only captures text; the copy itself is an
-explicit ``Ctrl-Shift-C`` action. Classic terminals transmit ``Ctrl-Shift-C``
-and ``Ctrl-C`` as the same ``ETX`` byte, so PySnap resolves the chord by
-selection state: with a captured selection it copies to the host clipboard,
-without one it forwards a real interrupt to the guest. Incoming guest output
-drops only the visible highlight and keeps the captured text, which makes
-copying safe while background utilities continue printing.
+Mouse selection in ``pysnap connect`` copies the text to the host clipboard
+when the button is released: many terminal emulators keep ``Ctrl-Shift-C``
+for their own copy command and never pass it on. Where it does arrive,
+``Ctrl-Shift-C`` and ``Ctrl-C`` are the same ``ETX`` byte, so PySnap resolves
+the chord by selection state: with a selected text it copies again, without
+one it forwards a real interrupt to the guest. Incoming guest output drops
+only the visible highlight and keeps the selected text.
+
+Key Strategy
+------------
+
+Every key goes to the guest except ``Ctrl-]``, the PySnap command prefix
+borrowed from ``telnet``: editors need ``Esc``, ``Ctrl-L``, ``Ctrl-Q`` and
+``Alt`` combinations, which earlier versions used for detaching, redrawing
+and scrolling. A ``Condition`` filter enables the command bindings (``q``,
+``Ctrl-]``, the scroll keys) only after the prefix; any other key, ``Esc``
+included, just leaves the mode. As no binding starts with ``Escape``, a lone
+``Esc`` reaches the guest after the 50 ms the input parser waits for the rest
+of an escape sequence instead of after the half-second key binding timeout.
+``key_press_to_bytes`` sends a sequence that ``prompt_toolkit`` splits into
+several keys, such as ``ESC [ 1 ; 3 A`` (``Alt+Up`` on an xterm), once with
+the first key and skips the empty rest. On the alternate screen the mouse
+wheel sends cursor keys, in the application form ``ESC O A`` when the guest
+switched DECCKM on.
 
 Proto Settings Strategy
 -----------------------

@@ -11,6 +11,7 @@ from typing import Awaitable, Callable
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.application.current import get_app
+from prompt_toolkit.filters import Condition
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout import HSplit, Layout, Window
@@ -140,7 +141,12 @@ class SessionTransport:
         return cls("ssh", f"ssh:{target.port}", target.port, False, opener)
 
 
-PAUSED_MESSAGE = "VM is paused; keys wait for pysnap resume. Ctrl-Q detaches."
+DETACH_HINT = "Ctrl-] q detaches."
+PAUSED_MESSAGE = f"VM is paused; keys wait for pysnap resume. {DETACH_HINT}"
+COMMAND_MESSAGE = "q detach, Up/Down/PgUp/PgDn/Home/End scroll, Esc back"
+# Lines one mouse wheel step scrolls; on the alternate screen the same number
+# of cursor keys goes to the guest.
+WHEEL_LINES = 3
 # A paused VM may not accept the serial connection; do not wait long for it.
 PAUSED_CONNECT_TIMEOUT = 3.0
 
@@ -425,9 +431,9 @@ class TerminalSession:
             status.message = PAUSED_MESSAGE
         elif transport.serial:
             await _wake_serial_console(writer)
-            status.message = "Connected. Ctrl-Q detaches."
+            status.message = f"Connected. {DETACH_HINT}"
         else:
-            status.message = "Connected through ssh. Ctrl-Q detaches."
+            status.message = f"Connected through ssh. {DETACH_HINT}"
 
         def begin_selection(x: int, y: int) -> None:
             selection_tracker.begin(x, y)
@@ -439,9 +445,21 @@ class TerminalSession:
             app.invalidate()
 
         def finish_selection(x: int, y: int) -> None:
+            # Copy on release: many terminals keep Ctrl+Shift+C for their own
+            # copy command, so it may never reach PySnap.
             if selection_tracker.finish(x, y):
-                status.message = "Selection ready. Ctrl+Shift+C copies."
+                copied = copy_text_to_host_clipboard(
+                    selection_tracker.captured_text, output=app.output
+                )
+                status.message = (
+                    "Selection copied."
+                    if copied
+                    else "Selection captured, but clipboard export failed."
+                )
             app.invalidate()
+
+        def guest_accepts_keys() -> bool:
+            return transfer["console"] is None and not pause_tracker.paused
 
         def scroll_up(lines: int = 1) -> None:
             selection_tracker.clear_highlight()
@@ -452,6 +470,18 @@ class TerminalSession:
             selection_tracker.clear_highlight()
             emulator.scroll_down(lines)
             app.invalidate()
+
+        def wheel(up: bool) -> None:
+            # Full-screen programs have no local history: like xterm, the
+            # wheel sends cursor keys to them instead.
+            if emulator.in_alternate_screen:
+                if guest_accepts_keys():
+                    writer.write(_cursor_key(up, emulator.application_cursor_keys) * WHEEL_LINES)
+                return
+            if up:
+                scroll_up(WHEEL_LINES)
+            else:
+                scroll_down(WHEEL_LINES)
 
         def render_terminal() -> list[tuple[str, str]]:
             app = get_app()
@@ -474,8 +504,8 @@ class TerminalSession:
             text=render_terminal,
             focusable=True,
             show_cursor=False,
-            on_scroll_up=scroll_up,
-            on_scroll_down=scroll_down,
+            on_scroll_up=lambda: wheel(True),
+            on_scroll_down=lambda: wheel(False),
             mouse_scrolling_enabled=_should_enable_mouse_scrolling(),
             on_selection_start=begin_selection,
             on_selection_update=update_selection,
@@ -492,45 +522,51 @@ class TerminalSession:
         )
 
         bindings = KeyBindings()
+        # Every PySnap command sits behind Ctrl-], which programs in the
+        # guest hardly use; all other keys belong to the guest.
+        command_mode = {"active": False}
+        in_command_mode = Condition(lambda: command_mode["active"])
 
-        @bindings.add(Keys.ControlQ)
+        def leave_command_mode(message: str | None = None) -> None:
+            command_mode["active"] = False
+            status.message = message or DETACH_HINT
+
+        @bindings.add(Keys.ControlSquareClose, filter=~in_command_mode)
+        def _command_mode(event) -> None:
+            """Wait for one PySnap command key."""
+            command_mode["active"] = True
+            status.message = COMMAND_MESSAGE
+            event.app.invalidate()
+
+        @bindings.add("q", filter=in_command_mode)
         def _detach(event) -> None:
             """Detach from the VM without stopping it."""
+            command_mode["active"] = False
             status.message = "Detached."
             stop_event.set()
             event.app.exit()
 
-        @bindings.add(Keys.ControlL)
-        def _redraw(event) -> None:
-            """Force a redraw of the terminal interface."""
-            status.message = "Screen refreshed."
+        @bindings.add(Keys.ControlSquareClose, filter=in_command_mode)
+        def _send_command_key(event) -> None:
+            """Send Ctrl-] itself to the guest."""
+            leave_command_mode()
+            if guest_accepts_keys():
+                writer.write(b"\x1d")
             event.app.invalidate()
 
-        @bindings.add(Keys.Escape, Keys.Up)
-        def _scroll_older_line(event) -> None:
-            """Scroll one line toward older local terminal output."""
-            emulator.scroll_up(1)
-            event.app.invalidate()
+        def add_scroll_key(key: Keys, action: Callable[[], None]) -> None:
+            @bindings.add(key, filter=in_command_mode)
+            def _scroll(event) -> None:
+                selection_tracker.clear_highlight()
+                action()
+                event.app.invalidate()
 
-        @bindings.add(Keys.Escape, Keys.Down)
-        def _scroll_newer_line(event) -> None:
-            """Scroll one line toward newer local terminal output."""
-            emulator.scroll_down(1)
-            event.app.invalidate()
-
-        @bindings.add(Keys.Escape, Keys.Left)
-        def _scroll_to_top(event) -> None:
-            """Jump to the oldest retained local scrollback output."""
-            selection_tracker.clear_highlight()
-            emulator.scroll_to_top()
-            event.app.invalidate()
-
-        @bindings.add(Keys.Escape, Keys.Right)
-        def _scroll_to_bottom(event) -> None:
-            """Jump back to the live end of local output."""
-            selection_tracker.clear_highlight()
-            emulator.scroll_to_bottom()
-            event.app.invalidate()
+        add_scroll_key(Keys.Up, lambda: emulator.scroll_up(1))
+        add_scroll_key(Keys.Down, lambda: emulator.scroll_down(1))
+        add_scroll_key(Keys.PageUp, lambda: emulator.scroll_up(emulator.screen.lines))
+        add_scroll_key(Keys.PageDown, lambda: emulator.scroll_down(emulator.screen.lines))
+        add_scroll_key(Keys.Home, emulator.scroll_to_top)
+        add_scroll_key(Keys.End, emulator.scroll_to_bottom)
 
         @bindings.add(Keys.ControlC)
         def _copy_or_interrupt(event) -> None:
@@ -541,11 +577,14 @@ class TerminalSession:
             with a captured selection the chord copies without touching the
             guest, and without one it forwards a real ``Ctrl+C``.
             """
+            if command_mode["active"]:
+                leave_command_mode()
+                event.app.invalidate()
+                return
             captured_text = selection_tracker.take_captured_text()
             if captured_text is None:
-                if transfer["console"] is not None or pause_tracker.paused:
-                    return
-                writer.write(b"\x03")
+                if guest_accepts_keys():
+                    writer.write(b"\x03")
                 return
             copied = copy_text_to_host_clipboard(captured_text, output=event.app.output)
             status.message = (
@@ -557,7 +596,14 @@ class TerminalSession:
 
         @bindings.add(Keys.Any)
         def _forward_key(event) -> None:
-            """Forward arbitrary key input to the serial transport."""
+            """Forward arbitrary key input to the guest.
+
+            In command mode any other key, Esc included, only leaves the mode.
+            """
+            if command_mode["active"]:
+                leave_command_mode()
+                event.app.invalidate()
+                return
             selection_tracker.clear()
             if transfer["console"] is not None:
                 status.message = "Report transfer in progress; keys are paused."
@@ -580,11 +626,9 @@ class TerminalSession:
             mouse_support=True,
             terminal_size_polling_interval=0.25,
         )
-        # Guest-side editors rely on a snappy lone Escape key. The default
-        # prompt-toolkit flush timeouts hold Escape for up to half a second
-        # because of the Alt+Arrow scrollback bindings, which reads as input
-        # lag inside Vim, so both timeouts are tightened here.
-        app.timeoutlen = 0.5
+        # Guest-side editors rely on a snappy lone Escape key. No binding
+        # starts with Escape, so only the input parser waits for the rest of
+        # an escape sequence, which arrives in the same read.
         app.ttimeoutlen = 0.05
 
         def report_connection_closed() -> None:
@@ -674,7 +718,7 @@ class TerminalSession:
                     if change == "paused":
                         status.message = PAUSED_MESSAGE
                     elif change == "resumed":
-                        status.message = "VM resumed. Ctrl-Q detaches."
+                        status.message = f"VM resumed. {DETACH_HINT}"
                         if transport.serial and not received_output.is_set():
                             # Connected while paused: the screen is still empty.
                             await _wake_serial_console(writer)
@@ -717,7 +761,7 @@ class TerminalSession:
                 raise
             transfer["console"] = None
             transfer_output.clear()
-            status.message = "Report transferred. Ctrl-Q detaches."
+            status.message = f"Report transferred. {DETACH_HINT}"
             if not stop_event.is_set():
                 # The transfer ended with ``clear`` on the guest; show a
                 # clean screen and ask the shell for a fresh prompt.
@@ -777,6 +821,16 @@ async def _read_pending_burst(reader: asyncio.StreamReader) -> bytes | None:
         )
     except asyncio.TimeoutError:
         return None
+
+
+def _cursor_key(up: bool, application: bool) -> bytes:
+    """Return the cursor key sequence the guest expects.
+
+    :param up: Up instead of Down.
+    :param application: Whether the guest enabled application cursor keys.
+    :returns: ``ESC O A`` style in application mode, ``ESC [ A`` otherwise.
+    """
+    return (b"\x1bO" if application else b"\x1b[") + (b"A" if up else b"B")
 
 
 def _notify(message: str) -> None:

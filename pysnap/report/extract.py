@@ -133,7 +133,7 @@ def extract_file(
         if session.control_port is None or session.control_token is None:
             raise ExtractError(
                 f'Virtual machine "{vm_name}" has an attached pysnap connect session '
-                "without a control channel; detach with Ctrl-Q and try again."
+                "without a control channel; detach with Ctrl-] q and try again."
             )
         from pysnap.report.control import request_transfer
 

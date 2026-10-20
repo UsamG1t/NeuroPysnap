@@ -40,6 +40,8 @@ _MAX_CSI_LENGTH = 256
 # A control string that never ends would hide all further output; after this
 # many bytes the rest is shown again.
 _MAX_STRING_LENGTH = 65536
+# ``pyte`` keeps private DEC modes shifted by five bits; mode 1 is DECCKM.
+_DECCKM = 1 << 5
 
 
 class SequenceFilter:
@@ -482,6 +484,16 @@ class TerminalEmulator:
         """Jump back to the live end of the terminal output."""
         while self._scroll_history_down(self.screen.lines):
             continue
+
+    @property
+    def application_cursor_keys(self) -> bool:
+        """Return whether the guest asked for application cursor keys (DECCKM)."""
+        return _DECCKM in self.screen.mode
+
+    @property
+    def in_alternate_screen(self) -> bool:
+        """Return whether a full-screen program shows the alternate screen."""
+        return self.screen.in_alternate_screen
 
     @property
     def is_scrollback_active(self) -> bool:
