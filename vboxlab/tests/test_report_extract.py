@@ -158,7 +158,7 @@ class ExtractWithShellTests(unittest.TestCase):
         erase, *commands = [part for part in bytes(server.received).split(b"\r") if part]
         self.assertEqual(erase, b"\x15")  # Ctrl-U before the first Enter
         self.assertEqual(len(commands), 3)  # shell check, transfer, clear
-        self.assertTrue(commands[0].startswith(b" echo PYSNAP_"))
+        self.assertTrue(commands[0].startswith(b" echo VBOXLAB_"))
         self.assertTrue(commands[1].startswith(b" f="))
         self.assertEqual(commands[2], b" clear")
         # A leading space keeps the commands out of the history (HISTCONTROL).

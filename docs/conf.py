@@ -27,7 +27,7 @@ import tomllib
 with (ROOT / "pyproject.toml").open("rb") as _pyproject_file:
     _distribution_name = tomllib.load(_pyproject_file)["project"]["name"]
 
-REPOSITORY_URL = "https://github.com/UsamG1t/NeuroPysnap"
+REPOSITORY_URL = "https://github.com/UsamG1t/VBoxLab"
 REPOSITORY_BRANCH = "master"
 _wheel_file_name = (
     f"{re.sub(r'[-_.]+', '_', _distribution_name).lower()}"

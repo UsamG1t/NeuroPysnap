@@ -387,7 +387,7 @@ def _run_protosettings(
             "NIC2-NIC4, and the clone name, serial port and networks are "
             "written into its DMI system information. These VMs and their clones "
             "are reached through the COM1 serial console; other VMs through ssh. "
-            "The list of such base VMs is kept in ~/.ptotosettings."
+            "The list of such base VMs is kept in ~/.vboxlab/protosettings."
         ),
         epilog=_examples(
             "vboxlab protosettings protocols-jeos-20251218-x86_64",
@@ -800,7 +800,7 @@ def _run_ssh_key(
         description=(
             "Install the VBoxLab ssh key in a running guest, so that ssh "
             "connections need no password. VBoxLab keeps its own key pair in "
-            "~/.pysnap/ssh (pysnap_vm_access_ed25519) and never touches ~/.ssh.\n\n"
+            "~/.vboxlab/ssh (vboxlab_vm_access_ed25519) and never touches ~/.ssh.\n\n"
             "By default ssh logs in with the password of USER (the ssh user of "
             "the VM, see vboxlab set ssh-user) in this terminal and adds the key "
             "for that user; then the guest asks for the root password to add it "

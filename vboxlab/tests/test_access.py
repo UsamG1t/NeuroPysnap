@@ -72,10 +72,10 @@ class ResolveAccessTests(unittest.TestCase):
 
     def test_forwarding_rules(self) -> None:
         """Build and recognize the VBoxLab ssh rule."""
-        self.assertEqual(ssh_forwarding_rule(2400), "pysnap-ssh,tcp,127.0.0.1,2400,,22")
-        self.assertEqual(parse_ssh_forwarding("pysnap-ssh,tcp,127.0.0.1,2400,,22"), 2400)
+        self.assertEqual(ssh_forwarding_rule(2400), "vboxlab-ssh,tcp,127.0.0.1,2400,,22")
+        self.assertEqual(parse_ssh_forwarding("vboxlab-ssh,tcp,127.0.0.1,2400,,22"), 2400)
         self.assertIsNone(parse_ssh_forwarding("web,tcp,,8080,,80"))
-        self.assertIsNone(parse_ssh_forwarding("pysnap-ssh,udp,,2400,,22"))
+        self.assertIsNone(parse_ssh_forwarding("vboxlab-ssh,udp,,2400,,22"))
 
 
 class ClientTests(unittest.TestCase):
@@ -85,7 +85,7 @@ class ClientTests(unittest.TestCase):
         """Find the rule after the natnetN line of its adapter."""
         output = (
             'name="vm"\nUUID="u"\nnic1="intnet"\nnic2="nat"\nnatnet2="nat"\n'
-            'Forwarding(0)="web,tcp,,8080,,80"\nForwarding(1)="pysnap-ssh,tcp,127.0.0.1,2400,,22"\n'
+            'Forwarding(0)="web,tcp,,8080,,80"\nForwarding(1)="vboxlab-ssh,tcp,127.0.0.1,2400,,22"\n'
         )
         client = VBoxManageClient(runner=FakeRunner({("showvminfo", "vm", "--machinereadable"): output}))
         self.assertEqual(client.get_ssh_forwarding("vm"), (2, 2400))
@@ -103,9 +103,9 @@ class ClientTests(unittest.TestCase):
         client.remove_ssh_forwarding("vm", 1)
         client.delete_metadata("vm", ACCESS_KEY)
         self.assertEqual(runner.commands, [
-            ("modifyvm", "vm", "--natpf1", "pysnap-ssh,tcp,127.0.0.1,2400,,22"),
-            ("controlvm", "vm", "natpf2", "pysnap-ssh,tcp,127.0.0.1,2401,,22"),
-            ("modifyvm", "vm", "--natpf1", "delete", "pysnap-ssh"),
+            ("modifyvm", "vm", "--natpf1", "vboxlab-ssh,tcp,127.0.0.1,2400,,22"),
+            ("controlvm", "vm", "natpf2", "vboxlab-ssh,tcp,127.0.0.1,2401,,22"),
+            ("modifyvm", "vm", "--natpf1", "delete", "vboxlab-ssh"),
             ("setextradata", "vm", ACCESS_KEY),
         ])
 
@@ -140,7 +140,7 @@ class ServiceTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self._temp_dir = tempfile.TemporaryDirectory()
-        self.store = ProtoSettingsStore(path=Path(self._temp_dir.name) / ".ptotosettings")
+        self.store = ProtoSettingsStore(path=Path(self._temp_dir.name) / "protosettings")
         self.client = AccessClient()
         self.service = VBoxLabService(
             client=self.client,
@@ -264,7 +264,7 @@ class CommandTests(unittest.TestCase):
             service = VBoxLabService(
                 client=client,
                 session_registry=FakeSessionRegistry(),
-                proto_settings_store=ProtoSettingsStore(path=Path(temp_dir) / ".ptotosettings"),
+                proto_settings_store=ProtoSettingsStore(path=Path(temp_dir) / "protosettings"),
             )
             output = io.StringIO()
             run_cli(list(arguments), service=service, stdout=output, stderr=io.StringIO())

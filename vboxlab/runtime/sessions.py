@@ -44,7 +44,7 @@ class SessionRegistry:
 
         :param root_dir: Optional custom root directory.
         """
-        self.root_dir = root_dir or (Path(tempfile.gettempdir()) / "pysnap-sessions")
+        self.root_dir = root_dir or (Path(tempfile.gettempdir()) / "vboxlab-sessions")
         self.root_dir.mkdir(parents=True, exist_ok=True)
 
     def list_live_sessions(self) -> dict[str, SessionRecord]:

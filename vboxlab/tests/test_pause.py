@@ -28,7 +28,7 @@ class PauseClient(FakeClient):
         self.references[name] = VMReference(name=name, uuid=f"uuid-{name}")
         self.infos[name] = VMInfo(name=name, uuid=f"uuid-{name}", groups=("/Lab",),
                                   serial_port=port, vm_state=state,
-                                  metadata={"pysnap/access": "com"})
+                                  metadata={"vboxlab/access": "com"})
 
     def _set_state(self, name: str, state: str) -> None:
         self.infos[name] = replace(self.infos[name], vm_state=state)
@@ -70,7 +70,7 @@ class ServiceTests(unittest.TestCase):
         self.service = VBoxLabService(
             client=self.client,
             session_registry=self.registry,
-            proto_settings_store=ProtoSettingsStore(path=Path(self._temp_dir.name) / ".ptotosettings"),
+            proto_settings_store=ProtoSettingsStore(path=Path(self._temp_dir.name) / "protosettings"),
         )
 
     def tearDown(self) -> None:
@@ -177,7 +177,7 @@ class CommandTests(unittest.TestCase):
             service = VBoxLabService(
                 client=client,
                 session_registry=FakeSessionRegistry(),
-                proto_settings_store=ProtoSettingsStore(path=Path(temp_dir) / ".ptotosettings"),
+                proto_settings_store=ProtoSettingsStore(path=Path(temp_dir) / "protosettings"),
             )
             output, errors = io.StringIO(), io.StringIO()
             code = run_cli(list(arguments), service=service, stdout=output, stderr=errors)

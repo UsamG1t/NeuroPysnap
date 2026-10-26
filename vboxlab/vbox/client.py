@@ -286,7 +286,7 @@ class VBoxManageClient:
         metadata = {
             key: value
             for key, value in self.get_metadata(vm_name).items()
-            if key.startswith("pysnap/")
+            if key.startswith("vboxlab/")
         }
         return VMInfo(
             name=properties.get("name", vm_name),
@@ -294,8 +294,8 @@ class VBoxManageClient:
             groups=split_groups(properties.get("groups", "")),
             serial_port=self._parse_serial_port(properties),
             vm_state=properties.get("VMState", "") or None,
-            parent_name=metadata.get("pysnap/parent") or None,
-            managed=metadata.get("pysnap/managed") == "true",
+            parent_name=metadata.get("vboxlab/parent") or None,
+            managed=metadata.get("vboxlab/managed") == "true",
             metadata=metadata,
             serial_tcp_ports=tuple(
                 setting.port

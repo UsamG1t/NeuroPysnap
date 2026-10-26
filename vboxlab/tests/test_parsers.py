@@ -61,12 +61,12 @@ class ParserTests(unittest.TestCase):
     def test_parse_extra_data(self) -> None:
         """Parse extra data entries returned by VirtualBox."""
         output = (
-            "Key: pysnap/managed, Value: true\n"
-            "Key: pysnap/parent, Value: base-vm\n"
+            "Key: vboxlab/managed, Value: true\n"
+            "Key: vboxlab/parent, Value: base-vm\n"
         )
         metadata = parse_extra_data(output)
-        self.assertEqual(metadata["pysnap/managed"], "true")
-        self.assertEqual(metadata["pysnap/parent"], "base-vm")
+        self.assertEqual(metadata["vboxlab/managed"], "true")
+        self.assertEqual(metadata["vboxlab/parent"], "base-vm")
 
     def test_parse_import_candidates(self) -> None:
         """Parse VM import metadata from a dry-run output."""

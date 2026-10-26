@@ -51,7 +51,7 @@ class KeyStoreTests(unittest.TestCase):
         self.assertEqual(self.root.stat().st_mode & 0o777, 0o700)
         line = store.public_key_text()
         self.assertTrue(line.startswith("ssh-ed25519 "))
-        self.assertIn(" pysnap-vm-access@", line)
+        self.assertIn(" vboxlab-vm-access@", line)
         before = key.read_bytes()
         self.assertEqual(store.ensure_key(), key)
         self.assertEqual(key.read_bytes(), before)
@@ -119,7 +119,7 @@ class CommandTests(unittest.TestCase):
         """Append the key to authorized_keys without duplicates."""
         home = Path(self._temp_dir.name) / "home"
         home.mkdir()
-        key = "ssh-ed25519 AAAAtest pysnap-vm-access@host"
+        key = "ssh-ed25519 AAAAtest vboxlab-vm-access@host"
         for _ in range(2):
             subprocess.run(["sh", "-c", install_script(key, with_root=False)],
                            env={**os.environ, "HOME": str(home)}, check=True)
@@ -332,7 +332,7 @@ class _FakeStore(SshKeyStore):
         return self.private_key
 
     def public_key_text(self) -> str:
-        return "ssh-ed25519 AAAAfake pysnap-vm-access@test"
+        return "ssh-ed25519 AAAAfake vboxlab-vm-access@test"
 
 
 class ConsoleAndCommandLineTests(unittest.TestCase):

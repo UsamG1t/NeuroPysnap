@@ -14,7 +14,7 @@ The serial transfer uses only the guest shell and coreutils:
 2. VBoxLab wakes the console with Enter and refuses to continue when the
    prompt installed by ``report`` is visible: a recording is running and every
    further command would end up in the student's report.
-3. ``echo PYSNAP_$((20+22))`` must answer ``PYSNAP_42``. The echoed command
+3. ``echo VBOXLAB_$((20+22))`` must answer ``VBOXLAB_42``. The echoed command
    line cannot contain that text, so the answer proves a working shell and
    not a login screen or a full-screen program.
 4. One command prints a begin marker, the file as one ``base64`` line, its
@@ -58,8 +58,8 @@ DEFAULT_SSH_TIMEOUT = 120.0
 _SSH_MISSING_STATUS = 3
 _QUIET_PERIOD = 0.3
 
-PROBE_COMMAND = b" echo PYSNAP_$((20+22))\r"
-PROBE_ANSWER = b"PYSNAP_42"
+PROBE_COMMAND = b" echo VBOXLAB_$((20+22))\r"
+PROBE_ANSWER = b"VBOXLAB_42"
 _ANSI_SEQUENCE = re.compile(rb"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b[()][0-9A-Za-z]|\x1b.")
 # The prompt installed by ``report`` (``[\u@NN-HOST \W]# ``).
 _REPORT_PROMPT = re.compile(rb"\[[^@\]\s]+@\d+-[^\s\]]+ [^\]]*\][#$] ?")
@@ -294,12 +294,12 @@ def _connectable_port(service, vm_name: str) -> int:
 def _transfer(console: "ConsoleIO", remote_path: str, idle_timeout: float, max_bytes: int) -> tuple[bytes, str]:
     """Run the transfer command and return the verified file content."""
     token = secrets.token_hex(8)
-    begin, end, missing = (f"PYSNAP-{kind}-{token}".encode() for kind in ("BEGIN", "END", "MISSING"))
+    begin, end, missing = (f"VBOXLAB-{kind}-{token}".encode() for kind in ("BEGIN", "END", "MISSING"))
     command = (
         f" f={remote_path}; if [ -f \"$f\" ] && [ -r \"$f\" ]; then "
-        f"printf '%s-%s\\n' PYSNAP-BEGIN {token}; base64 -w0 \"$f\"; printf '\\n'; "
-        f"sha256sum < \"$f\"; printf '%s-%s\\n' PYSNAP-END {token}; "
-        f"else printf '%s-%s\\n' PYSNAP-MISSING {token}; fi\r"
+        f"printf '%s-%s\\n' VBOXLAB-BEGIN {token}; base64 -w0 \"$f\"; printf '\\n'; "
+        f"sha256sum < \"$f\"; printf '%s-%s\\n' VBOXLAB-END {token}; "
+        f"else printf '%s-%s\\n' VBOXLAB-MISSING {token}; fi\r"
     )
     console.send(command.encode())
     limit = max_bytes * 4 // 3 + 4096

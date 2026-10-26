@@ -1,7 +1,7 @@
 """The VBoxLab ssh key pair and per-VM ``known_hosts`` files.
 
-Everything lives in ``~/.pysnap/ssh`` (mode 0700): the key pair
-``pysnap_vm_access_ed25519`` with its ``.pub`` file, created once by
+Everything lives in ``~/.vboxlab/ssh`` (mode 0700): the key pair
+``vboxlab_vm_access_ed25519`` with its ``.pub`` file, created once by
 ``ssh-keygen`` without a passphrase, and ``known_hosts.d/<VM UUID>``, one
 ``known_hosts`` file per VM. Both the directory and the file names are unique
 to VBoxLab, and existing files are never overwritten.
@@ -18,8 +18,8 @@ import subprocess
 
 from vboxlab.errors import VBoxLabError
 
-KEY_NAME = "pysnap_vm_access_ed25519"
-KEY_COMMENT_PREFIX = "pysnap-vm-access@"
+KEY_NAME = "vboxlab_vm_access_ed25519"
+KEY_COMMENT_PREFIX = "vboxlab-vm-access@"
 
 _UUID_PATTERN = re.compile(r"^[0-9A-Za-z-]{1,64}$")
 
@@ -46,9 +46,9 @@ class SshKeyStore:
     def __init__(self, root: Path | None = None) -> None:
         """Initialize the store.
 
-        :param root: Directory to use instead of ``~/.pysnap/ssh``.
+        :param root: Directory to use instead of ``~/.vboxlab/ssh``.
         """
-        self.root = root or (Path.home() / ".pysnap" / "ssh")
+        self.root = root or (Path.home() / ".vboxlab" / "ssh")
 
     @property
     def private_key(self) -> Path:

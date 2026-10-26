@@ -44,7 +44,7 @@ Package Relationship Diagram
           cli -> terminal [label="connect"];
           cli -> report [label="report"];
           report -> terminal [label="emulator, UI controls"];
-          core -> config [label=".ptotosettings"];
+          core -> config [label="~/.vboxlab/protosettings"];
           core -> runtime [label="session registry"];
           core -> vbox [label="VBoxManage operations"];
           terminal -> core [label="prepare VM"];
@@ -72,7 +72,7 @@ Metadata Strategy
 -----------------
 
 VBoxLab stores management metadata in VirtualBox extra data entries with the
-``pysnap/`` prefix. These values are used to:
+``vboxlab/`` prefix. These values are used to:
 
 - mark imported and cloned VMs as managed by VBoxLab
 - record clone ancestry
@@ -138,7 +138,7 @@ switched DECCKM on.
 Proto Settings Strategy
 -----------------------
 
-VBoxLab stores proto-settings base VM names in ``Path.home() / ".ptotosettings"``
+VBoxLab stores proto-settings base VM names in ``Path.home() / ".vboxlab" / "protosettings"``
 with one VM name per line. When a clone is created from a registered base VM,
 VBoxLab writes additional DMI settings through ``VBoxManage setextradata``:
 
@@ -151,11 +151,11 @@ Access Strategy
 ---------------
 
 ``vboxlab.core.access.resolve_access`` decides how a guest is reached: an
-explicit ``pysnap/access`` extra data entry wins, base VMs registered with
+explicit ``vboxlab/access`` extra data entry wins, base VMs registered with
 protosettings and their clones use the ``COM1`` serial console, and every other
-VM uses ssh. The ssh user is the ``pysnap/ssh-user`` extra data entry or
+VM uses ssh. The ssh user is the ``vboxlab/ssh-user`` extra data entry or
 ``root``. The ssh port is not stored separately: it is read from the NAT
-port-forwarding rule ``pysnap-ssh`` (``127.0.0.1:PORT`` to guest port 22), so
+port-forwarding rule ``vboxlab-ssh`` (``127.0.0.1:PORT`` to guest port 22), so
 VirtualBox remains the only source of truth. ``showvminfo --machinereadable``
 prints the rules of a NAT adapter after its ``natnetN`` line, which tells
 which adapter holds the rule.

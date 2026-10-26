@@ -65,7 +65,7 @@ def normalize_group_name(group: str | None) -> str:
 class VBoxLabService:
     """Provide the main VBoxLab business operations."""
 
-    SNAPSHOT_NAME = "pysnap-base"
+    SNAPSHOT_NAME = "vboxlab-base"
     DEFAULT_SERIAL_TCP_PORT = 1024
     DEFAULT_START_TIMEOUT = 30.0
     DEFAULT_STOP_TIMEOUT = 60.0
@@ -185,9 +185,9 @@ class VBoxLabService:
             self.client.set_metadata(
                 vm_name,
                 {
-                    "pysnap/managed": "true",
-                    "pysnap/kind": "base",
-                    "pysnap/source": str(image),
+                    "vboxlab/managed": "true",
+                    "vboxlab/kind": "base",
+                    "vboxlab/source": str(image),
                 },
             )
             imported_infos.append(self.client.get_vm_info(vm_name))
@@ -223,11 +223,11 @@ class VBoxLabService:
             )
 
         token = name_token or uuid4().hex[:8]
-        imported_vm_name = f"pysnap-it-{token}-base"
+        imported_vm_name = f"vboxlab-it-{token}-base"
         clone_names = (
-            f"pysnap-it-{token}-clone-a",
-            f"pysnap-it-{token}-clone-b",
-            f"pysnap-it-{token}-clone-c",
+            f"vboxlab-it-{token}-clone-a",
+            f"vboxlab-it-{token}-clone-b",
+            f"vboxlab-it-{token}-clone-c",
         )
 
         renamed_import = ImportCandidate(
@@ -247,9 +247,9 @@ class VBoxLabService:
             self.client.set_metadata(
                 imported_vm_name,
                 {
-                    "pysnap/managed": "true",
-                    "pysnap/kind": "base",
-                    "pysnap/source": str(image),
+                    "vboxlab/managed": "true",
+                    "vboxlab/kind": "base",
+                    "vboxlab/source": str(image),
                     # The scenario checks the COM1 console of protocol images.
                     ACCESS_KEY: "com",
                 },
@@ -969,9 +969,9 @@ class VBoxLabService:
             self.client.add_ssh_forwarding(clone_vm, 1, ssh_port, running=False)
 
         clone_metadata = {
-            "pysnap/managed": "true",
-            "pysnap/kind": "clone",
-            "pysnap/parent": base_vm,
+            "vboxlab/managed": "true",
+            "vboxlab/kind": "clone",
+            "vboxlab/parent": base_vm,
         }
         if override:
             clone_metadata[ACCESS_KEY] = override
@@ -1223,7 +1223,7 @@ class VBoxLabService:
     def erase_clones(self, group_name: str | None = None) -> list[str]:
         """Erase all managed clone VMs, optionally limited to one group.
 
-        Clones are recognized through the ``pysnap/kind`` and ``pysnap/parent``
+        Clones are recognized through the ``vboxlab/kind`` and ``vboxlab/parent``
         metadata written by :meth:`clone_vm`, so no separate clone registry has
         to be kept in sync with VirtualBox.
 
@@ -1444,7 +1444,7 @@ class VBoxLabService:
         :param info: VM information to inspect.
         :returns: ``True`` when the VM carries clone metadata.
         """
-        if info.metadata.get("pysnap/kind") == "clone":
+        if info.metadata.get("vboxlab/kind") == "clone":
             return True
         return info.parent_name is not None
 

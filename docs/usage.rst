@@ -75,7 +75,7 @@ Register Proto Settings for a Base VM
 -------------------------------------
 
 The ``protosettings`` command registers one base VM in the persistent
-proto-settings list stored at ``Path.home() / ".ptotosettings"``. The file
+proto-settings list stored at ``Path.home() / ".vboxlab" / "protosettings"``. The file
 contains one VM name per line and is used as a set without duplicates.
 
 This option exists for the image conventions used in the educational program of
@@ -107,7 +107,7 @@ VBoxLab reaches the guest of a VM in one of two ways:
 
 - **COM1 serial console** for base VMs registered with ``vboxlab protosettings``
   and their clones: ``UART1`` is a TCP server on the host
-- **ssh** for every other VM: a rule named ``pysnap-ssh`` on the NAT adapter
+- **ssh** for every other VM: a rule named ``vboxlab-ssh`` on the NAT adapter
   forwards a host port on ``127.0.0.1`` to port 22 of the guest
 
 The choice can be overridden per VM with ``vboxlab set VM access=com|ssh`` and
@@ -130,9 +130,9 @@ Install the ssh Key
 ~~~~~~~~~~~~~~~~~~~
 
 ssh connections of VBoxLab use only key login. VBoxLab keeps its own key pair in
-``~/.pysnap/ssh`` (``pysnap_vm_access_ed25519``, created once without a
+``~/.vboxlab/ssh`` (``vboxlab_vm_access_ed25519``, created once without a
 passphrase) and one ``known_hosts`` file per VM in
-``~/.pysnap/ssh/known_hosts.d/<VM UUID>``: the first host key of a VM is
+``~/.vboxlab/ssh/known_hosts.d/<VM UUID>``: the first host key of a VM is
 accepted, a different key later is refused. ``~/.ssh`` is never read or
 changed, and existing files are never overwritten. VBoxLab runs the system
 OpenSSH client ``ssh``, which is part of Linux distributions, macOS and
@@ -201,7 +201,7 @@ Plug a Virtual Machine for VBoxLab Connections
 ----------------------------------------------
 
 The ``plug`` command prepares an existing VM for ``vboxlab connect``. For a VM
-reached through ssh it adds the ``pysnap-ssh`` forwarding rule on the first NAT
+reached through ssh it adds the ``vboxlab-ssh`` forwarding rule on the first NAT
 adapter with a free host port; this works on stopped, running and paused VMs,
 and a VM without a NAT adapter is refused with a hint to run
 ``vboxlab set VM nic1=nat``. For a VM reached through the ``COM1`` console it
@@ -275,7 +275,7 @@ VM, ``NIC1``-``NIC8`` (PIIX3) or ``NIC1``-``NIC36`` (ICH9). The output lists
    vboxlab set first
    first (poweroff)
      COM1  TCP server, port 2326
-     COM2  pipe server, creates "link" (/tmp/pysnap-link)
+     COM2  pipe server, creates "link" (/tmp/vboxlab-link)
      COM3  off
      COM4  off
      NIC1  NAT
@@ -291,7 +291,7 @@ prints a warning; ``vboxlab connect`` uses ``COM1`` and cannot reach a VM
 without it.
 
 A pipe name is short; VBoxLab turns it into the path format of the host
-(``\\.\pipe\pysnap-NAME`` on Windows, a ``pysnap-NAME`` socket in the
+(``\\.\pipe\vboxlab-NAME`` on Windows, a ``vboxlab-NAME`` socket in the
 temporary directory elsewhere), so the same name connects two VMs on any
 platform.
 
@@ -465,7 +465,7 @@ Up to three extra positional arguments configure internal networks:
   the legacy layout: networks are mapped sequentially onto ``nic1`` through
   ``nic3``, and omitted adapters are set to ``none``
 
-A clone copies the settings of its base VM, including its ``pysnap-ssh`` rule;
+A clone copies the settings of its base VM, including its ``vboxlab-ssh`` rule;
 VBoxLab removes that copy, because its host port belongs to the base VM, and a
 clone reached through ssh gets its own free port.
 
@@ -502,7 +502,7 @@ operation to VMs created as VBoxLab linked clones:
   a clone. For a base VM, VBoxLab prints a warning and refuses the deletion, so
   the flag stays safe in scripted cleanups.
 
-VBoxLab recognizes clones through the ``pysnap/kind`` and ``pysnap/parent``
+VBoxLab recognizes clones through the ``vboxlab/kind`` and ``vboxlab/parent``
 metadata written into VirtualBox extra data during cloning, so the clone list
 stays correct without a separate registry file.
 
@@ -788,7 +788,7 @@ On the serial console:
   screen is cleared and a fresh prompt appears. Sessions started by an older
   VBoxLab cannot do this; detach them with ``Ctrl-]`` ``q`` first
 - the console is logged in and at a shell prompt; VBoxLab checks this with
-  ``echo PYSNAP_$((20+22))`` and stops when the answer does not arrive
+  ``echo VBOXLAB_$((20+22))`` and stops when the answer does not arrive
 - no ``report`` recording is running: VBoxLab presses ``Ctrl-U`` and Enter once, and when the
   recording prompt appears it stops before sending any command, so nothing
   else ends up in the student's report

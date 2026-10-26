@@ -188,7 +188,7 @@ vboxlab resume srv
 ```
 
 Delete only linked clones, keeping the imported base VMs. VBoxLab recognizes
-clones through the `pysnap/kind` metadata it writes into VirtualBox extra data
+clones through the `vboxlab/kind` metadata it writes into VirtualBox extra data
 during cloning, so the clone list stays correct without a separate registry:
 
 ```bash
@@ -241,7 +241,7 @@ vboxlab report compare reports/
 
 The ``vboxlab protosettings <BaseVM>`` command marks a base VM so that every
 linked clone created from it receives additional DMI settings. VBoxLab stores
-this base-VM list in ``Path.home() / ".ptotosettings"``, which resolves to the
+this base-VM list in ``Path.home() / ".vboxlab" / "protosettings"``, which resolves to the
 current user's home directory on Linux, macOS, and Windows.
 
 This mode exists for the appliance conventions used in the educational program

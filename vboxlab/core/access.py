@@ -20,10 +20,10 @@ from typing import Collection
 from vboxlab.core.models import VMInfo
 from vboxlab.errors import VBoxLabError
 
-ACCESS_KEY = "pysnap/access"
-SSH_USER_KEY = "pysnap/ssh-user"
+ACCESS_KEY = "vboxlab/access"
+SSH_USER_KEY = "vboxlab/ssh-user"
 DEFAULT_SSH_USER = "root"
-SSH_RULE_NAME = "pysnap-ssh"
+SSH_RULE_NAME = "vboxlab-ssh"
 SSH_HOST_ADDRESS = "127.0.0.1"
 GUEST_SSH_PORT = 22
 ACCESS_MODES = ("com", "ssh")

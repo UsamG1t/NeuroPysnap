@@ -30,7 +30,7 @@ from vboxlab.core.access import validate_access_mode, validate_ssh_user
 from vboxlab.core.models import ComPortSetting, NicSetting
 from vboxlab.errors import VBoxLabError
 
-PIPE_PREFIX = "pysnap-"
+PIPE_PREFIX = "vboxlab-"
 WINDOWS_PIPE_ROOT = "\\\\.\\pipe\\"
 
 _KEY_PATTERN = re.compile(r"^(?P<kind>com|nic)(?P<number>[1-9][0-9]*)$")
@@ -126,8 +126,8 @@ def host_pipe_path(name: str, *, windows: bool | None = None) -> str:
 
     :param name: Short pipe name.
     :param windows: Override the host system check, for tests.
-    :returns: ``\\\\.\\pipe\\pysnap-NAME`` on Windows, otherwise a socket path
-        ``pysnap-NAME`` in the temporary directory.
+    :returns: ``\\\\.\\pipe\\vboxlab-NAME`` on Windows, otherwise a socket path
+        ``vboxlab-NAME`` in the temporary directory.
     """
     if windows is None:
         windows = os.name == "nt"

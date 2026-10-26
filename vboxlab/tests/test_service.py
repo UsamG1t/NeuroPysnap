@@ -195,8 +195,8 @@ class FakeClient:
         merged_metadata.update(metadata)
         self.infos[vm_name] = replace(
             current,
-            parent_name=merged_metadata.get("pysnap/parent"),
-            managed=merged_metadata.get("pysnap/managed") == "true",
+            parent_name=merged_metadata.get("vboxlab/parent"),
+            managed=merged_metadata.get("vboxlab/managed") == "true",
             metadata=merged_metadata,
         )
 
@@ -304,7 +304,7 @@ class ServiceTests(unittest.TestCase):
         """Create an isolated proto-settings store for every test."""
         self.temp_dir = tempfile.TemporaryDirectory()
         self.proto_settings_store = ProtoSettingsStore(
-            path=Path(self.temp_dir.name) / ".ptotosettings"
+            path=Path(self.temp_dir.name) / "protosettings"
         )
 
     def tearDown(self) -> None:
@@ -354,7 +354,7 @@ class ServiceTests(unittest.TestCase):
             name="base-vm",
             uuid="uuid-base",
             groups=("/Lab",),
-            metadata={"pysnap/managed": "true"},
+            metadata={"vboxlab/managed": "true"},
             managed=True,
         )
         client.snapshot_names["base-vm"] = "existing-snapshot"
@@ -664,7 +664,7 @@ class ServiceTests(unittest.TestCase):
             groups=("/Net",),
             parent_name="lab-clone",
             managed=True,
-            metadata={"pysnap/kind": "clone", "pysnap/parent": "lab-clone"},
+            metadata={"vboxlab/kind": "clone", "vboxlab/parent": "lab-clone"},
         )
 
         service = self.make_service(client=client)
@@ -712,7 +712,7 @@ class ServiceTests(unittest.TestCase):
             uuid="uuid-base",
             groups=("/Lab",),
             managed=True,
-            metadata={"pysnap/kind": "base"},
+            metadata={"vboxlab/kind": "base"},
         )
         client.infos["lab-clone"] = VMInfo(
             name="lab-clone",
@@ -720,7 +720,7 @@ class ServiceTests(unittest.TestCase):
             groups=("/Lab",),
             parent_name="base-vm",
             managed=True,
-            metadata={"pysnap/kind": "clone", "pysnap/parent": "base-vm"},
+            metadata={"vboxlab/kind": "clone", "vboxlab/parent": "base-vm"},
         )
         client.infos["net-clone"] = VMInfo(
             name="net-clone",
@@ -728,7 +728,7 @@ class ServiceTests(unittest.TestCase):
             groups=("/Net",),
             parent_name="base-vm",
             managed=True,
-            metadata={"pysnap/kind": "clone", "pysnap/parent": "base-vm"},
+            metadata={"vboxlab/kind": "clone", "vboxlab/parent": "base-vm"},
         )
         return client
 
@@ -761,16 +761,16 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(
             machine_names,
             [
-                "pysnap-it-case1234-base",
-                "pysnap-it-case1234-clone-a",
-                "pysnap-it-case1234-clone-b",
-                "pysnap-it-case1234-clone-c",
+                "vboxlab-it-case1234-base",
+                "vboxlab-it-case1234-clone-a",
+                "vboxlab-it-case1234-clone-b",
+                "vboxlab-it-case1234-clone-c",
             ],
         )
         self.assertIn(
             (
                 "configure_internal_networks",
-                "pysnap-it-case1234-clone-a",
+                "vboxlab-it-case1234-clone-a",
                 ("intnet", "virtnet"),
                 False,
             ),
@@ -779,7 +779,7 @@ class ServiceTests(unittest.TestCase):
         self.assertIn(
             (
                 "configure_internal_networks",
-                "pysnap-it-case1234-clone-b",
+                "vboxlab-it-case1234-clone-b",
                 ("intnet", "deepnet"),
                 False,
             ),
@@ -788,7 +788,7 @@ class ServiceTests(unittest.TestCase):
         self.assertIn(
             (
                 "configure_internal_networks",
-                "pysnap-it-case1234-clone-c",
+                "vboxlab-it-case1234-clone-c",
                 ("deepnet", "virtnet"),
                 False,
             ),
@@ -797,10 +797,10 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(
             result.deleted_vm_names,
             (
-                "pysnap-it-case1234-clone-a",
-                "pysnap-it-case1234-clone-b",
-                "pysnap-it-case1234-clone-c",
-                "pysnap-it-case1234-base",
+                "vboxlab-it-case1234-clone-a",
+                "vboxlab-it-case1234-clone-b",
+                "vboxlab-it-case1234-clone-c",
+                "vboxlab-it-case1234-base",
             ),
         )
         self.assertEqual(
@@ -810,12 +810,12 @@ class ServiceTests(unittest.TestCase):
         monitor_states = {
             record.name: record.display_state for record in result.monitor_records
         }
-        self.assertEqual(monitor_states["pysnap-it-case1234-clone-a"], "Working")
-        self.assertEqual(monitor_states["pysnap-it-case1234-clone-b"], "Active")
-        self.assertIn(("start_vm_headless", "pysnap-it-case1234-clone-a"), client.calls)
-        self.assertIn(("start_vm_headless", "pysnap-it-case1234-clone-b"), client.calls)
-        self.assertIn(("stop_vm_acpi", "pysnap-it-case1234-clone-a"), client.calls)
-        self.assertIn(("stop_vm_acpi", "pysnap-it-case1234-clone-b"), client.calls)
+        self.assertEqual(monitor_states["vboxlab-it-case1234-clone-a"], "Working")
+        self.assertEqual(monitor_states["vboxlab-it-case1234-clone-b"], "Active")
+        self.assertIn(("start_vm_headless", "vboxlab-it-case1234-clone-a"), client.calls)
+        self.assertIn(("start_vm_headless", "vboxlab-it-case1234-clone-b"), client.calls)
+        self.assertIn(("stop_vm_acpi", "vboxlab-it-case1234-clone-a"), client.calls)
+        self.assertIn(("stop_vm_acpi", "vboxlab-it-case1234-clone-b"), client.calls)
 
     def test_list_monitored_vms_distinguishes_working_active_stopping_and_changing(self) -> None:
         """Map raw VirtualBox runtime states to compact monitor states."""
@@ -882,7 +882,7 @@ class ServiceTests(unittest.TestCase):
             groups=("/Lab",),
             serial_port=2345,
             vm_state="poweroff",
-            metadata={"pysnap/access": "com"},
+            metadata={"vboxlab/access": "com"},
         )
 
         service = self.make_service(client=client, session_registry=FakeSessionRegistry())
@@ -898,7 +898,7 @@ class ServiceTests(unittest.TestCase):
         client.infos["srv"] = VMInfo(
             name="srv",
             uuid="uuid-srv",
-            metadata={"pysnap/access": "com"},
+            metadata={"vboxlab/access": "com"},
             groups=("/Lab",),
             vm_state="poweroff",
         )
@@ -917,7 +917,7 @@ class ServiceTests(unittest.TestCase):
         client.infos["srv"] = VMInfo(
             name="srv",
             uuid="uuid-srv",
-            metadata={"pysnap/access": "com"},
+            metadata={"vboxlab/access": "com"},
             groups=("/Lab",),
             serial_port=2345,
             vm_state="running",
@@ -942,7 +942,7 @@ class ServiceTests(unittest.TestCase):
         client.infos["srv"] = VMInfo(
             name="srv",
             uuid="uuid-srv",
-            metadata={"pysnap/access": "com"},
+            metadata={"vboxlab/access": "com"},
             groups=("/Lab",),
             vm_state="poweroff",
         )
@@ -962,7 +962,7 @@ class ServiceTests(unittest.TestCase):
         client.infos["srv"] = VMInfo(
             name="srv",
             uuid="uuid-srv",
-            metadata={"pysnap/access": "com"},
+            metadata={"vboxlab/access": "com"},
             groups=("/Lab",),
             vm_state="running",
         )
@@ -979,7 +979,7 @@ class ServiceTests(unittest.TestCase):
         client.infos["srv"] = VMInfo(
             name="srv",
             uuid="uuid-srv",
-            metadata={"pysnap/access": "com"},
+            metadata={"vboxlab/access": "com"},
             groups=("/Lab",),
             vm_state="poweroff",
         )

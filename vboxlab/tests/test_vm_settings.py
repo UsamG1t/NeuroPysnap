@@ -122,11 +122,11 @@ class ParseOptionsTests(unittest.TestCase):
 
     def test_builds_host_pipe_paths(self) -> None:
         """Use the pipe format of the host system and read names back."""
-        self.assertEqual(host_pipe_path("link", windows=True), "\\\\.\\pipe\\pysnap-link")
+        self.assertEqual(host_pipe_path("link", windows=True), "\\\\.\\pipe\\vboxlab-link")
         posix = host_pipe_path("link", windows=False)
-        self.assertEqual(Path(posix).name, "pysnap-link")
+        self.assertEqual(Path(posix).name, "vboxlab-link")
         self.assertTrue(Path(posix).is_absolute())
-        self.assertEqual(host_pipe_name("\\\\.\\pipe\\pysnap-link"), "link")
+        self.assertEqual(host_pipe_name("\\\\.\\pipe\\vboxlab-link"), "link")
         self.assertEqual(host_pipe_name(posix), "link")
         self.assertIsNone(host_pipe_name("/tmp/other"))
 
@@ -140,7 +140,7 @@ class ClientTests(unittest.TestCase):
             ("showvminfo", "first", "--machinereadable"): (
                 'name="first"\n'
                 'uart1="0x03f8,4"\nuartmode1="tcpserver,2326"\n'
-                'uart2="0x02f8,3"\nuartmode2="server,/tmp/pysnap-link"\n'
+                'uart2="0x02f8,3"\nuartmode2="server,/tmp/vboxlab-link"\n'
                 'uart3="0x03e8,4"\nuartmode3="file,/tmp/log"\n'
                 'uart4="off"\n'
                 'nic1="nat"\nnic2="intnet"\nintnet2="left"\nnic3="none"\nnic4="bridged"\n'
@@ -149,7 +149,7 @@ class ClientTests(unittest.TestCase):
         hardware = VBoxManageClient(runner=runner).get_vm_hardware("first")
         self.assertEqual(hardware.com_ports, (
             ComPortSetting("tcpserver", port=2326),
-            ComPortSetting("server", path="/tmp/pysnap-link"),
+            ComPortSetting("server", path="/tmp/vboxlab-link"),
             ComPortSetting("file", detail="/tmp/log"),
             OFF,
         ))
@@ -193,7 +193,7 @@ class ClientTests(unittest.TestCase):
             "first",
             {
                 1: ComPortSetting("tcpserver", port=2326),
-                2: ComPortSetting("client", path="/tmp/pysnap-link"),
+                2: ComPortSetting("client", path="/tmp/vboxlab-link"),
                 4: OFF,
             },
             {1: NicSetting("nat"), 2: NicSetting("intnet", "left"), 3: NO_NIC},
@@ -201,7 +201,7 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(runner.commands, [(
             "modifyvm", "first",
             "--uart1", "0x3F8", "4", "--uartmode1", "tcpserver", "2326",
-            "--uart2", "0x2F8", "3", "--uartmode2", "client", "/tmp/pysnap-link",
+            "--uart2", "0x2F8", "3", "--uartmode2", "client", "/tmp/vboxlab-link",
             "--uart4", "off",
             "--nic1", "nat", "--nic2", "intnet", "--intnet2", "left", "--nic3", "none",
         )])
@@ -218,7 +218,7 @@ class ServiceSettingsTests(unittest.TestCase):
                                           ComPortSetting("tcpserver", port=2400)])
         self.service = VBoxLabService(
             client=self.client,
-            proto_settings_store=ProtoSettingsStore(path=Path(self._temp_dir.name) / ".ptotosettings"),
+            proto_settings_store=ProtoSettingsStore(path=Path(self._temp_dir.name) / "protosettings"),
         )
         self.busy_host_ports: set[int] = set()
         self.service._is_host_tcp_port_available = lambda port: port not in self.busy_host_ports
@@ -285,7 +285,7 @@ class ServiceSettingsTests(unittest.TestCase):
         """Warn for every removed TCP server and name the connect effect on COM1."""
         self.client.add_vm("third", com=[ComPortSetting("tcpserver", port=2500),
                                          ComPortSetting("tcpserver", port=2501)],
-                           metadata={"pysnap/access": "com"})
+                           metadata={"vboxlab/access": "com"})
         result = self.service.set_vm_settings("third", ["com1=off", "com2=client:link"])
         self.assertEqual(result.warnings, (
             "COM1 no longer serves TCP port 2500; vboxlab connect uses COM1 and cannot reach this VM.",
@@ -341,7 +341,7 @@ class SetCommandTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             service = VBoxLabService(
                 client=client,
-                proto_settings_store=ProtoSettingsStore(path=Path(temp_dir) / ".ptotosettings"),
+                proto_settings_store=ProtoSettingsStore(path=Path(temp_dir) / "protosettings"),
             )
             output, errors = io.StringIO(), io.StringIO()
             code = run_cli(["set", "first", "com1=off", "com2=server:link", "nic2=left"],

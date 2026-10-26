@@ -10,14 +10,15 @@ from vboxlab.errors import VBoxLabError
 class ProtoSettingsStore:
     """Persist VM names that trigger extra clone settings."""
 
-    DEFAULT_FILENAME = ".ptotosettings"
+    DEFAULT_PATH = Path(".vboxlab") / "protosettings"
 
     def __init__(self, path: Path | None = None) -> None:
         """Initialize the store.
 
-        :param path: Optional file path override.
+        :param path: Optional file path override; ``~/.vboxlab/protosettings``
+            by default.
         """
-        self.path = path or (Path.home() / self.DEFAULT_FILENAME)
+        self.path = path or (Path.home() / self.DEFAULT_PATH)
 
     def list_vm_names(self) -> tuple[str, ...]:
         """Return configured VM names without duplicates.
