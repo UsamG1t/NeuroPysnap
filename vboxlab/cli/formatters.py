@@ -100,7 +100,7 @@ def format_access(access: AccessInfo) -> str:
     """
     if access.mode == "ssh":
         if access.ssh_port is None:
-            text = f"ssh as {access.ssh_user}, no forwarded port yet: run vboxlab plug"
+            text = f"ssh as {access.ssh_user}, no forwarded port yet: run vboxlab set VM access=ssh"
         else:
             text = f"ssh {access.ssh_user}@{SSH_HOST_ADDRESS}:{access.ssh_port}"
     else:

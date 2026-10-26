@@ -261,7 +261,7 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual((target.port, target.user, target.vm_uuid), (2400, "root", "uuid-vm"))
         self.assertEqual(self.service.ssh_target("vm", "student").user, "student")
         self.client.add("noport", state="running")
-        with self.assertRaisesRegex(VBoxLabError, "no forwarded ssh port; run vboxlab plug noport"):
+        with self.assertRaisesRegex(VBoxLabError, "no forwarded ssh port; run vboxlab set noport access=ssh"):
             self.service.ssh_target("noport")
         self.client.add("serial", state="running", metadata={ACCESS_KEY: "com"})
         with self.assertRaisesRegex(VBoxLabError, "reached through COM1"):

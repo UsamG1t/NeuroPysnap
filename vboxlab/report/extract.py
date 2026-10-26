@@ -282,7 +282,8 @@ def _connectable_port(service, vm_name: str) -> int:
     vm_info = service.show_vm(vm_name)
     if vm_info.serial_port is None:
         raise ExtractError(
-            f'Virtual machine "{vm_name}" has no TCP serial port; run vboxlab plug first.'
+            f'Virtual machine "{vm_name}" has no TCP serial port; '
+            f"run vboxlab set {vm_name} access=com first."
         )
     if (vm_info.vm_state or "").lower() != "running":
         raise ExtractError(

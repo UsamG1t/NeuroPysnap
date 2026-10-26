@@ -71,6 +71,12 @@ class SettingsClient(FakeClient):
     def get_metadata(self, vm_name: str) -> dict[str, str]:
         return dict(self.extra_data.get(vm_name, {}))
 
+    def delete_metadata(self, vm_name: str, key: str) -> None:
+        self.calls.append(("delete_metadata", vm_name, key))
+        metadata = dict(self.infos[vm_name].metadata)
+        metadata.pop(key, None)
+        self.infos[vm_name] = replace(self.infos[vm_name], metadata=metadata)
+
     def set_dmi_system_sku(self, vm_name: str, system_sku: str) -> None:
         self.calls.append(("set_dmi_system_sku", vm_name, system_sku))
         self.extra_data.setdefault(vm_name, {})[SKU_KEY] = system_sku
@@ -204,6 +210,88 @@ class ClientTests(unittest.TestCase):
             "--uart4", "off",
             "--nic1", "nat", "--nic2", "intnet", "--intnet2", "left", "--nic3", "none",
         )])
+
+
+class AccessSettingsTests(unittest.TestCase):
+    """Verify that access=com and access=ssh set the connection up."""
+
+    def setUp(self) -> None:
+        self.client = SettingsClient()
+        self.client.add_vm("other", com=[ComPortSetting("tcpserver", port=1024)])
+        self.service = VBoxLabService(client=self.client)
+        self.busy_host_ports: set[int] = set()
+        self.service._is_host_tcp_port_available = lambda port: port not in self.busy_host_ports
+
+    def _calls(self, name: str) -> list[tuple]:
+        return [call for call in self.client.calls if call[0] == name]
+
+    def test_access_com_makes_com1_a_tcp_server(self) -> None:
+        """Pick a free port that is neither used by a VM nor busy on the host."""
+        self.client.add_vm("vm", nics=[NicSetting("nat")])
+        self.busy_host_ports = {1025}
+        result = self.service.set_vm_settings("vm", ["access=com"])
+        self.assertEqual(result.hardware.com_ports[0], ComPortSetting("tcpserver", port=1026))
+        self.assertEqual((result.access.mode, result.access.serial_port), ("com", 1026))
+        self.assertEqual(self.client.infos["vm"].metadata["vboxlab/access"], "com")
+
+    def test_access_com_keeps_a_tcp_server_and_explicit_com1(self) -> None:
+        """Leave an existing TCP server alone, also on a running VM; follow com1= when given."""
+        self.client.add_vm("ready", state="running", com=[ComPortSetting("tcpserver", port=2330)])
+        result = self.service.set_vm_settings("ready", ["access=com"])
+        self.assertEqual(result.access.serial_port, 2330)
+        self.assertEqual(self._calls("apply_vm_hardware"), [])
+        self.client.add_vm("given")
+        result = self.service.set_vm_settings("given", ["access=com", "com1=2340"])
+        self.assertEqual(result.hardware.com_ports[0], ComPortSetting("tcpserver", port=2340))
+
+    def test_access_com_needs_a_stopped_vm_to_change_com1(self) -> None:
+        """Refuse before storing anything when COM1 must change on a running VM."""
+        self.client.add_vm("running", state="running")
+        with self.assertRaisesRegex(VBoxLabError, "must be stopped"):
+            self.service.set_vm_settings("running", ["access=com"])
+        self.assertNotIn("vboxlab/access", self.client.infos["running"].metadata)
+
+    def test_access_ssh_forwards_a_port_on_the_first_nat_adapter(self) -> None:
+        """Use modifyvm when stopped and controlvm when running or paused."""
+        self.client.add_vm("stopped", nics=[NicSetting("nat")])
+        self.client.add_vm("running", state="running", nics=[NicSetting("intnet", "x"), NicSetting("nat")])
+        self.client.add_vm("paused", state="paused", nics=[NicSetting("nat")])
+        self.assertEqual(self.service.set_vm_settings("stopped", ["access=ssh"]).access.ssh_port, 1025)
+        self.assertEqual(self.service.set_vm_settings("running", ["access=ssh"]).access.ssh_port, 1026)
+        self.service.set_vm_settings("paused", ["access=ssh"])
+        self.assertEqual(self._calls("add_ssh_forwarding"), [
+            ("add_ssh_forwarding", "stopped", 1, 1025, False),
+            ("add_ssh_forwarding", "running", 2, 1026, True),
+            ("add_ssh_forwarding", "paused", 1, 1027, True),
+        ])
+
+    def test_access_ssh_keeps_a_forwarded_port_and_explains_problems(self) -> None:
+        """Keep an existing rule; warn without NAT; refuse while the state changes."""
+        self.client.add_vm("ready", nics=[NicSetting("nat")])
+        self.client.infos["ready"] = replace(self.client.infos["ready"], ssh_port=2400)
+        self.service.set_vm_settings("ready", ["access=ssh"])
+        self.assertEqual(self._calls("add_ssh_forwarding"), [])
+
+        self.client.add_vm("isolated", nics=[NicSetting("intnet", "x")])
+        result = self.service.set_vm_settings("isolated", ["access=ssh"])
+        self.assertIn("no NAT adapter; set one, for example nic1=nat, and run vboxlab set isolated "
+                      "access=ssh again", result.warnings[0])
+        self.assertEqual(self.client.infos["isolated"].metadata["vboxlab/access"], "ssh")
+        result = self.service.set_vm_settings("isolated", ["nic1=nat", "access=ssh"])
+        self.assertEqual(result.warnings, ())
+        self.assertEqual(self._calls("add_ssh_forwarding")[-1], ("add_ssh_forwarding", "isolated", 1, 2401, False))
+
+        self.client.add_vm("busy", state="starting", nics=[NicSetting("nat")])
+        with self.assertRaisesRegex(VBoxLabError, "changing state"):
+            self.service.set_vm_settings("busy", ["access=ssh"])
+
+    def test_lab_flag(self) -> None:
+        """Set and remove the lab property without touching the access."""
+        self.client.add_vm("vm", state="running", metadata={"vboxlab/access": "ssh"})
+        self.assertTrue(self.service.set_vm_settings("vm", ["lab=yes"]).access.lab)
+        self.assertEqual(self.client.infos["vm"].metadata["vboxlab/access"], "ssh")
+        self.assertFalse(self.service.set_vm_settings("vm", ["lab=no"]).access.lab)
+        self.assertEqual(self._calls("delete_metadata"), [("delete_metadata", "vm", "vboxlab/lab")])
 
 
 class ServiceSettingsTests(unittest.TestCase):
@@ -347,7 +435,7 @@ class SetCommandTests(unittest.TestCase):
         self.assertIn("Warning: COM1 no longer serves TCP port 2326", errors.getvalue())
         self.assertEqual(output.getvalue().splitlines(), [
             "first (poweroff)",
-            "  Access  ssh as root, no forwarded port yet: run vboxlab plug (default)",
+            "  Access  ssh as root, no forwarded port yet: run vboxlab set VM access=ssh (default)",
             "  COM1  off",
             f'  COM2  pipe server, creates "link" ({host_pipe_path("link")})',
             "  COM3  off",

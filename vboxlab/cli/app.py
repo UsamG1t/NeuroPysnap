@@ -72,10 +72,8 @@ COMMAND_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("list", "List VirtualBox groups and their virtual machines."),
             ("show", "Show the group, serial TCP port and parent of a VM."),
             ("import", "Import an OVA or OVF appliance."),
-            ("protosettings", "Register a base VM whose clones get lab settings."),
             ("clone", "Create a linked clone with a serial port and networks."),
             ("set", "Show or change the COM ports and network adapters of a VM."),
-            ("plug", "Give an existing VM a TCP serial port for connect."),
             ("erase", "Delete VMs, with dependency checks for linked clones."),
         ),
     ),
@@ -246,12 +244,8 @@ def run_cli(
             )
         if command == "import":
             return _run_import(arguments[1:], app_service, output, error_output)
-        if command == "protosettings":
-            return _run_protosettings(arguments[1:], app_service, output, error_output)
         if command == "show":
             return _run_show(arguments[1:], app_service, output, error_output)
-        if command == "plug":
-            return _run_plug(arguments[1:], app_service, output, error_output)
         if command == "set":
             return _run_set(arguments[1:], app_service, output, error_output)
         if command == "docs":
@@ -365,48 +359,6 @@ def _run_show(
     return 0
 
 
-def _run_protosettings(
-    arguments: Sequence[str],
-    service: VBoxLabService,
-    stdout: TextIO,
-    stderr: TextIO,
-) -> int:
-    """Run the ``protosettings`` subcommand.
-
-    :param arguments: Subcommand arguments.
-    :param service: Application service.
-    :param stdout: Output stream.
-    :param stderr: Error stream.
-    :returns: Process exit code.
-    """
-    parser = CliArgumentParser(
-        prog="vboxlab protosettings",
-        description=(
-            "Register a base VM whose linked clones get lab settings: NIC1 "
-            "stays on NAT, the internal networks of vboxlab clone go to "
-            "NIC2-NIC4, and the clone name, serial port and networks are "
-            "written into its DMI system information. These VMs and their clones "
-            "are reached through the COM1 serial console; other VMs through ssh. "
-            "The list of such base VMs is kept in ~/.vboxlab/protosettings."
-        ),
-        epilog=_examples(
-            "vboxlab protosettings protocols-jeos-20251218-x86_64",
-        ),
-        stdout=stdout,
-        stderr=stderr,
-    )
-    parser.add_argument("vm", metavar="BASE_VM", help="Name of the base virtual machine.")
-    namespace = parser.parse_args(list(arguments))
-    configured = service.register_proto_settings_vm(namespace.vm)
-    print(f"Registered proto-settings VM: {namespace.vm}", file=stdout)
-    print(
-        "Configured proto-settings VMs: "
-        + (", ".join(configured) if configured else "none"),
-        file=stdout,
-    )
-    return 0
-
-
 def _run_import(
     arguments: Sequence[str],
     service: VBoxLabService,
@@ -496,45 +448,6 @@ def _run_import(
     return 0
 
 
-def _run_plug(
-    arguments: Sequence[str],
-    service: VBoxLabService,
-    stdout: TextIO,
-    stderr: TextIO,
-) -> int:
-    """Run the ``plug`` subcommand.
-
-    :param arguments: Subcommand arguments.
-    :param service: Application service.
-    :param stdout: Output stream.
-    :param stderr: Error stream.
-    :returns: Process exit code.
-    """
-    parser = CliArgumentParser(
-        prog="vboxlab plug",
-        description=(
-            "Prepare an existing VM for vboxlab connect. A VM reached through the "
-            "COM1 console gets COM1 (UART1) as a TCP server on a free port; a VM "
-            "whose COM1 already is a TCP server is left unchanged, otherwise it "
-            "must be stopped. A VM reached through ssh gets a rule on its NAT "
-            "adapter that forwards a free port on 127.0.0.1 to port 22 of the "
-            "guest, on a stopped, running or paused VM. Use vboxlab set for other "
-            "ports and adapters and to choose the access."
-        ),
-        epilog=_examples(
-            "vboxlab plug MyVM",
-            "vboxlab connect MyVM",
-        ),
-        stdout=stdout,
-        stderr=stderr,
-    )
-    parser.add_argument("vm", metavar="VM", help="Name of the virtual machine.")
-    namespace = parser.parse_args(list(arguments))
-    vm_info = service.plug_vm(namespace.vm)
-    print(format_vm_info(vm_info, service.get_vm_access(namespace.vm)), file=stdout)
-    return 0
-
-
 def _run_set(
     arguments: Sequence[str],
     service: VBoxLabService,
@@ -555,8 +468,9 @@ def _run_set(
             "Show or change the serial (COM) ports and network adapters of a VM: "
             "COM1-COM4, and NIC1-NIC8 or NIC1-NIC36 depending on the chipset of the "
             "VM, and how VBoxLab reaches the guest. Without options the current "
-            "settings are shown. Ports and adapters change only on a stopped VM; "
-            "access and ssh-user can change at any time. All options are checked "
+            "settings are shown. Ports and adapters change only on a stopped VM, "
+            "as does access=com when COM1 is no TCP server yet; access=ssh, lab and "
+            "ssh-user can change at any time. All options are checked "
             "first and then applied together, so an invalid option changes "
             "nothing. Removing a TCP server prints a warning."
         ),
@@ -570,9 +484,11 @@ def _run_set(
             "  nicN=NETWORK     internal network NETWORK\n"
             "  nicN=nat         NAT\n"
             "  nicN=off         no network adapter\n"
-            "  access=com       reach the guest through the COM1 console\n"
-            "  access=ssh       reach the guest through ssh\n"
-            "  access=auto      COM1 for protosettings VMs, ssh otherwise\n"
+            "  access=com       reach the guest through the COM1 console; COM1\n"
+            "                   becomes a TCP server on a free port unless it is one\n"
+            "  access=ssh       reach the guest through ssh; a free port is forwarded\n"
+            "                   on the first NAT adapter unless one is forwarded\n"
+            "  lab=yes|no       whether clones get the lab DMI system information\n"
             "  ssh-user=NAME    guest user for ssh (default: root)\n"
             "\n"
             + _examples(

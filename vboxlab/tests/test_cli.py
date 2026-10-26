@@ -26,8 +26,6 @@ class FakeService:
         """Initialize fake outputs and call tracking."""
         self.clone_args: tuple | None = None
         self.import_args: tuple | None = None
-        self.plugged_vm: str | None = None
-        self.proto_settings_vm: str | None = None
         self.stopped_vm: str | None = None
         self.stop_all_requested = False
         self.erased_vm: str | None = None
@@ -49,11 +47,6 @@ class FakeService:
     def get_vm_access(self, vm_name: str) -> AccessInfo:
         """Return a COM1 access description."""
         return AccessInfo("com", True, True, 2345, None, "root")
-
-    def plug_vm(self, vm_name: str) -> VMInfo:
-        """Record a plug request and return the updated VM description."""
-        self.plugged_vm = vm_name
-        return VMInfo(name=vm_name, uuid="uuid", groups=("/Lab",), serial_port=2345)
 
     def clone_vm(
         self,
@@ -120,11 +113,6 @@ class FakeService:
                 ),
             ),
         )
-
-    def register_proto_settings_vm(self, vm_name: str) -> tuple[str, ...]:
-        """Record one proto-settings registration request."""
-        self.proto_settings_vm = vm_name
-        return ("base-vm", vm_name) if vm_name != "base-vm" else ("base-vm",)
 
     def erase_vm(self, vm_name: str) -> None:
         """Record one erase request."""
@@ -475,6 +463,15 @@ class CliTests(unittest.TestCase):
                 stdout=io.StringIO(), stderr=errors)
         self.assertIn("not allowed with argument", errors.getvalue())
 
+    def test_removed_commands_are_unknown(self) -> None:
+        """Refuse plug and protosettings, whose work import and set do now."""
+        for command in ("plug", "protosettings"):
+            with self.subTest(command=command):
+                errors = io.StringIO()
+                code = run_cli([command, "vm"], service=FakeService(), stdout=io.StringIO(), stderr=errors)
+                self.assertEqual(code, 2)
+                self.assertIn("unknown command", errors.getvalue())
+
     def test_docs_command_opens_bundled_documentation(self) -> None:
         """Launch the packaged documentation viewer command."""
         stdout = io.StringIO()
@@ -504,45 +501,6 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         open_docs.assert_called_once_with(browser="/usr/bin/chromium")
         self.assertEqual("", stdout.getvalue())
-        self.assertEqual("", stderr.getvalue())
-
-    def test_protosettings_command_registers_vm(self) -> None:
-        """Register a VM for proto-settings through the service layer."""
-        service = FakeService()
-        stdout = io.StringIO()
-        stderr = io.StringIO()
-
-        exit_code = run_cli(
-            ["protosettings", "base-vm"],
-            service=service,
-            stdout=stdout,
-            stderr=stderr,
-        )
-
-        self.assertEqual(exit_code, 0)
-        self.assertEqual(service.proto_settings_vm, "base-vm")
-        self.assertIn("Registered proto-settings VM: base-vm", stdout.getvalue())
-        self.assertIn("Configured proto-settings VMs: base-vm", stdout.getvalue())
-        self.assertEqual("", stderr.getvalue())
-
-    def test_plug_command_configures_vm_for_connection(self) -> None:
-        """Prepare one VM for VBoxLab serial-console connections."""
-        service = FakeService()
-        stdout = io.StringIO()
-        stderr = io.StringIO()
-
-        exit_code = run_cli(
-            ["plug", "base-vm"],
-            service=service,
-            stdout=stdout,
-            stderr=stderr,
-        )
-
-        self.assertEqual(exit_code, 0)
-        self.assertEqual(service.plugged_vm, "base-vm")
-        self.assertIn("Name: base-vm", stdout.getvalue())
-        self.assertIn("Serial port: 2345", stdout.getvalue())
-        self.assertIn("Access: COM1 serial console, port 2345 (lab)", stdout.getvalue())
         self.assertEqual("", stderr.getvalue())
 
     def test_bare_image_argument_is_rejected(self) -> None:

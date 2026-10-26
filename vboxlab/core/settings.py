@@ -5,7 +5,8 @@ Each option is ``KEY=VALUE``:
 - ``comN``: ``auto`` or a TCP port number for a TCP server, ``server:NAME``
   or ``client:NAME`` for a host pipe between VMs, or ``off``;
 - ``nicN``: an internal network name, ``nat`` or ``off``;
-- ``access``: ``com``, ``ssh`` or ``auto`` (the choice by protosettings);
+- ``access``: ``com`` or ``ssh``;
+- ``lab``: ``yes`` or ``no``, whether clones get the lab settings;
 - ``ssh-user``: the guest user for ssh connections.
 
 ``N`` is any port or adapter number; whether the VM has it (VirtualBox
@@ -26,7 +27,7 @@ import re
 import tempfile
 from typing import Sequence
 
-from vboxlab.core.access import validate_access_mode, validate_ssh_user
+from vboxlab.core.access import validate_access_mode, validate_lab_flag, validate_ssh_user
 from vboxlab.core.models import ComPortSetting, NicSetting
 from vboxlab.errors import VBoxLabError
 
@@ -35,6 +36,11 @@ WINDOWS_PIPE_ROOT = "\\\\.\\pipe\\"
 
 _KEY_PATTERN = re.compile(r"^(?P<kind>com|nic)(?P<number>[1-9][0-9]*)$")
 _PIPE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+_VALIDATORS = {
+    "access": validate_access_mode,
+    "lab": validate_lab_flag,
+    "ssh-user": validate_ssh_user,
+}
 
 
 @dataclass(frozen=True)
@@ -58,19 +64,26 @@ class SetRequest:
 
     :param com_ports: Port numbers mapped to the requested change.
     :param nics: Adapter numbers mapped to the requested setting.
-    :param access: ``"com"``, ``"ssh"`` or ``"auto"``, if requested.
+    :param access: ``"com"`` or ``"ssh"``, if requested.
     :param ssh_user: Guest user for ssh, if requested.
+    :param lab: Whether the VM is a lab VM, if requested.
     """
 
     com_ports: dict[int, ComPortRequest]
     nics: dict[int, NicSetting]
     access: str | None = None
     ssh_user: str | None = None
+    lab: bool | None = None
 
     @property
     def empty(self) -> bool:
         """Return whether no change was requested."""
-        return not self.hardware_changes and self.access is None and self.ssh_user is None
+        return (
+            not self.hardware_changes
+            and self.access is None
+            and self.ssh_user is None
+            and self.lab is None
+        )
 
     @property
     def hardware_changes(self) -> bool:
@@ -91,17 +104,16 @@ def parse_set_options(options: Sequence[str]) -> SetRequest:
     for option in options:
         key, separator, value = option.partition("=")
         name = key.strip().lower()
-        if separator and name in {"access", "ssh-user"}:
+        if separator and name in _VALIDATORS:
             if name in settings:
                 raise VBoxLabError(f"{name} is given more than once.")
-            value = value.strip()
-            settings[name] = validate_access_mode(value) if name == "access" else validate_ssh_user(value)
+            settings[name] = _VALIDATORS[name](value.strip())
             continue
         match = _KEY_PATTERN.match(name)
         if not separator or match is None:
             raise VBoxLabError(
-                f'Invalid option "{option}"; use comN=VALUE, nicN=VALUE, access=VALUE '
-                "or ssh-user=NAME."
+                f'Invalid option "{option}"; use comN=VALUE, nicN=VALUE, access=VALUE, '
+                "lab=yes|no or ssh-user=NAME."
             )
         number = int(match["number"])
         value = value.strip()
@@ -118,6 +130,7 @@ def parse_set_options(options: Sequence[str]) -> SetRequest:
         nics=nics,
         access=settings.get("access"),
         ssh_user=settings.get("ssh-user"),
+        lab=settings.get("lab"),
     )
 
 

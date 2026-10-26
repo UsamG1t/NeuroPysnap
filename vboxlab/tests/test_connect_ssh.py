@@ -50,7 +50,7 @@ class PrepareTests(unittest.TestCase):
     def test_prepare_vm_connection_follows_the_access(self) -> None:
         """Need an ssh port for ssh VMs and refuse paused ones; start stopped ones."""
         self.client.add("noport", state="running")
-        with self.assertRaisesRegex(VBoxLabError, "no forwarded ssh port; run vboxlab plug noport"):
+        with self.assertRaisesRegex(VBoxLabError, "no forwarded ssh port; run vboxlab set noport access=ssh"):
             self.service.prepare_vm_connection("noport")
         self.client.add("paused", state="paused", ssh_port=2400)
         with self.assertRaisesRegex(VBoxLabError, "paused; ssh needs a running guest. Run vboxlab resume paused"):

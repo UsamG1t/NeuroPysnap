@@ -13,7 +13,6 @@ Subpackages
    :maxdepth: 4
 
    vboxlab.cli
-   vboxlab.config
    vboxlab.core
    vboxlab.report
    vboxlab.runtime

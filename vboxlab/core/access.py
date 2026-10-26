@@ -74,14 +74,27 @@ def resolve_access(info: VMInfo) -> AccessInfo:
 def validate_access_mode(value: str) -> str:
     """Validate an ``access=`` value.
 
-    :param value: ``com``, ``ssh`` or ``auto``.
+    :param value: ``com`` or ``ssh``.
     :returns: The lower-case value.
     :raises VBoxLabError: For other values.
     """
     lowered = value.strip().lower()
-    if lowered not in (*ACCESS_MODES, "auto"):
-        raise VBoxLabError(f'access: invalid value "{value}"; use com, ssh or auto.')
+    if lowered not in ACCESS_MODES:
+        raise VBoxLabError(f'access: invalid value "{value}"; use com or ssh.')
     return lowered
+
+
+def validate_lab_flag(value: str) -> bool:
+    """Validate a ``lab=`` value.
+
+    :param value: ``yes`` or ``no``.
+    :returns: Whether the VM is a lab VM.
+    :raises VBoxLabError: For other values.
+    """
+    lowered = value.strip().lower()
+    if lowered not in ("yes", "no"):
+        raise VBoxLabError(f'lab: invalid value "{value}"; use yes or no.')
+    return lowered == "yes"
 
 
 def validate_ssh_user(value: str) -> str:

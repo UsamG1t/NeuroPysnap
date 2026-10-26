@@ -411,11 +411,12 @@ class VBoxLabService:
         if access.mode == "ssh" and access.ssh_port is None:
             raise VBoxLabError(
                 f'Virtual machine "{vm_name}" is reached through ssh but has no forwarded '
-                f"ssh port; run vboxlab plug {vm_name}."
+                f"ssh port; run vboxlab set {vm_name} access=ssh."
             )
         if access.mode == "com" and vm_info.serial_port is None:
             raise VBoxLabError(
-                f'Virtual machine "{vm_name}" does not have a TCP-backed serial port.'
+                f'Virtual machine "{vm_name}" does not have a TCP-backed serial port; '
+                f"run vboxlab set {vm_name} access=com."
             )
         if self.session_registry.get_live_session(vm_name) is not None:
             raise VBoxLabError(
@@ -640,42 +641,6 @@ class VBoxLabService:
         self._require_vm(vm_name)
         return self.client.get_vm_info(vm_name)
 
-    def plug_vm(self, vm_name: str) -> VMInfo:
-        """Configure one VM for VBoxLab connections.
-
-        A VM reached through COM1 gets ``UART1`` as a TCP server: if it already
-        is one, the VM is returned unchanged; otherwise VBoxLab assigns a free
-        TCP port and enables the same ``UART1`` tcpserver mode used by the
-        imported protocol images. A VM reached through ssh gets a NAT rule that
-        forwards a free host port to port 22 of the guest.
-
-        :param vm_name: VM name to configure.
-        :returns: Updated VM information.
-        :raises VBoxLabError: If the VM cannot be configured safely.
-        """
-        vm_info = self._require_vm(vm_name)
-        if self._access_of(vm_info).mode == "ssh":
-            return self._plug_ssh(vm_name, vm_info)
-        serial_config = self.client.get_serial_port_configuration(vm_name)
-        if serial_config.mode == "tcpserver" and serial_config.port is not None:
-            return self.client.get_vm_info(vm_name)
-        if serial_config.enabled and serial_config.mode not in {None, "tcpserver"}:
-            raise VBoxLabError(
-                f'Virtual machine "{vm_name}" already uses UART1 mode '
-                f'"{serial_config.mode}".'
-            )
-
-        raw_state = (vm_info.vm_state or "").lower()
-        if raw_state not in self.STOPPED_STATES:
-            raise VBoxLabError(
-                f'Virtual machine "{vm_name}" must be stopped before UART1 can be '
-                "plugged as a TCP server."
-            )
-
-        serial_port = self._allocate_serial_port(require_host_availability=True)
-        self.client.configure_serial_port(vm_name, serial_port)
-        return self.client.get_vm_info(vm_name)
-
     def _first_nat_adapter(self, vm_name: str) -> int | None:
         """Return the number of the first NAT adapter of a VM, if any."""
         hardware = self.client.get_vm_hardware(vm_name)
@@ -684,45 +649,20 @@ class VBoxLabService:
             None,
         )
 
-    def _plug_ssh(self, vm_name: str, vm_info: VMInfo) -> VMInfo:
-        """Forward a free host port to the guest ssh server.
-
-        :param vm_name: VM name.
-        :param vm_info: Current VM information.
-        :returns: Updated VM information.
-        :raises VBoxLabError: Without a NAT adapter or in a transitional state.
-        """
-        if vm_info.ssh_port is not None:
-            return vm_info
-        adapter = self._first_nat_adapter(vm_name)
-        if adapter is None:
-            raise VBoxLabError(
-                f'Virtual machine "{vm_name}" is reached through ssh but has no NAT adapter; '
-                f"run vboxlab set {vm_name} nic1=nat first."
-            )
-        raw_state = (vm_info.vm_state or "").lower()
-        if raw_state in self.STOPPED_STATES:
-            running = False
-        elif raw_state in {"running", *self.PAUSED_STATES}:
-            running = True
-        else:
-            raise VBoxLabError(
-                f'Virtual machine "{vm_name}" is changing state; try again later.'
-            )
-        port = self._allocate_serial_port(require_host_availability=True)
-        self.client.add_ssh_forwarding(vm_name, adapter, port, running=running)
-        return self.client.get_vm_info(vm_name)
-
     def set_vm_settings(self, vm_name: str, options: Sequence[str]) -> VMSettingsResult:
-        """Change the serial ports and network adapters of a stopped VM.
+        """Change the serial ports, network adapters and access of a VM.
 
         Without options the current settings are returned unchanged. All
-        options are validated before one ``modifyvm`` call applies them. For
-        proto-settings clones the DMI system SKU is rebuilt from the new COM1
-        port and the internal networks of NIC2-NIC4.
+        options are validated before one ``modifyvm`` call applies them; ports
+        and adapters change only on a stopped VM. ``access=com`` also makes
+        COM1 a TCP server on a free port unless it is one, and ``access=ssh``
+        forwards a free port on the first NAT adapter unless a port is
+        forwarded already. For lab clones the DMI system SKU is rebuilt from the
+        new COM1 port and the internal networks of NIC2-NIC4.
 
         :param vm_name: VM name.
-        :param options: ``comN=VALUE`` and ``nicN=VALUE`` options.
+        :param options: ``comN=VALUE``, ``nicN=VALUE``, ``access=``, ``lab=`` and
+            ``ssh-user=`` options.
         :returns: Settings after the change and warnings.
         :raises VBoxLabError: For invalid options, a VM that is not stopped or
             TCP ports in use.
@@ -745,18 +685,33 @@ class VBoxLabService:
                     f'NIC{number}: virtual machine "{vm_name}" offers NIC1-NIC{len(current.nics)} '
                     "with its chipset."
                 )
-        if request.hardware_changes and (vm_info.vm_state or "").lower() not in self.STOPPED_STATES:
+        com_requests = dict(request.com_ports)
+        if (
+            request.access == "com"
+            and 1 not in com_requests
+            and current.com_ports[0].mode != "tcpserver"
+        ):
+            # COM1 access needs COM1 as a TCP server.
+            com_requests[1] = ComPortRequest("tcpserver")
+        raw_state = (vm_info.vm_state or "").lower()
+        if (com_requests or request.nics) and raw_state not in self.STOPPED_STATES:
             raise VBoxLabError(
                 f'Virtual machine "{vm_name}" must be stopped before its serial ports '
                 f"and network adapters can be changed; run vboxlab stop {vm_name}."
             )
+        forward_ssh = request.access == "ssh" and vm_info.ssh_port is None
+        if forward_ssh and raw_state not in {*self.STOPPED_STATES, "running", *self.PAUSED_STATES}:
+            raise VBoxLabError(
+                f'Virtual machine "{vm_name}" is changing state; try again later.'
+            )
 
-        com_settings = self._resolve_com_requests(vm_name, current, request.com_ports)
+        com_settings = self._resolve_com_requests(vm_name, current, com_requests)
         if request.access is not None:
-            if request.access == "auto":
-                self.client.delete_metadata(vm_name, ACCESS_KEY)
-            else:
-                self.client.set_metadata(vm_name, {ACCESS_KEY: request.access})
+            self.client.set_metadata(vm_name, {ACCESS_KEY: request.access})
+        if request.lab is True:
+            self.client.set_metadata(vm_name, {LAB_KEY: "true"})
+        elif request.lab is False:
+            self.client.delete_metadata(vm_name, LAB_KEY)
         if request.ssh_user is not None:
             self.client.set_metadata(vm_name, {SSH_USER_KEY: request.ssh_user})
         access = self.get_vm_access(vm_name)
@@ -771,15 +726,24 @@ class VBoxLabService:
                 warnings.append(note + ".")
 
         updated = current
-        if request.hardware_changes:
+        if com_settings or request.nics:
             self.client.apply_vm_hardware(vm_name, com_settings, request.nics)
             updated = self.client.get_vm_hardware(vm_name)
-            self._update_proto_system_sku(vm_name, updated)
+            self._update_lab_system_sku(vm_name, updated)
+        nat_adapter = next(
+            (number for number, nic in enumerate(updated.nics, start=1) if nic.attachment == "nat"),
+            None,
+        )
+        if forward_ssh and nat_adapter is not None:
+            port = self._allocate_serial_port(require_host_availability=True)
+            self.client.add_ssh_forwarding(
+                vm_name, nat_adapter, port, running=raw_state not in self.STOPPED_STATES
+            )
         access = self.get_vm_access(vm_name)
-        if access.mode == "ssh" and not any(nic.attachment == "nat" for nic in updated.nics):
+        if access.mode == "ssh" and nat_adapter is None:
             warnings.append(
                 "The VM is reached through ssh but has no NAT adapter; set one, for "
-                "example nic1=nat, and run vboxlab plug."
+                f"example nic1=nat, and run vboxlab set {vm_name} access=ssh again."
             )
         return VMSettingsResult(vm_name, vm_info.vm_state, updated, tuple(warnings), access)
 
@@ -795,10 +759,9 @@ class VBoxLabService:
         access = self._access_of(info)
         if access.ssh_port is None:
             hint = (
-                f"run vboxlab plug {vm_name}"
+                f"run vboxlab set {vm_name} access=ssh"
                 if access.mode == "ssh"
-                else f"it is reached through COM1; run vboxlab set {vm_name} access=ssh "
-                f"and vboxlab plug {vm_name}"
+                else f"it is reached through COM1; run vboxlab set {vm_name} access=ssh"
             )
             raise VBoxLabError(f'Virtual machine "{vm_name}" has no forwarded ssh port; {hint}.')
         if (info.vm_state or "").lower() != "running":
@@ -1026,25 +989,12 @@ class VBoxLabService:
             self.client.configure_dmi_system_information(
                 clone_vm,
                 system_vendor=clone_vm,
-                system_sku=self._build_proto_system_sku(
+                system_sku=self._build_lab_system_sku(
                     serial_port=serial_port,
                     networks=networks,
                 ),
             )
         return self.client.get_vm_info(clone_vm)
-
-    def register_proto_settings_vm(self, vm_name: str) -> tuple[str, ...]:
-        """Mark one base VM as a lab VM reached through COM1.
-
-        :param vm_name: Base VM name to mark.
-        :returns: The names of all lab VMs.
-        :raises VMNotFoundError: If the VM does not exist.
-        """
-        self._require_vm(vm_name)
-        self.client.set_metadata(vm_name, {LAB_KEY: "true", ACCESS_KEY: "com"})
-        return tuple(
-            sorted(info.name for info in self._collect_vm_infos() if resolve_access(info).lab)
-        )
 
     def _allocate_serial_port(
         self,
@@ -1146,8 +1096,8 @@ class VBoxLabService:
             resolved[number] = com_setting_from_request(request, port)
         return resolved
 
-    def _update_proto_system_sku(self, vm_name: str, hardware: VMHardware) -> None:
-        """Rebuild the DMI system SKU of a proto-settings clone.
+    def _update_lab_system_sku(self, vm_name: str, hardware: VMHardware) -> None:
+        """Rebuild the DMI system SKU of a lab clone.
 
         The SKU is ``port<COM1 port>.<NIC2>.<NIC3>.<NIC4>`` with the internal
         network names; adapters without one leave an empty place and empty
@@ -1717,12 +1667,12 @@ class VBoxLabService:
                 return False
         return True
 
-    def _build_proto_system_sku(
+    def _build_lab_system_sku(
         self,
         serial_port: int,
         networks: tuple[str, ...],
     ) -> str:
-        """Build the DMI system SKU used for proto-settings clones.
+        """Build the DMI system SKU used for lab clones.
 
         :param serial_port: TCP port assigned to the clone.
         :param networks: Internal network names assigned to the clone.

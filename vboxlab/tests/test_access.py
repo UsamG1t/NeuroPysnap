@@ -16,6 +16,7 @@ from vboxlab.core.access import (
     resolve_access,
     ssh_forwarding_rule,
     validate_access_mode,
+    validate_lab_flag,
     validate_ssh_user,
 )
 from vboxlab.core.models import ComPortSetting, NicSetting, VMHardware, VMInfo, VMReference
@@ -57,11 +58,13 @@ class ResolveAccessTests(unittest.TestCase):
         self.assertEqual(custom.ssh_user, "student")
 
     def test_validates_values(self) -> None:
-        """Accept com, ssh, auto and plain user names only."""
+        """Accept com, ssh, yes/no for lab and plain user names only."""
         self.assertEqual(validate_access_mode(" SSH "), "ssh")
-        self.assertEqual(validate_access_mode("auto"), "auto")
+        self.assertEqual((validate_lab_flag(" Yes"), validate_lab_flag("no")), (True, False))
+        with self.assertRaisesRegex(VBoxLabError, 'lab: invalid value "true"; use yes or no'):
+            validate_lab_flag("true")
         self.assertEqual(validate_ssh_user("st_ud-ent.1"), "st_ud-ent.1")
-        for bad in ("serial", ""):
+        for bad in ("serial", "", "auto"):
             with self.subTest(value=bad), self.assertRaisesRegex(VBoxLabError, "access: invalid"):
                 validate_access_mode(bad)
         for bad in ("", "1user", "a b", "root;rm", "x" * 33):
@@ -151,50 +154,17 @@ class ServiceTests(unittest.TestCase):
     def _calls(self, name: str) -> list[tuple]:
         return [call for call in self.client.calls if call[0] == name]
 
-    def test_plug_forwards_ssh_for_ssh_vms(self) -> None:
-        """Add a rule on the NAT adapter with modifyvm or controlvm."""
-        self.client.add("other", serial_port=2326)
-        self.client.add("stopped")
-        self.client.add("running", state="running")
-        self.client.adapters["running"] = (NicSetting("intnet", "x"), NicSetting("nat"))
-        self.assertEqual(self.service.plug_vm("stopped").ssh_port, 2327)
-        self.assertEqual(self.service.plug_vm("running").ssh_port, 2328)
-        self.assertEqual(self._calls("add_ssh_forwarding"), [
-            ("add_ssh_forwarding", "stopped", 1, 2327, False),
-            ("add_ssh_forwarding", "running", 2, 2328, True),
-        ])
-        self.assertEqual(self._calls("configure_serial_port"), [])
-
-    def test_plug_keeps_an_existing_rule_and_explains_problems(self) -> None:
-        """Leave existing rules alone; refuse without NAT or while changing state."""
-        self.client.add("ready", ssh_port=2400)
-        self.assertEqual(self.service.plug_vm("ready").ssh_port, 2400)
-        self.assertEqual(self._calls("add_ssh_forwarding"), [])
-
-        self.client.add("isolated")
-        self.client.adapters["isolated"] = (NicSetting("intnet", "x"),)
-        with self.assertRaisesRegex(VBoxLabError, "no NAT adapter; run vboxlab set isolated nic1=nat"):
-            self.service.plug_vm("isolated")
-        self.client.add("busy", state="starting")
-        with self.assertRaisesRegex(VBoxLabError, "changing state"):
-            self.service.plug_vm("busy")
-
-    def test_plug_keeps_com_vms_on_com1(self) -> None:
-        """Configure COM1 for VMs reached through COM1 as before."""
-        self.client.add("proto", metadata={ACCESS_KEY: "com"})
-        self.service.plug_vm("proto")
-        self.assertEqual(len(self._calls("configure_serial_port")), 1)
-        self.assertEqual(self._calls("add_ssh_forwarding"), [])
-
-    def test_set_changes_access_and_user_in_any_state(self) -> None:
-        """Store the override and the user without stopping the VM."""
-        self.client.add("vm", state="running")
-        result = self.service.set_vm_settings("vm", ["access=com", "ssh-user=student"])
-        self.assertEqual((result.access.mode, result.access.configured, result.access.ssh_user),
-                         ("com", True, "student"))
-        result = self.service.set_vm_settings("vm", ["access=auto"])
-        self.assertEqual((result.access.mode, result.access.configured), ("ssh", False))
-        self.assertEqual(self._calls("delete_metadata"), [("delete_metadata", "vm", ACCESS_KEY)])
+    def test_set_changes_access_lab_and_user_in_any_state(self) -> None:
+        """Store access, lab and user without stopping the VM when no port changes."""
+        self.client.add("vm", state="running", serial_port=2326, ssh_port=2400)
+        result = self.service.set_vm_settings("vm", ["access=ssh", "lab=yes", "ssh-user=student"])
+        self.assertEqual(
+            (result.access.mode, result.access.configured, result.access.lab, result.access.ssh_user),
+            ("ssh", True, True, "student"),
+        )
+        result = self.service.set_vm_settings("vm", ["lab=no"])
+        self.assertFalse(result.access.lab)
+        self.assertEqual(self._calls("delete_metadata"), [("delete_metadata", "vm", LAB_KEY)])
         with self.assertRaisesRegex(VBoxLabError, "must be stopped"):
             self.service.set_vm_settings("vm", ["access=ssh", "nic2=x"])
 
@@ -284,7 +254,7 @@ class ServiceTests(unittest.TestCase):
         self.client.add("fresh")
         records = self.service.list_monitored_vms()
         self.assertEqual((records[0].access_mode, records[0].ssh_port), ("ssh", 2327))
-        self.assertEqual(self.service.plug_vm("fresh").ssh_port, 2328)
+        self.assertEqual(self.service.set_vm_settings("fresh", ["access=ssh"]).access.ssh_port, 2328)
 
 
 class CommandTests(unittest.TestCase):

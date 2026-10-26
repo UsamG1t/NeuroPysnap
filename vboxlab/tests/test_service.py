@@ -948,113 +948,6 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(vm_info.vm_state, "running")
         self.assertIn(("start_vm_headless", "srv"), client.calls)
 
-    def test_plug_vm_assigns_tcpserver_uart1_to_stopped_vm(self) -> None:
-        """Configure a stopped VM for future VBoxLab serial connections."""
-        client = FakeClient()
-        client.references["srv"] = VMReference("srv", "uuid-srv")
-        client.infos["srv"] = VMInfo(
-            name="srv",
-            uuid="uuid-srv",
-            metadata={"vboxlab/access": "com"},
-            groups=("/Lab",),
-            vm_state="poweroff",
-        )
-
-        service = self.make_service(client=client)
-        service._is_host_tcp_port_available = lambda port: True
-        vm_info = service.plug_vm("srv")
-
-        self.assertEqual(vm_info.serial_port, 1024)
-        self.assertIn(("configure_serial_port", "srv", 1024), client.calls)
-
-    def test_plug_vm_returns_existing_tcpserver_configuration(self) -> None:
-        """Keep an existing tcpserver UART1 configuration unchanged."""
-        client = FakeClient()
-        client.references["srv"] = VMReference("srv", "uuid-srv")
-        client.infos["srv"] = VMInfo(
-            name="srv",
-            uuid="uuid-srv",
-            metadata={"vboxlab/access": "com"},
-            groups=("/Lab",),
-            serial_port=2345,
-            vm_state="running",
-        )
-        client.serial_configurations["srv"] = SerialPortConfiguration(
-            enabled=True,
-            mode="tcpserver",
-            port=2345,
-        )
-
-        service = self.make_service(client=client)
-        vm_info = service.plug_vm("srv")
-
-        self.assertEqual(vm_info.serial_port, 2345)
-        configure_calls = [call for call in client.calls if call[0] == "configure_serial_port"]
-        self.assertEqual(configure_calls, [])
-
-    def test_plug_vm_rejects_non_tcp_uart_backend(self) -> None:
-        """Reject VMs whose UART1 is already bound to another backend."""
-        client = FakeClient()
-        client.references["srv"] = VMReference("srv", "uuid-srv")
-        client.infos["srv"] = VMInfo(
-            name="srv",
-            uuid="uuid-srv",
-            metadata={"vboxlab/access": "com"},
-            groups=("/Lab",),
-            vm_state="poweroff",
-        )
-        client.serial_configurations["srv"] = SerialPortConfiguration(
-            enabled=True,
-            mode="tcpclient",
-        )
-
-        service = self.make_service(client=client)
-        with self.assertRaises(VBoxLabError):
-            service.plug_vm("srv")
-
-    def test_plug_vm_requires_stopped_vm_when_reconfiguration_is_needed(self) -> None:
-        """Reject live VMs that would need a UART1 reconfiguration."""
-        client = FakeClient()
-        client.references["srv"] = VMReference("srv", "uuid-srv")
-        client.infos["srv"] = VMInfo(
-            name="srv",
-            uuid="uuid-srv",
-            metadata={"vboxlab/access": "com"},
-            groups=("/Lab",),
-            vm_state="running",
-        )
-
-        service = self.make_service(client=client)
-        with self.assertRaises(VBoxLabError):
-            service.plug_vm("srv")
-
-    def test_plug_vm_skips_busy_host_ports(self) -> None:
-        """Probe host ports until one is available for tcpserver mode."""
-        client = FakeClient()
-        client.references["srv"] = VMReference("srv", "uuid-srv")
-        client.references["existing"] = VMReference("existing", "uuid-existing")
-        client.infos["srv"] = VMInfo(
-            name="srv",
-            uuid="uuid-srv",
-            metadata={"vboxlab/access": "com"},
-            groups=("/Lab",),
-            vm_state="poweroff",
-        )
-        client.infos["existing"] = VMInfo(
-            name="existing",
-            uuid="uuid-existing",
-            groups=("/Lab",),
-            serial_port=1024,
-            vm_state="poweroff",
-        )
-
-        service = self.make_service(client=client)
-        service._is_host_tcp_port_available = lambda port: port >= 1026
-        vm_info = service.plug_vm("srv")
-
-        self.assertEqual(vm_info.serial_port, 1026)
-        self.assertIn(("configure_serial_port", "srv", 1026), client.calls)
-
     def test_stop_runtime_vm_uses_acpi_shutdown(self) -> None:
         """Stop one active VM through an ACPI power button request."""
         client = FakeClient()
@@ -1322,43 +1215,21 @@ class ServiceTests(unittest.TestCase):
         last_clone_index = max(delete_names.index("clone-a"), delete_names.index("clone-b"))
         self.assertLess(last_clone_index, first_parent_index)
 
-    def test_register_proto_settings_vm_marks_a_lab_vm(self) -> None:
-        """Store the lab property and COM1 access in the VM."""
-        client = FakeClient()
-        client.references["base-vm"] = VMReference("base-vm", "uuid-base")
-        client.infos["base-vm"] = VMInfo(
-            name="base-vm",
-            uuid="uuid-base",
-            groups=("/Lab",),
-            managed=True,
-        )
-
-        service = self.make_service(client=client)
-        first = service.register_proto_settings_vm("base-vm")
-        second = service.register_proto_settings_vm("base-vm")
-
-        self.assertEqual(first, ("base-vm",))
-        self.assertEqual(second, ("base-vm",))
-        self.assertEqual(
-            {key: client.infos["base-vm"].metadata.get(key) for key in ("vboxlab/lab", "vboxlab/access")},
-            {"vboxlab/lab": "true", "vboxlab/access": "com"},
-        )
-
-    def test_build_proto_system_sku_formats_port_and_networks(self) -> None:
-        """Build the expected DMI system SKU for proto-settings clones."""
+    def test_build_lab_system_sku_formats_port_and_networks(self) -> None:
+        """Build the expected DMI system SKU for lab clones."""
         service = self.make_service(client=FakeClient())
 
-        self.assertEqual(service._build_proto_system_sku(2345, ()), "port2345")
+        self.assertEqual(service._build_lab_system_sku(2345, ()), "port2345")
         self.assertEqual(
-            service._build_proto_system_sku(2345, ("intnet",)),
+            service._build_lab_system_sku(2345, ("intnet",)),
             "port2345.intnet",
         )
         self.assertEqual(
-            service._build_proto_system_sku(2345, ("intnet", "deepnet")),
+            service._build_lab_system_sku(2345, ("intnet", "deepnet")),
             "port2345.intnet.deepnet",
         )
         self.assertEqual(
-            service._build_proto_system_sku(2345, ("intnet", "deepnet", "virtnet")),
+            service._build_lab_system_sku(2345, ("intnet", "deepnet", "virtnet")),
             "port2345.intnet.deepnet.virtnet",
         )
 
