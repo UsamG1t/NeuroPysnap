@@ -10,7 +10,7 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from pysnap import __version__
+from vboxlab import __version__
 
 project = "PySnap"
 author = "PySnap Authors"
@@ -63,7 +63,7 @@ autodoc_mock_imports = [
     "pyte",
 ]
 autodoc_type_aliases = {
-    "SessionRegistry": "pysnap.runtime.sessions.SessionRegistry",
+    "SessionRegistry": "vboxlab.runtime.sessions.SessionRegistry",
 }
 
 # ``viewcode`` follows imported members by default and therefore also renders

@@ -6,19 +6,19 @@ PySnap is organized into a few focused packages.
 Package Layout
 --------------
 
-- ``pysnap.cli`` contains argument parsing and terminal output formatting.
-- ``pysnap.config`` contains persistent configuration helpers.
-- ``pysnap.core`` contains domain models and the main application service.
+- ``vboxlab.cli`` contains argument parsing and terminal output formatting.
+- ``vboxlab.config`` contains persistent configuration helpers.
+- ``vboxlab.core`` contains domain models and the main application service.
 - ``pysnap/docs`` stores compiled HTML documentation bundled with the wheel.
-- ``pysnap.report`` reads session reports recorded inside VMs by the
+- ``vboxlab.report`` reads session reports recorded inside VMs by the
   ``report`` utility: safe archive loading, parsing of the ``script``
   recording, rendering of the session text and commands, timed replay and
   the interactive pager and player.
-- ``pysnap.runtime`` contains the live-session registry shared by runtime tools.
-- ``pysnap.terminal`` contains the built-in serial terminal transport, emulator,
+- ``vboxlab.runtime`` contains the live-session registry shared by runtime tools.
+- ``vboxlab.terminal`` contains the built-in serial terminal transport, emulator,
   key mapping, terminal-query responder, and interactive UI session logic.
-- ``pysnap.vbox`` contains the ``VBoxManage`` client and output parsers.
-- ``pysnap.tests`` contains unit tests.
+- ``vboxlab.vbox`` contains the ``VBoxManage`` client and output parsers.
+- ``vboxlab.tests`` contains unit tests.
 
 Package Relationship Diagram
 ----------------------------
@@ -32,13 +32,13 @@ Package Relationship Diagram
           rankdir=LR;
           node [shape=box, style="rounded,filled", fillcolor="#f6f6f6"];
 
-          cli [label="pysnap.cli"];
-          config [label="pysnap.config"];
-          core [label="pysnap.core"];
-          report [label="pysnap.report"];
-          runtime [label="pysnap.runtime"];
-          terminal [label="pysnap.terminal"];
-          vbox [label="pysnap.vbox"];
+          cli [label="vboxlab.cli"];
+          config [label="vboxlab.config"];
+          core [label="vboxlab.core"];
+          report [label="vboxlab.report"];
+          runtime [label="vboxlab.runtime"];
+          terminal [label="vboxlab.terminal"];
+          vbox [label="vboxlab.vbox"];
 
           cli -> core [label="command dispatch"];
           cli -> terminal [label="connect"];
@@ -150,7 +150,7 @@ This mode exists for educational VirtualBox images used in CMC MSU courses.
 Access Strategy
 ---------------
 
-``pysnap.core.access.resolve_access`` decides how a guest is reached: an
+``vboxlab.core.access.resolve_access`` decides how a guest is reached: an
 explicit ``pysnap/access`` extra data entry wins, base VMs registered with
 protosettings and their clones use the ``COM1`` serial console, and every other
 VM uses ssh. The ssh user is the ``pysnap/ssh-user`` extra data entry or
@@ -163,7 +163,7 @@ which adapter holds the rule.
 ssh Strategy
 ------------
 
-``pysnap.ssh`` runs the system OpenSSH client instead of a Python ssh library,
+``vboxlab.ssh`` runs the system OpenSSH client instead of a Python ssh library,
 so PySnap gains no dependency. Every call uses ``-F`` with the null device (no
 user configuration), the PySnap key with ``IdentitiesOnly`` and no agent, the
 known_hosts file of the VM with ``StrictHostKeyChecking=accept-new`` and batch
@@ -235,14 +235,14 @@ runs ``script -I IN.txt -O OUT.txt -B BOTH.txt -T TIME.txt`` and packs the
 logs together with ``lscpu`` output (``CPU.txt``) into a ``tar.gz`` file named
 ``report.<NN>.<host>``.
 
-A report is untrusted input, so ``pysnap.report.archive`` never extracts it
+A report is untrusted input, so ``vboxlab.report.archive`` never extracts it
 to disk. The archive is streamed once through a byte counter: only regular
 files with the five known names are read into memory, while links, devices,
 path-traversal names and unknown entries are skipped with a diagnostic. The
 compressed size, the size of one member and the total decompressed size are
 bounded by ``ReportLimits``, which protects against decompression bombs.
 
-``pysnap.report.recording`` parses the multi-stream timing log of
+``vboxlab.report.recording`` parses the multi-stream timing log of
 util-linux ``script``. ``H`` lines carry headers such as ``START_TIME``,
 ``COLUMNS``, ``DURATION`` and ``EXIT_CODE``; ``I`` and ``O`` lines carry the
 byte sizes of input and output chunks; ``S`` lines carry signals such as
@@ -255,7 +255,7 @@ a report without ``TIME.txt`` or ``OUT.txt`` is rejected.
 Report Rendering Strategy
 -------------------------
 
-``pysnap.report.render`` replays the recorded output through a ``pyte``
+``vboxlab.report.render`` replays the recorded output through a ``pyte``
 screen of the recorded size and applies recorded terminal resizes. Lines that
 scroll off the top, lines dropped when the screen shrinks and the visible
 text wiped by a full-screen erase such as ``clear`` are copied into the
@@ -285,7 +285,7 @@ generated from the parsed cell attributes, never copied from the report.
 Report Viewing Strategy
 -----------------------
 
-``pysnap.report.highlight`` turns a transcript into styled runs with the
+``vboxlab.report.highlight`` turns a transcript into styled runs with the
 highlighted ``report`` prompt and bold commands; the ANSI printer of
 ``pysnap report text`` and the pager both draw these runs. The pager opens
 only when the output is a terminal and the text is longer than the screen.
@@ -294,12 +294,12 @@ at the window edge like ``less -S`` instead of wrapping them: tables such as
 ``ip route`` or ``tcpdump -X`` dumps keep their columns, edge markers show
 hidden text, and ``Left``/``Right`` shift the view by half a window.
 
-``pysnap.report.player`` replays a recording without any user interface: it
+``vboxlab.report.player`` replays a recording without any user interface: it
 owns a ``TerminalEmulator`` of the recorded size and moves it to any moment of
 a compressed timeline on which every pause is limited to ``--max-delay``
 seconds, like ``scriptreplay -m``. Seeking backwards replays from the start.
 ``PlaybackController`` holds the play, pause, speed and command-jump state
-that the key bindings change. ``pysnap.report.viewer`` draws the player in a
+that the key bindings change. ``vboxlab.report.viewer`` draws the player in a
 full-screen window at the recorded size; when the window is smaller, the view
 is clipped around the cursor and the status line says so. Both viewers reuse
 the scrollable control and mouse-wheel handling of ``pysnap connect``.
@@ -307,7 +307,7 @@ the scrollable control and mouse-wheel handling of ``pysnap connect``.
 Report Statistics Strategy
 --------------------------
 
-``pysnap.report.stats`` derives the information block of
+``vboxlab.report.stats`` derives the information block of
 ``pysnap report check`` from the report alone. Commands, their prompts and
 their input events come from the rendered transcript; keystrokes are counted
 by splitting input chunks into keys, because the serial console may deliver
@@ -320,7 +320,7 @@ seconds for archive times, are parameters of ``compute_stats``.
 Check Matching Strategy
 -----------------------
 
-``pysnap.report.checkfile`` loads a TOML check file with the standard
+``vboxlab.report.checkfile`` loads a TOML check file with the standard
 ``tomllib`` module, validates every key and compiles each
 pattern line into literal text and placeholders. Both sides are normalized:
 edges are trimmed and whitespace runs collapse to one space. A pattern is
@@ -329,7 +329,7 @@ already bound labels inserted as literal text, so a label either binds a new
 value or requires the old one; typed values are then validated (IPv4 octets,
 prefix lengths).
 
-``pysnap.report.matcher`` checks all command items, then all output blocks,
+``vboxlab.report.matcher`` checks all command items, then all output blocks,
 with a backtracking search. For each item it tries the candidates in report
 order, then the possibility that the item fails, and keeps the assignment
 with the highest passed weight, preferring the earliest choices on ties. The
@@ -341,7 +341,7 @@ the search from the final label values.
 Report Transfer Strategy
 ------------------------
 
-For a VM reached through ssh, ``pysnap.report.extract`` runs one batch-mode
+For a VM reached through ssh, ``vboxlab.report.extract`` runs one batch-mode
 ssh command with the PySnap key: ``sh -c`` checks that the file is readable
 (exit status 3 otherwise), prints its ``sha256sum`` and then at most one byte
 more than the size limit of the file with ``head -c``. The host splits the
@@ -349,7 +349,7 @@ first line off, checks the size and the checksum and writes the file
 atomically. This session is independent of ``pysnap connect``, so the session
 registry and the control channel are not used.
 
-For other VMs ``pysnap.report.extract`` reuses the ``UART1`` TCP endpoint of
+For other VMs ``vboxlab.report.extract`` reuses the ``UART1`` TCP endpoint of
 the VM. The service checks the VM state, the serial port and the session
 registry first, because VirtualBox accepts only one client on the port. On the
 console the transfer relies on the guest shell and coreutils only: an
@@ -361,7 +361,7 @@ verifies the checksum and writes the file atomically. The ``report`` prompt is
 detected before any command is sent, so a running recording is never modified.
 
 While ``pysnap connect`` is attached, the port is taken, so the terminal
-session also serves a control channel (``pysnap.report.control``): it listens
+session also serves a control channel (``vboxlab.report.control``): it listens
 on ``127.0.0.1`` on a random port and stores the port and a random secret in
 its session record, which is readable only by the current user.
 ``pysnap report extract`` sends one JSON line with the secret and the quoted
@@ -373,7 +373,7 @@ runs at a time.
 Report Comparison Strategy
 --------------------------
 
-``pysnap.report.compare`` reads every report once into a
+``vboxlab.report.compare`` reads every report once into a
 ``ReportFingerprint``: the SHA-256 of the file and of the output body, the
 unicast MAC addresses, the start second and the duration, hashes of every run
 of 20 keyboard delays in microseconds, ``ping`` times in output order and
@@ -429,7 +429,7 @@ and the local scrollback is off there. A resize while the alternate screen is
 shown also moves the top lines of the kept shell buffer to the history and
 cuts its cells beyond the new width, as ``pyte`` does for the visible screen.
 
-``pysnap.report.render`` replays recordings with the same filter, stream and
+``vboxlab.report.render`` replays recordings with the same filter, stream and
 scroll commands, so a report in which the student used vim or nano renders
 like the live terminal; a ``pyte`` failure loses only the chunk it occurred in.
 

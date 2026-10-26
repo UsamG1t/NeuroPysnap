@@ -99,9 +99,9 @@ The project uses:
 Typical workflow:
 
 ```bash
-.pysnap/bin/doit test
-.pysnap/bin/doit docs
-.pysnap/bin/doit wheel
+.vboxlab/bin/doit test
+.vboxlab/bin/doit docs
+.vboxlab/bin/doit wheel
 ```
 
 ## Runtime Examples

@@ -1,5 +1,5 @@
 [project]
-name = "pysnap"
+name = "vboxlab"
 version = "2.2.1"
 description = "VirtualBox appliance importer and linked clone manager."
 readme = "README.md"
@@ -38,14 +38,14 @@ build = [
 ]
 
 [project.scripts]
-pysnap = "pysnap.cli.app:main"
+vboxlab = "vboxlab.cli.app:main"
 
 [tool.setuptools]
 include-package-data = true
 
 [tool.setuptools.package-data]
-pysnap = ["docs/*", "docs/**/*"]
+vboxlab = ["docs/*", "docs/**/*"]
 
 [tool.setuptools.packages.find]
-include = ["pysnap*"]
-exclude = ["pysnap.tests*"]
+include = ["vboxlab*"]
+exclude = ["vboxlab.tests*"]

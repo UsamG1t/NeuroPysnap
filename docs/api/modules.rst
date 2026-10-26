@@ -1,7 +1,7 @@
-pysnap
-======
+vboxlab
+=======
 
 .. toctree::
    :maxdepth: 4
 
-   pysnap
+   vboxlab

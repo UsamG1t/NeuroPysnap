@@ -1,0 +1,212 @@
+"""Output formatters used by the PySnap CLI."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TextIO
+
+from vboxlab.core.access import SSH_HOST_ADDRESS, AccessInfo
+from vboxlab.core.settings import host_pipe_name
+from vboxlab.core.models import (
+    ComPortSetting,
+    IntegrationTestResult,
+    NicSetting,
+    VMGroup,
+    VMInfo,
+    VMMonitorRecord,
+    VMSettingsResult,
+)
+
+
+@dataclass
+class ImportProgressBar:
+    """Render a live import progress bar to a text stream."""
+
+    stream: TextIO
+    label: str = "Importing"
+    width: int = 32
+    current_percent: int = 0
+    started: bool = False
+
+    def update(self, percent: int) -> None:
+        """Update the progress bar.
+
+        :param percent: Percentage reported by VBoxManage.
+        """
+        bounded_percent = max(0, min(percent, 100))
+        if bounded_percent < self.current_percent:
+            return
+        self.started = True
+        self.current_percent = bounded_percent
+        filled = round((bounded_percent / 100) * self.width)
+        bar = "#" * filled + "." * (self.width - filled)
+        self.stream.write(
+            f"\r{self.label} [{bar}] {bounded_percent:3d}%"
+        )
+        self.stream.flush()
+
+    def finish(self) -> None:
+        """Terminate the progress-bar line when it was shown."""
+        if not self.started:
+            return
+        self.stream.write("\n")
+        self.stream.flush()
+
+
+def format_groups(groups: list[VMGroup]) -> str:
+    """Format a group listing for terminal output.
+
+    :param groups: Group objects to format.
+    :returns: Human-readable text output.
+    """
+    if not groups:
+        return "No virtual machines found."
+
+    lines: list[str] = []
+    for group in groups:
+        lines.append(f"Group: {group.name}")
+        for vm_name in group.vm_names:
+            lines.append(f"- {vm_name}")
+    return "\n".join(lines)
+
+
+def format_vm_info(vm_info: VMInfo, access: AccessInfo | None = None) -> str:
+    """Format one VM description for terminal output.
+
+    :param vm_info: VM information to format.
+    :param access: How PySnap reaches the guest, if known.
+    :returns: Human-readable text output.
+    """
+    serial_value = str(vm_info.serial_port) if vm_info.serial_port is not None else "none"
+    lines = [
+        f"Name: {vm_info.name}",
+        f"Group: {', '.join(vm_info.groups) if vm_info.groups else '/Others'}",
+        f"Serial port: {serial_value}",
+    ]
+    if vm_info.parent_name:
+        lines.append(f"Parent VM: {vm_info.parent_name}")
+    if access is not None:
+        lines.append(f"Access: {format_access(access)}")
+    return "\n".join(lines)
+
+
+_ACCESS_SOURCES = {
+    "override": "set with pysnap set",
+    "protosettings": "protosettings",
+    "default": "default",
+}
+
+
+def format_access(access: AccessInfo) -> str:
+    """Describe how PySnap reaches a guest in one line.
+
+    :param access: Access description.
+    :returns: For example ``ssh root@127.0.0.1:2222 (default)``.
+    """
+    source = _ACCESS_SOURCES.get(access.source, access.source)
+    if access.mode == "ssh":
+        if access.ssh_port is None:
+            return f"ssh as {access.ssh_user}, no forwarded port yet: run pysnap plug ({source})"
+        return f"ssh {access.ssh_user}@{SSH_HOST_ADDRESS}:{access.ssh_port} ({source})"
+    port = access.serial_port if access.serial_port is not None else "none"
+    return f"COM1 serial console, port {port} ({source})"
+
+
+def format_vm_settings(result: VMSettingsResult) -> str:
+    """Format the serial ports and network adapters of a VM.
+
+    :param result: Result of ``pysnap set``.
+    :returns: Human-readable text output.
+    """
+    lines = [f"{result.vm_name} ({result.vm_state or 'unknown state'})"]
+    if result.access is not None:
+        lines.append(f"  Access  {format_access(result.access)}")
+    for number, setting in enumerate(result.hardware.com_ports, start=1):
+        lines.append(f"  COM{number}  {_describe_com_port(setting)}")
+    # Show NIC1-NIC4 and further adapters up to the last one in use.
+    used = [number for number, nic in enumerate(result.hardware.nics, start=1) if nic.attachment != "none"]
+    shown = max([4, *used])
+    for number, setting in enumerate(result.hardware.nics[:shown], start=1):
+        lines.append(f"  NIC{number:<2} {_describe_nic(setting)}")
+    return "\n".join(lines)
+
+
+def _describe_com_port(setting: ComPortSetting) -> str:
+    """Describe one serial port."""
+    if setting.mode == "off":
+        return "off"
+    if setting.mode == "tcpserver":
+        return f"TCP server, port {setting.port}" if setting.port is not None else "TCP server"
+    if setting.mode in {"server", "client"}:
+        role = "creates" if setting.mode == "server" else "connects to"
+        name = host_pipe_name(setting.path or "")
+        if name is not None:
+            return f'pipe {setting.mode}, {role} "{name}" ({setting.path})'
+        return f"pipe {setting.mode}, {role} {setting.path}"
+    return f"{setting.mode} {setting.detail}" if setting.detail else setting.mode
+
+
+def _describe_nic(setting: NicSetting) -> str:
+    """Describe one network adapter."""
+    if setting.attachment == "none":
+        return "off"
+    if setting.attachment == "nat":
+        return "NAT"
+    if setting.attachment == "intnet":
+        return f'internal network "{setting.network}"'
+    return setting.attachment
+
+
+def format_import_result(imported_vms: list[VMInfo]) -> str:
+    """Format the result of an appliance import.
+
+    :param imported_vms: Imported VM information objects.
+    :returns: Human-readable text output.
+    """
+    lines = ["Imported virtual machines:"]
+    for vm_info in imported_vms:
+        lines.append(f"- {vm_info.name} ({vm_info.primary_group})")
+    return "\n".join(lines)
+
+
+def format_integration_test_result(result: IntegrationTestResult) -> str:
+    """Format the result of a completed integration test run.
+
+    :param result: Integration test result to render.
+    :returns: Human-readable text output.
+    """
+    lines = ["Integration test completed successfully.", "", "Machines:"]
+    for vm_info in result.machines:
+        lines.append(format_vm_info(vm_info))
+        lines.append("")
+    if result.monitor_records:
+        lines.append("Monitor:")
+        lines.extend(format_monitor_records(list(result.monitor_records)).splitlines())
+        lines.append("")
+    lines.append("Deletion order:")
+    for vm_name in result.deleted_vm_names:
+        lines.append(f"- {vm_name}")
+    return "\n".join(lines).rstrip()
+
+
+def _monitor_port(record: VMMonitorRecord) -> str:
+    """Return the port column of ``monitor``: COM1 port or ``ssh:PORT``."""
+    if record.access_mode == "ssh":
+        return f"ssh:{record.ssh_port if record.ssh_port is not None else 'none'}"
+    return str(record.serial_port) if record.serial_port is not None else "none"
+
+
+def format_monitor_records(records: list[VMMonitorRecord]) -> str:
+    """Format compact runtime records for the ``monitor`` command.
+
+    :param records: Monitor records to format.
+    :returns: Human-readable text output.
+    """
+    if not records:
+        return "No active virtual machines found."
+    return "\n".join(
+        f"{record.name} (state: {record.display_state} ; "
+        f"{_monitor_port(record)} ; "
+        f"{record.group})"
+        for record in records
+    )

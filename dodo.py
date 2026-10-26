@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent
 PROJECT_VERSION = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
     "project"
 ]["version"]
-VENV_BIN = ROOT / ".pysnap" / "bin"
+VENV_BIN = ROOT / ".vboxlab" / "bin"
 PYTHON = str(VENV_BIN / "python")
 SPHINX_APIDOC = str(VENV_BIN / "sphinx-apidoc")
 SPHINX_BUILD = str(VENV_BIN / "sphinx-build")
@@ -19,10 +19,10 @@ SPHINX_BUILD = str(VENV_BIN / "sphinx-build")
 DOCS_DIR = ROOT / "docs"
 DOCS_API_DIR = DOCS_DIR / "api"
 DOCS_BUILD_DIR = DOCS_DIR / "_build"
-PACKAGED_DOCS_DIR = ROOT / "pysnap" / "docs"
+PACKAGED_DOCS_DIR = ROOT / "vboxlab" / "docs"
 DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build"
-EGG_INFO_DIR = ROOT / "pysnap.egg-info"
+EGG_INFO_DIR = ROOT / "vboxlab.egg-info"
 DOIT_DB = ROOT / ".doit.db"
 SPHINX_GRAPHVIZ_TAG = ["-t", "graphviz"] if shutil.which("dot") else []
 
@@ -41,7 +41,7 @@ def _package_source_files() -> list[str]:
 
     return sorted(
         str(path.relative_to(ROOT))
-        for path in (ROOT / "pysnap").rglob("*.py")
+        for path in (ROOT / "vboxlab").rglob("*.py")
         if "tests" not in path.relative_to(ROOT).parts
     )
 
@@ -93,7 +93,7 @@ def task_test() -> dict:
     """Run the unit test suite."""
 
     return {
-        "actions": [f"{PYTHON} -m unittest discover -s pysnap/tests -t ."],
+        "actions": [f"{PYTHON} -m unittest discover -s vboxlab/tests -t ."],
         "verbosity": 2,
     }
 
@@ -103,7 +103,7 @@ def task_apidoc() -> dict:
 
     return {
         "actions": [
-            f"{SPHINX_APIDOC} --force --module-first -o {DOCS_API_DIR} pysnap pysnap/tests"
+            f"{SPHINX_APIDOC} --force --module-first -o {DOCS_API_DIR} vboxlab vboxlab/tests"
         ],
         "file_dep": _package_source_files(),
         "targets": [str(DOCS_API_DIR / "modules.rst")],
@@ -142,7 +142,7 @@ def task_wheel() -> dict:
         ],
         "file_dep": ["pyproject.toml", "README.md", *_package_source_files()],
         "task_dep": ["package_docs"],
-        "targets": [str(DIST_DIR / f"pysnap-{PROJECT_VERSION}-py3-none-any.whl")],
+        "targets": [str(DIST_DIR / f"vboxlab-{PROJECT_VERSION}-py3-none-any.whl")],
         "verbosity": 2,
     }
 
