@@ -16,7 +16,6 @@ import time
 import unittest
 
 from vboxlab.cli.app import run_cli
-from vboxlab.config.protosettings import ProtoSettingsStore
 from vboxlab.core.access import ACCESS_KEY, SSH_USER_KEY
 from vboxlab.core.service import VBoxLabService
 from vboxlab.errors import VBoxLabError
@@ -241,7 +240,6 @@ class ServiceTests(unittest.TestCase):
         self.service = VBoxLabService(
             client=self.client,
             session_registry=FakeSessionRegistry(),
-            proto_settings_store=ProtoSettingsStore(path=root / "proto"),
             ssh_key_store=_FakeStore(root),
         )
         self.working: set[str] = set()

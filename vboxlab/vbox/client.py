@@ -602,38 +602,22 @@ class VBoxManageClient:
             ]
         )
 
-    def configure_internal_networks(
-        self,
-        vm_name: str,
-        networks: Sequence[str],
-        preserve_primary_nat: bool = False,
-    ) -> None:
-        """Configure clone networking according to the requested layout.
+    def configure_internal_networks(self, vm_name: str, networks: Sequence[str]) -> None:
+        """Attach internal networks to ``NIC2``-``NIC4`` in order.
+
+        ``NIC1`` and the adapters after the given networks stay as they are.
 
         :param vm_name: VM name.
-        :param networks: Internal network names.
-        :param preserve_primary_nat: Keep ``NIC1`` on NAT and place networks on
-            ``NIC2``-``NIC4`` without disabling omitted adapters.
+        :param networks: Internal network names, at most three.
         :raises VBoxLabError: If more than three networks are provided.
         """
         if len(networks) > 3:
             raise VBoxLabError("At most three internal network names can be provided.")
-
+        if not networks:
+            return
         arguments: list[str] = ["modifyvm", vm_name]
-        if preserve_primary_nat:
-            arguments.extend(["--nic1", "nat"])
-            for index, network_name in enumerate(networks, start=2):
-                arguments.extend(
-                    [f"--nic{index}", "intnet", f"--intnet{index}", network_name]
-                )
-        else:
-            for index in range(1, 4):
-                if index <= len(networks):
-                    arguments.extend(
-                        [f"--nic{index}", "intnet", f"--intnet{index}", networks[index - 1]]
-                    )
-                else:
-                    arguments.extend([f"--nic{index}", "none"])
+        for index, network_name in enumerate(networks, start=2):
+            arguments.extend([f"--nic{index}", "intnet", f"--intnet{index}", network_name])
         self.runner.run(arguments)
 
     def set_metadata(self, vm_name: str, metadata: dict[str, str]) -> None:

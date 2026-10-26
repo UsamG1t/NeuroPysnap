@@ -48,7 +48,7 @@ class FakeService:
 
     def get_vm_access(self, vm_name: str) -> AccessInfo:
         """Return a COM1 access description."""
-        return AccessInfo("com", "protosettings", 2345, None, "root")
+        return AccessInfo("com", True, True, 2345, None, "root")
 
     def plug_vm(self, vm_name: str) -> VMInfo:
         """Record a plug request and return the updated VM description."""
@@ -519,7 +519,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(service.plugged_vm, "base-vm")
         self.assertIn("Name: base-vm", stdout.getvalue())
         self.assertIn("Serial port: 2345", stdout.getvalue())
-        self.assertIn("Access: COM1 serial console, port 2345 (protosettings)", stdout.getvalue())
+        self.assertIn("Access: COM1 serial console, port 2345 (lab)", stdout.getvalue())
         self.assertEqual("", stderr.getvalue())
 
     def test_bare_image_argument_is_rejected(self) -> None:

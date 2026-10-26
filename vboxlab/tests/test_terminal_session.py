@@ -116,7 +116,7 @@ class TerminalSessionTests(unittest.TestCase):
 
             def get_vm_access(self, vm_name: str) -> AccessInfo:
                 """Reach the VM through COM1."""
-                return AccessInfo("com", "protosettings", 2326, None, "root")
+                return AccessInfo("com", True, True, 2326, None, "root")
 
         session = TerminalSession(service=FakeService())
 
@@ -145,7 +145,7 @@ class TerminalSessionTests(unittest.TestCase):
 
             def get_vm_access(self, vm_name: str) -> AccessInfo:
                 """Reach the VM through COM1."""
-                return AccessInfo("com", "protosettings", 2326, None, "root")
+                return AccessInfo("com", True, True, 2326, None, "root")
 
         session = TerminalSession(service=FakeService())
 

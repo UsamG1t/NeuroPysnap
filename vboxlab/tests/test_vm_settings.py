@@ -9,7 +9,6 @@ import unittest
 from dataclasses import replace
 
 from vboxlab.cli.app import run_cli
-from vboxlab.config.protosettings import ProtoSettingsStore
 from vboxlab.core.models import ComPortSetting, NicSetting, VMHardware, VMInfo, VMReference
 from vboxlab.core.service import VBoxLabService
 from vboxlab.core.settings import host_pipe_name, host_pipe_path, parse_set_options
@@ -218,7 +217,6 @@ class ServiceSettingsTests(unittest.TestCase):
                                           ComPortSetting("tcpserver", port=2400)])
         self.service = VBoxLabService(
             client=self.client,
-            proto_settings_store=ProtoSettingsStore(path=Path(self._temp_dir.name) / "protosettings"),
         )
         self.busy_host_ports: set[int] = set()
         self.service._is_host_tcp_port_available = lambda port: port not in self.busy_host_ports
@@ -338,14 +336,12 @@ class SetCommandTests(unittest.TestCase):
         """Show the resulting table and warnings on stderr."""
         client = SettingsClient()
         client.add_vm("first", com=[ComPortSetting("tcpserver", port=2326)], nics=[NicSetting("nat")])
-        with tempfile.TemporaryDirectory() as temp_dir:
-            service = VBoxLabService(
-                client=client,
-                proto_settings_store=ProtoSettingsStore(path=Path(temp_dir) / "protosettings"),
-            )
-            output, errors = io.StringIO(), io.StringIO()
-            code = run_cli(["set", "first", "com1=off", "com2=server:link", "nic2=left"],
-                           service=service, stdout=output, stderr=errors)
+        service = VBoxLabService(
+            client=client,
+        )
+        output, errors = io.StringIO(), io.StringIO()
+        code = run_cli(["set", "first", "com1=off", "com2=server:link", "nic2=left"],
+                       service=service, stdout=output, stderr=errors)
 
         self.assertEqual(code, 0)
         self.assertIn("Warning: COM1 no longer serves TCP port 2326", errors.getvalue())

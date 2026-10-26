@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import io
 from dataclasses import replace
-from pathlib import Path
 import tempfile
 import unittest
 
 from vboxlab.cli.app import run_cli
-from vboxlab.config.protosettings import ProtoSettingsStore
 from vboxlab.core.models import VMInfo, VMReference
 from vboxlab.core.service import VBoxLabService
 from vboxlab.errors import VBoxLabError
@@ -70,7 +68,6 @@ class ServiceTests(unittest.TestCase):
         self.service = VBoxLabService(
             client=self.client,
             session_registry=self.registry,
-            proto_settings_store=ProtoSettingsStore(path=Path(self._temp_dir.name) / "protosettings"),
         )
 
     def tearDown(self) -> None:
@@ -173,14 +170,12 @@ class CommandTests(unittest.TestCase):
         client = PauseClient()
         client.add_vm("first", "running")
         client.add_vm("second", "paused", 2327)
-        with tempfile.TemporaryDirectory() as temp_dir:
-            service = VBoxLabService(
-                client=client,
-                session_registry=FakeSessionRegistry(),
-                proto_settings_store=ProtoSettingsStore(path=Path(temp_dir) / "protosettings"),
-            )
-            output, errors = io.StringIO(), io.StringIO()
-            code = run_cli(list(arguments), service=service, stdout=output, stderr=errors)
+        service = VBoxLabService(
+            client=client,
+            session_registry=FakeSessionRegistry(),
+        )
+        output, errors = io.StringIO(), io.StringIO()
+        code = run_cli(list(arguments), service=service, stdout=output, stderr=errors)
         return code, output.getvalue(), errors.getvalue()
 
     def test_pause_and_resume_commands(self) -> None:

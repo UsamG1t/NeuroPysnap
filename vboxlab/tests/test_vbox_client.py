@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from vboxlab.core.models import ImportCandidate
-from vboxlab.errors import CommandExecutionError
+from vboxlab.errors import CommandExecutionError, VBoxLabError
 from vboxlab.vbox.client import SubprocessRunner, VBoxManageClient
 
 
@@ -172,49 +172,26 @@ class VBoxManageClientTests(unittest.TestCase):
             ],
         )
 
-    def test_configure_internal_networks_uses_legacy_sequential_layout_by_default(self) -> None:
-        """Map requested networks onto NIC1-NIC3 and disable omitted adapters."""
+    def test_configure_internal_networks_uses_nic2_to_nic4(self) -> None:
+        """Map requested networks onto NIC2-NIC4 and leave NIC1 and the rest alone."""
         runner = FakeRunner()
         client = VBoxManageClient(runner=runner)
 
         client.configure_internal_networks("srv", ("intnet-a", "intnet-b"))
+        client.configure_internal_networks("srv", ())
 
         self.assertEqual(
             runner.commands,
             [
                 (
-                    "modifyvm",
-                    "srv",
-                    "--nic1",
-                    "intnet",
-                    "--intnet1",
-                    "intnet-a",
-                    "--nic2",
-                    "intnet",
-                    "--intnet2",
-                    "intnet-b",
-                    "--nic3",
-                    "none",
+                    "modifyvm", "srv",
+                    "--nic2", "intnet", "--intnet2", "intnet-a",
+                    "--nic3", "intnet", "--intnet3", "intnet-b",
                 )
             ],
         )
-
-    def test_configure_internal_networks_keeps_nat_and_uses_nic2_to_nic4_in_proto_mode(self) -> None:
-        """Keep NIC1 on NAT and map requested networks onto NIC2-NIC4."""
-        runner = FakeRunner()
-        client = VBoxManageClient(runner=runner)
-
-        client.configure_internal_networks(
-            "srv",
-            ("intnet-a",),
-            preserve_primary_nat=True,
-        )
-
-        self.assertIn("--nic1", runner.commands[0])
-        self.assertIn("nat", runner.commands[0])
-        self.assertIn("--nic2", runner.commands[0])
-        self.assertNotIn("--nic3", runner.commands[0])
-        self.assertNotIn("none", runner.commands[0])
+        with self.assertRaisesRegex(VBoxLabError, "At most three"):
+            client.configure_internal_networks("srv", ("a", "b", "c", "d"))
 
     def test_get_vm_info_reads_serial_tcp_port(self) -> None:
         """Read the TCP port configured in UART1 machine-readable properties."""

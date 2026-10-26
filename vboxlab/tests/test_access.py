@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from dataclasses import replace
 import io
-from pathlib import Path
 import tempfile
 import unittest
 
 from vboxlab.cli.app import run_cli
-from vboxlab.config.protosettings import ProtoSettingsStore
 from vboxlab.core.access import (
     ACCESS_KEY,
+    LAB_KEY,
     SSH_USER_KEY,
     parse_ssh_forwarding,
     resolve_access,
@@ -34,28 +33,27 @@ def _info(name: str, **changes) -> VMInfo:
 class ResolveAccessTests(unittest.TestCase):
     """Verify the choice between COM1 and ssh."""
 
-    def test_chooses_by_protosettings_and_override(self) -> None:
-        """Use COM1 for registered bases and their clones, ssh otherwise."""
-        proto = {"base"}
+    def test_reads_the_access_stored_in_the_vm(self) -> None:
+        """Use the stored access and lab property; ssh without a stored access."""
         cases = [
-            (_info("base"), "com", "protosettings"),
-            (_info("clone", parent_name="base"), "com", "protosettings"),
-            (_info("other"), "ssh", "default"),
-            (_info("other", parent_name="unregistered"), "ssh", "default"),
-            (_info("base", metadata={ACCESS_KEY: "ssh"}), "ssh", "override"),
-            (_info("other", metadata={ACCESS_KEY: "com"}), "com", "override"),
-            (_info("other", metadata={ACCESS_KEY: "nonsense"}), "ssh", "default"),
+            (_info("vm"), "ssh", False, False),
+            (_info("clone", parent_name="base"), "ssh", False, False),
+            (_info("vm", metadata={ACCESS_KEY: "ssh"}), "ssh", True, False),
+            (_info("vm", metadata={ACCESS_KEY: " COM "}), "com", True, False),
+            (_info("vm", metadata={ACCESS_KEY: "nonsense"}), "ssh", False, False),
+            (_info("vm", metadata={ACCESS_KEY: "com", LAB_KEY: "true"}), "com", True, True),
+            (_info("vm", metadata={LAB_KEY: "yes"}), "ssh", False, False),
         ]
-        for info, mode, source in cases:
-            with self.subTest(name=info.name, metadata=info.metadata):
-                access = resolve_access(info, proto)
-                self.assertEqual((access.mode, access.source), (mode, source))
+        for info, mode, configured, lab in cases:
+            with self.subTest(metadata=info.metadata):
+                access = resolve_access(info)
+                self.assertEqual((access.mode, access.configured, access.lab), (mode, configured, lab))
 
     def test_reports_connection_details(self) -> None:
         """Carry ports and the ssh user, root by default."""
-        access = resolve_access(_info("vm", serial_port=2326, ssh_port=2400), ())
+        access = resolve_access(_info("vm", serial_port=2326, ssh_port=2400))
         self.assertEqual((access.serial_port, access.ssh_port, access.ssh_user), (2326, 2400, "root"))
-        custom = resolve_access(_info("vm", metadata={SSH_USER_KEY: "student"}), ())
+        custom = resolve_access(_info("vm", metadata={SSH_USER_KEY: "student"}))
         self.assertEqual(custom.ssh_user, "student")
 
     def test_validates_values(self) -> None:
@@ -140,12 +138,10 @@ class ServiceTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self._temp_dir = tempfile.TemporaryDirectory()
-        self.store = ProtoSettingsStore(path=Path(self._temp_dir.name) / "protosettings")
         self.client = AccessClient()
         self.service = VBoxLabService(
             client=self.client,
             session_registry=FakeSessionRegistry(),
-            proto_settings_store=self.store,
         )
         self.service._is_host_tcp_port_available = lambda port: True
 
@@ -184,9 +180,8 @@ class ServiceTests(unittest.TestCase):
             self.service.plug_vm("busy")
 
     def test_plug_keeps_com_vms_on_com1(self) -> None:
-        """Configure COM1 for protosettings VMs as before."""
-        self.client.add("proto")
-        self.store.add_vm_name("proto")
+        """Configure COM1 for VMs reached through COM1 as before."""
+        self.client.add("proto", metadata={ACCESS_KEY: "com"})
         self.service.plug_vm("proto")
         self.assertEqual(len(self._calls("configure_serial_port")), 1)
         self.assertEqual(self._calls("add_ssh_forwarding"), [])
@@ -195,10 +190,10 @@ class ServiceTests(unittest.TestCase):
         """Store the override and the user without stopping the VM."""
         self.client.add("vm", state="running")
         result = self.service.set_vm_settings("vm", ["access=com", "ssh-user=student"])
-        self.assertEqual((result.access.mode, result.access.source, result.access.ssh_user),
-                         ("com", "override", "student"))
+        self.assertEqual((result.access.mode, result.access.configured, result.access.ssh_user),
+                         ("com", True, "student"))
         result = self.service.set_vm_settings("vm", ["access=auto"])
-        self.assertEqual((result.access.mode, result.access.source), ("ssh", "default"))
+        self.assertEqual((result.access.mode, result.access.configured), ("ssh", False))
         self.assertEqual(self._calls("delete_metadata"), [("delete_metadata", "vm", ACCESS_KEY)])
         with self.assertRaisesRegex(VBoxLabError, "must be stopped"):
             self.service.set_vm_settings("vm", ["access=ssh", "nic2=x"])
@@ -210,39 +205,78 @@ class ServiceTests(unittest.TestCase):
         result = self.service.set_vm_settings("vm", ["ssh-user=student"])
         self.assertIn("has no NAT adapter", result.warnings[0])
 
-    def test_clone_of_an_ordinary_base_is_an_ssh_vm(self) -> None:
-        """Keep NIC1 on NAT, drop the base rule and forward a new port."""
-        self.client.add("base", ssh_port=2400, metadata={SSH_USER_KEY: "student"})
-        self.client.snapshot_names["base"] = "snap"
+    def _copy_rules_on_clone(self) -> None:
+        """Let a clone copy the ssh rule of its base, as VirtualBox does."""
         original = self.client.clone_linked
 
         def clone_linked(base_vm, clone_vm, group, snapshot_name):
             original(base_vm, clone_vm, group, snapshot_name)
-            self.client.ssh_rules[clone_vm] = self.client.ssh_rules[base_vm]
-            self.client.infos[clone_vm] = replace(self.client.infos[clone_vm], ssh_port=2400)
+            if base_vm in self.client.ssh_rules:
+                self.client.ssh_rules[clone_vm] = self.client.ssh_rules[base_vm]
+                self.client.infos[clone_vm] = replace(self.client.infos[clone_vm], ssh_port=2400)
 
         self.client.clone_linked = clone_linked
-        info = self.service.clone_vm("base", "first", serial_port=2500)
-        self.assertIn(("configure_internal_networks", "first", (), True), self.client.calls)
+
+    def test_clone_of_an_ssh_base_forwards_its_own_port(self) -> None:
+        """Networks on NIC2-NIC4, the base rule dropped and a new port forwarded."""
+        self.client.add("base", ssh_port=2400, metadata={ACCESS_KEY: "ssh", SSH_USER_KEY: "student"})
+        self.client.snapshot_names["base"] = "snap"
+        self._copy_rules_on_clone()
+        info = self.service.clone_vm("base", "first", serial_port=2500, networks=("left",))
+        self.assertIn(("configure_serial_port", "first", 2500), self.client.calls)
+        self.assertIn(("configure_internal_networks", "first", ("left",)), self.client.calls)
         self.assertIn(("remove_ssh_forwarding", "first", 1), self.client.calls)
         self.assertEqual(self._calls("add_ssh_forwarding"), [("add_ssh_forwarding", "first", 1, 2501, False)])
         self.assertEqual(info.ssh_port, 2501)
-        self.assertEqual(info.metadata[SSH_USER_KEY], "student")
-        self.assertEqual(self.service.get_vm_access("first").mode, "ssh")
+        self.assertEqual((info.metadata[ACCESS_KEY], info.metadata[SSH_USER_KEY]), ("ssh", "student"))
+        self.assertNotIn(LAB_KEY, info.metadata)
+        self.assertEqual(self._calls("configure_dmi_system_information"), [])
 
-    def test_clone_of_a_com_base_stays_on_com1(self) -> None:
-        """Use the old layout without ssh for protosettings and com overrides."""
-        self.client.add("proto")
-        self.client.add("serial", metadata={ACCESS_KEY: "com"})
-        self.client.snapshot_names.update(proto="s", serial="s")
-        self.store.add_vm_name("proto")
-        self.service.clone_vm("proto", "a", networks=("left",))
-        self.service.clone_vm("serial", "b", networks=("left",))
-        self.assertIn(("configure_internal_networks", "a", ("left",), True), self.client.calls)
-        self.assertIn(("configure_internal_networks", "b", ("left",), False), self.client.calls)
+    def test_clone_of_a_base_without_access_forwards_nothing(self) -> None:
+        """Keep a clone of a clean import without stored access and forwarded port."""
+        self.client.add("clean", ssh_port=2400)
+        self.client.snapshot_names["clean"] = "snap"
+        self._copy_rules_on_clone()
+        info = self.service.clone_vm("clean", "first", serial_port=2500)
+        self.assertIn(("remove_ssh_forwarding", "first", 1), self.client.calls)
         self.assertEqual(self._calls("add_ssh_forwarding"), [])
-        self.assertEqual(self.client.infos["b"].metadata[ACCESS_KEY], "com")
-        self.assertEqual(self.service.get_vm_access("b").source, "override")
+        self.assertIsNone(info.ssh_port)
+        self.assertNotIn(ACCESS_KEY, info.metadata)
+        self.assertFalse(self.service.get_vm_access("first").configured)
+
+    def test_clone_of_com_bases_keeps_com1(self) -> None:
+        """Copy COM1 access, and the lab property with its DMI data for lab VMs only."""
+        self.client.add("lab", metadata={ACCESS_KEY: "com", LAB_KEY: "true"})
+        self.client.add("serial", metadata={ACCESS_KEY: "com"})
+        self.client.snapshot_names.update(lab="s", serial="s")
+        self.service.clone_vm("lab", "a", serial_port=2500, networks=("left",))
+        self.service.clone_vm("serial", "b", serial_port=2501, networks=("left",))
+        self.assertIn(("configure_internal_networks", "a", ("left",)), self.client.calls)
+        self.assertIn(("configure_internal_networks", "b", ("left",)), self.client.calls)
+        self.assertEqual(self._calls("add_ssh_forwarding"), [])
+        self.assertEqual(
+            [call[1] for call in self._calls("configure_dmi_system_information")], ["a"]
+        )
+        self.assertEqual(self.client.infos["a"].metadata[LAB_KEY], "true")
+        self.assertNotIn(LAB_KEY, self.client.infos["b"].metadata)
+        for name in ("a", "b"):
+            access = self.service.get_vm_access(name)
+            self.assertEqual((access.mode, access.configured), ("com", True))
+
+    def test_clone_needs_a_nat_adapter_the_networks_keep(self) -> None:
+        """Refuse before cloning when ssh has no NAT adapter or networks would replace it."""
+        self.client.add("isolated", metadata={ACCESS_KEY: "ssh"})
+        self.client.adapters["isolated"] = (NicSetting("intnet", "x"),)
+        with self.assertRaisesRegex(VBoxLabError, "no NAT adapter; run vboxlab set isolated nic1=nat"):
+            self.service.clone_vm("isolated", "a")
+        self.client.add("second", metadata={ACCESS_KEY: "ssh"})
+        self.client.adapters["second"] = (NicSetting("none"), NicSetting("nat"))
+        with self.assertRaisesRegex(VBoxLabError, "would replace NIC2, the NAT adapter"):
+            self.service.clone_vm("second", "b", networks=("left",))
+        self.assertEqual(self._calls("clone_linked"), [])
+        self.client.snapshot_names["second"] = "s"
+        self.service.clone_vm("second", "c", serial_port=2600)
+        self.assertEqual(self._calls("add_ssh_forwarding"), [("add_ssh_forwarding", "c", 2, 2601, False)])
 
     def test_monitor_and_port_allocation_know_ssh_ports(self) -> None:
         """Show ssh VMs with their port and keep their ports out of new allocations."""
@@ -260,14 +294,12 @@ class CommandTests(unittest.TestCase):
         client = AccessClient()
         client.add("vm", state="running", serial_port=2326, ssh_port=2400,
                    metadata={SSH_USER_KEY: "student"})
-        with tempfile.TemporaryDirectory() as temp_dir:
-            service = VBoxLabService(
-                client=client,
-                session_registry=FakeSessionRegistry(),
-                proto_settings_store=ProtoSettingsStore(path=Path(temp_dir) / "protosettings"),
-            )
-            output = io.StringIO()
-            run_cli(list(arguments), service=service, stdout=output, stderr=io.StringIO())
+        service = VBoxLabService(
+            client=client,
+            session_registry=FakeSessionRegistry(),
+        )
+        output = io.StringIO()
+        run_cli(list(arguments), service=service, stdout=output, stderr=io.StringIO())
         return output.getvalue()
 
     def test_show_and_monitor(self) -> None:

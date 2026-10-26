@@ -12,7 +12,6 @@ from time import monotonic, sleep
 from typing import Callable, ContextManager, Iterator, Sequence
 from uuid import uuid4
 
-from vboxlab.config.protosettings import ProtoSettingsStore
 from vboxlab.core.appliance import read_appliance_vm_names
 from vboxlab.core.models import (
     ComPortSetting,
@@ -28,6 +27,7 @@ from vboxlab.core.models import (
 from vboxlab.core.access import (
     ACCESS_KEY,
     DEFAULT_SSH_USER,
+    LAB_KEY,
     SSH_USER_KEY,
     AccessInfo,
     resolve_access,
@@ -82,7 +82,6 @@ class VBoxLabService:
         client: VBoxManageClient | None = None,
         session_registry: SessionRegistry | None = None,
         serial_probe_factory: SerialProbeFactory | None = None,
-        proto_settings_store: ProtoSettingsStore | None = None,
         ssh_key_store: SshKeyStore | None = None,
     ) -> None:
         """Initialize the service.
@@ -93,7 +92,6 @@ class VBoxLabService:
         self.client = client or VBoxManageClient()
         self.session_registry = session_registry or SessionRegistry()
         self.serial_probe_factory = serial_probe_factory or serial_connection_probe
-        self.proto_settings_store = proto_settings_store or ProtoSettingsStore()
         self.ssh_key_store = ssh_key_store or SshKeyStore()
 
     def import_image(
@@ -328,7 +326,6 @@ class VBoxLabService:
         :returns: Monitor records sorted by VM name.
         """
         live_sessions = self.session_registry.list_live_sessions()
-        proto_names = self.proto_settings_store.list_vm_names()
         records: list[VMMonitorRecord] = []
         for vm_info in self._collect_vm_infos():
             display_state = self._display_state(
@@ -344,7 +341,7 @@ class VBoxLabService:
                     serial_port=vm_info.serial_port,
                     group=vm_info.primary_group,
                     raw_state=(vm_info.vm_state or "").lower(),
-                    access_mode=resolve_access(vm_info, proto_names).mode,
+                    access_mode=resolve_access(vm_info).mode,
                     ssh_port=vm_info.ssh_port,
                 )
             )
@@ -645,6 +642,14 @@ class VBoxLabService:
         self.client.configure_serial_port(vm_name, serial_port)
         return self.client.get_vm_info(vm_name)
 
+    def _first_nat_adapter(self, vm_name: str) -> int | None:
+        """Return the number of the first NAT adapter of a VM, if any."""
+        hardware = self.client.get_vm_hardware(vm_name)
+        return next(
+            (number for number, nic in enumerate(hardware.nics, start=1) if nic.attachment == "nat"),
+            None,
+        )
+
     def _plug_ssh(self, vm_name: str, vm_info: VMInfo) -> VMInfo:
         """Forward a free host port to the guest ssh server.
 
@@ -655,11 +660,7 @@ class VBoxLabService:
         """
         if vm_info.ssh_port is not None:
             return vm_info
-        hardware = self.client.get_vm_hardware(vm_name)
-        adapter = next(
-            (number for number, nic in enumerate(hardware.nics, start=1) if nic.attachment == "nat"),
-            None,
-        )
+        adapter = self._first_nat_adapter(vm_name)
         if adapter is None:
             raise VBoxLabError(
                 f'Virtual machine "{vm_name}" is reached through ssh but has no NAT adapter; '
@@ -904,7 +905,7 @@ class VBoxLabService:
 
     def _access_of(self, info: VMInfo) -> AccessInfo:
         """Return the access description of known VM information."""
-        return resolve_access(info, self.proto_settings_store.list_vm_names())
+        return resolve_access(info)
 
     def clone_vm(
         self,
@@ -929,6 +930,23 @@ class VBoxLabService:
             raise VBoxLabError("Serial TCP port must be between 1 and 65535.")
         if len(networks) > 3:
             raise VBoxLabError("At most three internal network names can be provided.")
+        base_access = self._access_of(base_info)
+        # Only a base VM that stores ssh access passes a forwarded port on.
+        ssh_clone = base_access.configured and base_access.mode == "ssh"
+        nat_adapter = None
+        if ssh_clone:
+            nat_adapter = self._first_nat_adapter(base_vm)
+            if nat_adapter is None:
+                raise VBoxLabError(
+                    f'Base VM "{base_vm}" is reached through ssh but has no NAT adapter; '
+                    f"run vboxlab set {base_vm} nic1=nat first."
+                )
+            if 2 <= nat_adapter <= len(networks) + 1:
+                raise VBoxLabError(
+                    f'The networks would replace NIC{nat_adapter}, the NAT adapter that '
+                    f'forwards ssh to "{base_vm}"; give fewer networks or move the NAT '
+                    f"adapter to NIC1 with vboxlab set."
+                )
         if serial_port is None:
             serial_port = self._allocate_serial_port()
 
@@ -944,19 +962,11 @@ class VBoxLabService:
             snapshot_name=snapshot_name,
         )
 
-        proto_settings_enabled = self.proto_settings_store.contains(base_vm)
-        base_access = self._access_of(base_info)
-        override = base_info.metadata.get(ACCESS_KEY) if base_access.source == "override" else None
-        # A clone inherits the protosettings choice through its parent and an
-        # explicit choice of the base VM through the copied override.
-        ssh_clone = (override or ("com" if proto_settings_enabled else "ssh")) == "ssh"
+        # Every clone gets COM1 as a TCP server, also as a spare console of
+        # ssh clones; the networks always go to NIC2-NIC4 and NIC1 keeps what
+        # the base VM has.
         self.client.configure_serial_port(clone_vm, serial_port)
-        if networks or ssh_clone:
-            self.client.configure_internal_networks(
-                clone_vm,
-                networks,
-                preserve_primary_nat=proto_settings_enabled or ssh_clone,
-            )
+        self.client.configure_internal_networks(clone_vm, networks)
         # The clone copies the ssh rule of its base VM; its host port belongs
         # to the base, so the copy is removed.
         inherited = self.client.get_ssh_forwarding(clone_vm)
@@ -966,19 +976,19 @@ class VBoxLabService:
             ssh_port = self._allocate_serial_port(
                 require_host_availability=True, reserved={serial_port}
             )
-            self.client.add_ssh_forwarding(clone_vm, 1, ssh_port, running=False)
+            self.client.add_ssh_forwarding(clone_vm, nat_adapter, ssh_port, running=False)
 
         clone_metadata = {
             "vboxlab/managed": "true",
             "vboxlab/kind": "clone",
             "vboxlab/parent": base_vm,
         }
-        if override:
-            clone_metadata[ACCESS_KEY] = override
-        if SSH_USER_KEY in base_info.metadata:
-            clone_metadata[SSH_USER_KEY] = base_info.metadata[SSH_USER_KEY]
+        # The clone keeps the access, the lab property and the ssh user.
+        for key in (ACCESS_KEY, LAB_KEY, SSH_USER_KEY):
+            if key in base_info.metadata:
+                clone_metadata[key] = base_info.metadata[key]
         self.client.set_metadata(clone_vm, clone_metadata)
-        if proto_settings_enabled:
+        if base_access.lab:
             self.client.configure_dmi_system_information(
                 clone_vm,
                 system_vendor=clone_vm,
@@ -990,14 +1000,17 @@ class VBoxLabService:
         return self.client.get_vm_info(clone_vm)
 
     def register_proto_settings_vm(self, vm_name: str) -> tuple[str, ...]:
-        """Persist one base VM name in the proto-settings store.
+        """Mark one base VM as a lab VM reached through COM1.
 
-        :param vm_name: Base VM name to register.
-        :returns: Updated configured VM names.
+        :param vm_name: Base VM name to mark.
+        :returns: The names of all lab VMs.
         :raises VMNotFoundError: If the VM does not exist.
         """
         self._require_vm(vm_name)
-        return self.proto_settings_store.add_vm_name(vm_name)
+        self.client.set_metadata(vm_name, {LAB_KEY: "true", ACCESS_KEY: "com"})
+        return tuple(
+            sorted(info.name for info in self._collect_vm_infos() if resolve_access(info).lab)
+        )
 
     def _allocate_serial_port(
         self,
@@ -1186,7 +1199,6 @@ class VBoxLabService:
         if dependents:
             raise VMDependencyError(vm_name, dependents)
         self.client.delete_vm(vm_name)
-        self.proto_settings_store.remove_vm_names([vm_name])
 
     def erase_group(self, group_name: str) -> list[str]:
         """Erase all VMs from a single group.
@@ -1557,7 +1569,6 @@ class VBoxLabService:
                 )
                 raise VBoxLabError(f"Unable to erase all requested VMs. {details}")
 
-            self.proto_settings_store.remove_vm_names(deleted_names)
             remaining = [vm_name for vm_name in remaining if vm_name not in deleted_names]
 
     def _stop_runtime_vm_names(

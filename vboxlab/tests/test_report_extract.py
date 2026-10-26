@@ -39,7 +39,7 @@ class _Service:
 
     def get_vm_access(self, vm_name: str) -> AccessInfo:
         """Reach the fake VM through COM1."""
-        return AccessInfo("com", "protosettings", self.vm_info.serial_port, None, "root")
+        return AccessInfo("com", True, True, self.vm_info.serial_port, None, "root")
 
 
 class _ShellServer:
@@ -261,7 +261,7 @@ class _SshService:
 
     def get_vm_access(self, vm_name: str) -> AccessInfo:
         """Reach the fake VM through ssh."""
-        return AccessInfo("ssh", "default", None, 2400, "root")
+        return AccessInfo("ssh", False, False, None, 2400, "root")
 
     def ssh_target(self, vm_name: str):
         """Return the target or refuse like the real service."""

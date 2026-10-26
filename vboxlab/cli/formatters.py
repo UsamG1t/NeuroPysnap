@@ -90,26 +90,24 @@ def format_vm_info(vm_info: VMInfo, access: AccessInfo | None = None) -> str:
     return "\n".join(lines)
 
 
-_ACCESS_SOURCES = {
-    "override": "set with vboxlab set",
-    "protosettings": "protosettings",
-    "default": "default",
-}
-
-
 def format_access(access: AccessInfo) -> str:
     """Describe how VBoxLab reaches a guest in one line.
 
     :param access: Access description.
-    :returns: For example ``ssh root@127.0.0.1:2222 (default)``.
+    :returns: For example ``ssh root@127.0.0.1:2222`` or
+        ``COM1 serial console, port 2326 (lab)``; a VM that stores no access
+        is marked ``(default)``.
     """
-    source = _ACCESS_SOURCES.get(access.source, access.source)
     if access.mode == "ssh":
         if access.ssh_port is None:
-            return f"ssh as {access.ssh_user}, no forwarded port yet: run vboxlab plug ({source})"
-        return f"ssh {access.ssh_user}@{SSH_HOST_ADDRESS}:{access.ssh_port} ({source})"
-    port = access.serial_port if access.serial_port is not None else "none"
-    return f"COM1 serial console, port {port} ({source})"
+            text = f"ssh as {access.ssh_user}, no forwarded port yet: run vboxlab plug"
+        else:
+            text = f"ssh {access.ssh_user}@{SSH_HOST_ADDRESS}:{access.ssh_port}"
+    else:
+        port = access.serial_port if access.serial_port is not None else "none"
+        text = f"COM1 serial console, port {port}"
+    marks = (["lab"] if access.lab else []) + ([] if access.configured else ["default"])
+    return f"{text} ({', '.join(marks)})" if marks else text
 
 
 def format_vm_settings(result: VMSettingsResult) -> str:

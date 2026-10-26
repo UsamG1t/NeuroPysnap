@@ -11,7 +11,6 @@ import unittest
 from contextlib import contextmanager
 from pathlib import Path
 
-from vboxlab.config.protosettings import ProtoSettingsStore
 from vboxlab.core.models import ImportCandidate, VMInfo, VMMonitorRecord, VMReference
 from vboxlab.core.models import ComPortSetting, NicSetting, SerialPortConfiguration, VMHardware
 from vboxlab.core.service import VBoxLabService
@@ -242,16 +241,9 @@ class FakeClient:
             metadata=current.metadata,
         )
 
-    def configure_internal_networks(
-        self,
-        vm_name: str,
-        networks: tuple[str, ...],
-        preserve_primary_nat: bool = False,
-    ) -> None:
+    def configure_internal_networks(self, vm_name: str, networks: tuple[str, ...]) -> None:
         """Record network configuration."""
-        self.calls.append(
-            ("configure_internal_networks", vm_name, networks, preserve_primary_nat)
-        )
+        self.calls.append(("configure_internal_networks", vm_name, tuple(networks)))
 
     def configure_dmi_system_information(
         self,
@@ -301,14 +293,11 @@ class ServiceTests(unittest.TestCase):
     """Verify VBoxLab service behavior."""
 
     def setUp(self) -> None:
-        """Create an isolated proto-settings store for every test."""
+        """Create a temporary directory for every test."""
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.proto_settings_store = ProtoSettingsStore(
-            path=Path(self.temp_dir.name) / "protosettings"
-        )
 
     def tearDown(self) -> None:
-        """Clean up the temporary proto-settings store."""
+        """Clean up the temporary directory."""
         self.temp_dir.cleanup()
 
     def make_service(
@@ -322,7 +311,6 @@ class ServiceTests(unittest.TestCase):
             client=client,
             session_registry=session_registry,
             serial_probe_factory=serial_probe_factory,
-            proto_settings_store=self.proto_settings_store,
         )
 
     def make_appliance(
@@ -354,7 +342,7 @@ class ServiceTests(unittest.TestCase):
             name="base-vm",
             uuid="uuid-base",
             groups=("/Lab",),
-            metadata={"vboxlab/managed": "true"},
+            metadata={"vboxlab/managed": "true", "vboxlab/access": "ssh"},
             managed=True,
         )
         client.snapshot_names["base-vm"] = "existing-snapshot"
@@ -380,12 +368,11 @@ class ServiceTests(unittest.TestCase):
             (
                 "configure_internal_networks",
                 "clone-vm",
-                ("intnet-a", "intnet-b"),
-                True,
+                ("intnet-a", "intnet-b")
             ),
             client.calls,
         )
-        # Clones of base VMs outside protosettings are reached through ssh.
+        # Clones of ssh base VMs get their own forwarded port.
         self.assertIn(("add_ssh_forwarding", "clone-vm", 1, 2346, False), client.calls)
 
     def test_clone_vm_auto_assigns_next_serial_port(self) -> None:
@@ -771,8 +758,7 @@ class ServiceTests(unittest.TestCase):
             (
                 "configure_internal_networks",
                 "vboxlab-it-case1234-clone-a",
-                ("intnet", "virtnet"),
-                False,
+                ("intnet", "virtnet")
             ),
             client.calls,
         )
@@ -780,8 +766,7 @@ class ServiceTests(unittest.TestCase):
             (
                 "configure_internal_networks",
                 "vboxlab-it-case1234-clone-b",
-                ("intnet", "deepnet"),
-                False,
+                ("intnet", "deepnet")
             ),
             client.calls,
         )
@@ -789,8 +774,7 @@ class ServiceTests(unittest.TestCase):
             (
                 "configure_internal_networks",
                 "vboxlab-it-case1234-clone-c",
-                ("deepnet", "virtnet"),
-                False,
+                ("deepnet", "virtnet")
             ),
             client.calls,
         )
@@ -1265,8 +1249,8 @@ class ServiceTests(unittest.TestCase):
         last_clone_index = max(delete_names.index("clone-a"), delete_names.index("clone-b"))
         self.assertLess(last_clone_index, first_parent_index)
 
-    def test_register_proto_settings_vm_adds_base_vm_without_duplicates(self) -> None:
-        """Persist one base VM in the proto-settings file."""
+    def test_register_proto_settings_vm_marks_a_lab_vm(self) -> None:
+        """Store the lab property and COM1 access in the VM."""
         client = FakeClient()
         client.references["base-vm"] = VMReference("base-vm", "uuid-base")
         client.infos["base-vm"] = VMInfo(
@@ -1282,7 +1266,10 @@ class ServiceTests(unittest.TestCase):
 
         self.assertEqual(first, ("base-vm",))
         self.assertEqual(second, ("base-vm",))
-        self.assertEqual(self.proto_settings_store.list_vm_names(), ("base-vm",))
+        self.assertEqual(
+            {key: client.infos["base-vm"].metadata.get(key) for key in ("vboxlab/lab", "vboxlab/access")},
+            {"vboxlab/lab": "true", "vboxlab/access": "com"},
+        )
 
     def test_build_proto_system_sku_formats_port_and_networks(self) -> None:
         """Build the expected DMI system SKU for proto-settings clones."""
@@ -1302,8 +1289,8 @@ class ServiceTests(unittest.TestCase):
             "port2345.intnet.deepnet.virtnet",
         )
 
-    def test_clone_vm_applies_proto_settings_for_registered_base(self) -> None:
-        """Apply DMI data to clones whose base VM is in proto-settings."""
+    def test_clone_vm_applies_lab_settings_for_a_lab_base(self) -> None:
+        """Apply DMI data to clones of a lab VM and keep its properties."""
         client = FakeClient()
         client.references["base-vm"] = VMReference("base-vm", "uuid-base")
         client.infos["base-vm"] = VMInfo(
@@ -1311,9 +1298,9 @@ class ServiceTests(unittest.TestCase):
             uuid="uuid-base",
             groups=("/Lab",),
             managed=True,
+            metadata={"vboxlab/lab": "true", "vboxlab/access": "com"},
         )
         client.snapshot_names["base-vm"] = "existing-snapshot"
-        self.proto_settings_store.add_vm_name("base-vm")
 
         service = self.make_service(client=client)
         service.clone_vm(
@@ -1337,13 +1324,14 @@ class ServiceTests(unittest.TestCase):
                 "configure_internal_networks",
                 "clone-vm",
                 ("intnet", "deepnet"),
-                True,
             ),
             client.calls,
         )
+        metadata = client.infos["clone-vm"].metadata
+        self.assertEqual((metadata["vboxlab/lab"], metadata["vboxlab/access"]), ("true", "com"))
 
-    def test_clone_vm_skips_proto_settings_for_unregistered_base(self) -> None:
-        """Skip DMI configuration when the base VM is not registered."""
+    def test_clone_vm_skips_lab_settings_for_other_bases(self) -> None:
+        """Skip DMI configuration when the base VM is no lab VM."""
         client = FakeClient()
         client.references["base-vm"] = VMReference("base-vm", "uuid-base")
         client.infos["base-vm"] = VMInfo(
@@ -1362,22 +1350,6 @@ class ServiceTests(unittest.TestCase):
         ]
         self.assertEqual(dmi_calls, [])
 
-    def test_erase_vm_removes_name_from_proto_settings(self) -> None:
-        """Remove erased VM names from the proto-settings file."""
-        client = FakeClient()
-        client.references["base-vm"] = VMReference("base-vm", "uuid-base")
-        client.infos["base-vm"] = VMInfo(
-            name="base-vm",
-            uuid="uuid-base",
-            groups=("/Lab",),
-            managed=True,
-        )
-        self.proto_settings_store.add_vm_name("base-vm")
-
-        service = self.make_service(client=client)
-        service.erase_vm("base-vm")
-
-        self.assertEqual(self.proto_settings_store.list_vm_names(), ())
 
 
 if __name__ == "__main__":

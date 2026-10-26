@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import contextmanager
-from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -13,7 +12,6 @@ from prompt_toolkit.application import create_app_session
 from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
 
-from vboxlab.config.protosettings import ProtoSettingsStore
 from vboxlab.core.access import ACCESS_KEY, SSH_USER_KEY
 from vboxlab.core.service import VBoxLabService
 from vboxlab.errors import VBoxLabError
@@ -34,7 +32,6 @@ class PrepareTests(unittest.TestCase):
         self.service = VBoxLabService(
             client=self.client,
             session_registry=FakeSessionRegistry(),
-            proto_settings_store=ProtoSettingsStore(path=Path(self._temp_dir.name) / "proto"),
         )
         self.checks: list[str] = []
         self.answers: list[str] = []
@@ -118,7 +115,7 @@ class TransportTests(unittest.TestCase):
 
             def get_vm_access(self, vm_name):
                 from vboxlab.core.access import AccessInfo
-                return AccessInfo("ssh", "default", None, 2400, "root")
+                return AccessInfo("ssh", False, False, None, 2400, "root")
 
             def prepare_ssh_terminal(self, vm_name, notify=None):
                 return SshTarget(vm_name, "u", 2400, "root")

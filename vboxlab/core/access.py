@@ -1,13 +1,15 @@
 """How VBoxLab reaches the guest of a VM: serial console or ssh.
 
-Base VMs registered with ``vboxlab protosettings`` and their clones are known
-to have their console on COM1, so they are reached through the serial TCP
-server of COM1. Every other VM is reached through ssh: its NAT adapter
-forwards a host port on ``127.0.0.1`` to port 22 of the guest. The automatic
-choice can be overridden per VM with ``vboxlab set VM access=com|ssh``.
+The access is a property of the VM, kept in its VirtualBox extra data: COM1
+(the serial TCP server of COM1) or ssh (a rule on the NAT adapter forwards a
+host port on ``127.0.0.1`` to port 22 of the guest). ``vboxlab import`` sets
+it, clones copy it from their base VM and ``vboxlab set VM access=com|ssh``
+changes it. A VM without it, for example after a clean import, counts as an
+ssh VM without a forwarded port.
 
-The override and the ssh user are kept in VirtualBox extra data of the VM;
-the forwarded port is read from the NAT port-forwarding rule named
+Lab VMs (``vboxlab/lab``) are reached through COM1 and give their clones the
+lab DMI system information. The ssh user is kept in extra data as well; the
+forwarded port is read from the NAT port-forwarding rule named
 :data:`SSH_RULE_NAME`.
 """
 
@@ -15,12 +17,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
-from typing import Collection
-
 from vboxlab.core.models import VMInfo
 from vboxlab.errors import VBoxLabError
 
 ACCESS_KEY = "vboxlab/access"
+LAB_KEY = "vboxlab/lab"
 SSH_USER_KEY = "vboxlab/ssh-user"
 DEFAULT_SSH_USER = "root"
 SSH_RULE_NAME = "vboxlab-ssh"
@@ -36,40 +37,34 @@ class AccessInfo:
     """Describe how VBoxLab reaches the guest of one VM.
 
     :param mode: ``"com"`` for the COM1 serial console, ``"ssh"`` for ssh.
-    :param source: Why this mode applies: ``"override"`` (``vboxlab set``),
-        ``"protosettings"`` (the VM or its parent is registered) or
-        ``"default"``.
+    :param configured: Whether the VM stores its access; ``False`` means the
+        ssh default of a VM imported without settings.
+    :param lab: Whether the VM is a lab VM whose clones get lab settings.
     :param serial_port: TCP port of COM1, if any.
     :param ssh_port: Host port forwarded to the guest ssh server, if any.
     :param ssh_user: User for ssh connections.
     """
 
     mode: str
-    source: str
+    configured: bool
+    lab: bool
     serial_port: int | None
     ssh_port: int | None
     ssh_user: str
 
 
-def resolve_access(info: VMInfo, proto_settings_vms: Collection[str]) -> AccessInfo:
+def resolve_access(info: VMInfo) -> AccessInfo:
     """Return the access mode and connection details of a VM.
 
     :param info: VM information including VBoxLab metadata.
-    :param proto_settings_vms: Base VM names registered with protosettings.
     :returns: Access description.
     """
-    override = info.metadata.get(ACCESS_KEY, "").strip().lower()
-    if override in ACCESS_MODES:
-        mode, source = override, "override"
-    elif info.name in proto_settings_vms or (
-        info.parent_name is not None and info.parent_name in proto_settings_vms
-    ):
-        mode, source = "com", "protosettings"
-    else:
-        mode, source = "ssh", "default"
+    stored = info.metadata.get(ACCESS_KEY, "").strip().lower()
+    configured = stored in ACCESS_MODES
     return AccessInfo(
-        mode=mode,
-        source=source,
+        mode=stored if configured else "ssh",
+        configured=configured,
+        lab=info.metadata.get(LAB_KEY) == "true",
         serial_port=info.serial_port,
         ssh_port=info.ssh_port,
         ssh_user=info.metadata.get(SSH_USER_KEY) or DEFAULT_SSH_USER,
