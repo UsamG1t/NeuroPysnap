@@ -424,24 +424,63 @@ def _run_import(
     parser = CliArgumentParser(
         prog="vboxlab import",
         description=(
-            "Import an OVA or OVF appliance into VirtualBox. The imported VMs "
-            "keep the group of the appliance or go to /Others. Nothing is "
-            "created when a VM with the same name already exists."
+            "Import an OVA or OVF appliance into VirtualBox and set up how "
+            "vboxlab connect reaches it. The imported VMs keep the group of the "
+            "appliance or go to /Others. Nothing is created when a VM with the "
+            "same name already exists. NIC1 is attached to NAT and the VM is "
+            "reached through ssh on a forwarded free port unless another access "
+            "is chosen; clones copy the access and get their own ports."
         ),
         epilog=_examples(
             "vboxlab import image.ova",
-            "vboxlab import image.ova RenamedVM",
+            "vboxlab import protocols.ova -o first --lab-vm",
+            "vboxlab import router.ova --com-access-vm",
+            "vboxlab import image.ova --clean-import",
         ),
         stdout=stdout,
         stderr=stderr,
     )
     parser.add_argument("image", metavar="IMAGE", help="Path to the .ova or .ovf appliance.")
     parser.add_argument(
-        "vm_name",
-        nargs="?",
-        metavar="VM_NAME",
-        help="New name of the imported VM; only for appliances with one VM.",
+        "-o",
+        "--output-name",
+        dest="vm_name",
+        metavar="NAME",
+        help="Name of the imported VM; only for appliances with one VM.",
     )
+    setup = parser.add_mutually_exclusive_group()
+    setup.add_argument(
+        "--lab-vm",
+        dest="setup",
+        action="store_const",
+        const="lab",
+        help=(
+            "Lab VM: reached through COM1 (a TCP server on a free port); its "
+            "clones get the lab DMI system information."
+        ),
+    )
+    setup.add_argument(
+        "--ssh-access-vm",
+        dest="setup",
+        action="store_const",
+        const="ssh",
+        help="Reached through ssh on a forwarded free port (the default).",
+    )
+    setup.add_argument(
+        "--com-access-vm",
+        dest="setup",
+        action="store_const",
+        const="com",
+        help="Reached through COM1 (a TCP server on a free port), without lab settings.",
+    )
+    setup.add_argument(
+        "--clean-import",
+        dest="setup",
+        action="store_const",
+        const="clean",
+        help="Change nothing: no NAT, serial port or forwarding and no access.",
+    )
+    parser.set_defaults(setup="ssh")
     namespace = parser.parse_args(list(arguments))
     progress_bar = ImportProgressBar(stream=stdout)
     try:
@@ -449,6 +488,7 @@ def _run_import(
             namespace.image,
             vm_name=namespace.vm_name,
             progress_callback=progress_bar.update,
+            setup=namespace.setup,
         )
     finally:
         progress_bar.finish()

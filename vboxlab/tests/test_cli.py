@@ -77,9 +77,10 @@ class FakeService:
         image_path: str,
         vm_name: str | None = None,
         progress_callback=None,
+        setup: str = "ssh",
     ) -> list[VMInfo]:
         """Return a static import result."""
-        self.import_args = (image_path, vm_name)
+        self.import_args = (image_path, vm_name, setup)
         if progress_callback is not None:
             progress_callback(5)
             progress_callback(55)
@@ -427,7 +428,7 @@ class CliTests(unittest.TestCase):
         )
 
         self.assertEqual(exit_code, 0)
-        self.assertEqual(service.import_args, ("~/Downloads/test.ova", None))
+        self.assertEqual(service.import_args, ("~/Downloads/test.ova", None, "ssh"))
         output = stdout.getvalue()
         self.assertIn("Importing [", output)
         self.assertIn("100%", output)
@@ -441,16 +442,38 @@ class CliTests(unittest.TestCase):
         stderr = io.StringIO()
 
         exit_code = run_cli(
-            ["import", "~/Downloads/test.ova", "renamed-vm"],
+            ["import", "~/Downloads/test.ova", "-o", "renamed-vm"],
             service=service,
             stdout=stdout,
             stderr=stderr,
         )
 
         self.assertEqual(exit_code, 0)
-        self.assertEqual(service.import_args, ("~/Downloads/test.ova", "renamed-vm"))
-        self.assertIn("- renamed-vm (/Others)", stdout.getvalue())
+        self.assertEqual(service.import_args, ("~/Downloads/test.ova", "renamed-vm", "ssh"))
+        self.assertIn("- renamed-vm (/Others): clean import, no access set up", stdout.getvalue())
         self.assertEqual("", stderr.getvalue())
+
+    def test_import_command_selects_one_setup(self) -> None:
+        """Map the long options to setups, refuse two at once and the old positional name."""
+        cases = {
+            "--lab-vm": "lab", "--ssh-access-vm": "ssh", "--com-access-vm": "com", "--clean-import": "clean",
+        }
+        for option, setup in cases.items():
+            with self.subTest(option=option):
+                service = FakeService()
+                code = run_cli(["import", "a.ova", option, "--output-name", "x"], service=service,
+                               stdout=io.StringIO(), stderr=io.StringIO())
+                self.assertEqual((code, service.import_args), (0, ("a.ova", "x", setup)))
+        for arguments in (["--lab-vm", "--com-access-vm"], ["--ssh-access-vm", "--clean-import"], ["renamed"]):
+            with self.subTest(arguments=arguments):
+                errors = io.StringIO()
+                code = run_cli(["import", "a.ova", *arguments], service=FakeService(),
+                               stdout=io.StringIO(), stderr=errors)
+                self.assertEqual(code, 2)
+        errors = io.StringIO()
+        run_cli(["import", "a.ova", "--lab-vm", "--clean-import"], service=FakeService(),
+                stdout=io.StringIO(), stderr=errors)
+        self.assertIn("not allowed with argument", errors.getvalue())
 
     def test_docs_command_opens_bundled_documentation(self) -> None:
         """Launch the packaged documentation viewer command."""

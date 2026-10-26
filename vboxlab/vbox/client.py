@@ -602,6 +602,13 @@ class VBoxManageClient:
             ]
         )
 
+    def configure_primary_nat(self, vm_name: str) -> None:
+        """Attach ``NIC1`` to NAT.
+
+        :param vm_name: VM name.
+        """
+        self.runner.run(["modifyvm", vm_name, "--nic1", "nat"])
+
     def configure_internal_networks(self, vm_name: str, networks: Sequence[str]) -> None:
         """Attach internal networks to ``NIC2``-``NIC4`` in order.
 

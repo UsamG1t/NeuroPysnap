@@ -71,6 +71,7 @@ class VBoxLabService:
     DEFAULT_STOP_TIMEOUT = 60.0
     DEFAULT_PAUSE_TIMEOUT = 30.0
     DEFAULT_SSH_WAIT_TIMEOUT = 180.0
+    IMPORT_SETUPS = ("ssh", "com", "lab", "clean")
     DEFAULT_INTEGRATION_STOP_TIMEOUT = 180.0
     STOPPED_STATES = {"poweroff", "saved", "aborted"}
     STOPPING_STATES = {"stopping"}
@@ -99,15 +100,20 @@ class VBoxLabService:
         image_path: str,
         vm_name: str | None = None,
         progress_callback: ImportProgressCallback | None = None,
+        setup: str = "ssh",
     ) -> list[VMInfo]:
-        """Import an OVA or OVF image into VirtualBox.
+        """Import an OVA or OVF image into VirtualBox and set up its access.
 
         :param image_path: Path to the OVA or OVF appliance.
         :param vm_name: Optional custom name for a single imported VM.
         :param progress_callback: Optional import progress callback.
+        :param setup: ``"ssh"``, ``"com"``, ``"lab"`` (see
+            :meth:`_set_up_imported_vm`) or ``"clean"`` for no settings.
         :returns: Imported VM information objects.
         :raises VBoxLabError: If the file is invalid or import does not create VMs.
         """
+        if setup not in self.IMPORT_SETUPS:
+            raise VBoxLabError(f'Unknown import setup "{setup}".')
         image = Path(image_path).expanduser().resolve()
         if image.suffix.lower() not in {".ova", ".ovf"}:
             raise VBoxLabError("Only .ova and .ovf images can be imported.")
@@ -120,7 +126,7 @@ class VBoxLabService:
             raise VBoxLabError("The appliance dry run did not expose any virtual systems.")
         if vm_name is not None and len(planned_imports) != 1:
             raise VBoxLabError(
-                "Custom VMName can only be used when the appliance contains exactly one VM."
+                "--output-name can only be used when the appliance contains exactly one VM."
             )
         if len(declared_vm_names) != len(planned_imports):
             raise VBoxLabError(
@@ -149,12 +155,12 @@ class VBoxLabService:
             if vm_name is None and len(colliding_names) == 1 and len(declared_vm_names) == 1:
                 raise VBoxLabError(
                     f'Virtual machine "{colliding_names[0]}" already exists. '
-                    "Use the optional VMName parameter to choose a different name."
+                    "Choose a different name with --output-name."
                 )
             if vm_name is not None and len(colliding_names) == 1:
                 raise VBoxLabError(
                     f'Virtual machine "{colliding_names[0]}" already exists. '
-                    "Choose a different VMName."
+                    "Choose a different --output-name."
                 )
             raise VBoxLabError(
                 f"Virtual machine names already exist: {names_text}. "
@@ -188,8 +194,35 @@ class VBoxLabService:
                     "vboxlab/source": str(image),
                 },
             )
+            if setup != "clean":
+                self._set_up_imported_vm(vm_name, setup)
             imported_infos.append(self.client.get_vm_info(vm_name))
         return imported_infos
+
+    def _set_up_imported_vm(self, vm_name: str, setup: str) -> None:
+        """Give a freshly imported VM its access.
+
+        ``NIC1`` is attached to NAT. ``"com"`` and ``"lab"`` make COM1 a TCP
+        server and ``"ssh"`` forwards a host port to the guest ssh server on
+        ``NIC1``, always on a free port; ``"lab"`` also marks a lab VM whose
+        clones get the lab settings. The access is stored in the VM.
+
+        :param vm_name: Name of the imported, stopped VM.
+        :param setup: ``"ssh"``, ``"com"`` or ``"lab"``.
+        """
+        self.client.configure_primary_nat(vm_name)
+        inherited = self.client.get_ssh_forwarding(vm_name)
+        if inherited is not None:
+            self.client.remove_ssh_forwarding(vm_name, inherited[0])
+        port = self._allocate_serial_port(require_host_availability=True)
+        metadata = {ACCESS_KEY: "ssh" if setup == "ssh" else "com"}
+        if setup == "ssh":
+            self.client.add_ssh_forwarding(vm_name, 1, port, running=False)
+        else:
+            self.client.configure_serial_port(vm_name, port)
+        if setup == "lab":
+            metadata[LAB_KEY] = "true"
+        self.client.set_metadata(vm_name, metadata)
 
     def run_integration_test(
         self,
@@ -248,10 +281,11 @@ class VBoxLabService:
                     "vboxlab/managed": "true",
                     "vboxlab/kind": "base",
                     "vboxlab/source": str(image),
-                    # The scenario checks the COM1 console of protocol images.
-                    ACCESS_KEY: "com",
                 },
             )
+            # The scenario checks the COM1 console and the lab settings of
+            # protocol images.
+            self._set_up_imported_vm(imported_vm_name, "lab")
             created_vm_names.append(imported_vm_name)
 
             self.clone_vm(

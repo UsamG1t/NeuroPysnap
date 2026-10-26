@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TextIO
 
-from vboxlab.core.access import SSH_HOST_ADDRESS, AccessInfo
+from vboxlab.core.access import SSH_HOST_ADDRESS, AccessInfo, resolve_access
 from vboxlab.core.settings import host_pipe_name
 from vboxlab.core.models import (
     ComPortSetting,
@@ -163,7 +163,11 @@ def format_import_result(imported_vms: list[VMInfo]) -> str:
     """
     lines = ["Imported virtual machines:"]
     for vm_info in imported_vms:
-        lines.append(f"- {vm_info.name} ({vm_info.primary_group})")
+        access = resolve_access(vm_info)
+        described = (
+            format_access(access) if access.configured else "clean import, no access set up"
+        )
+        lines.append(f"- {vm_info.name} ({vm_info.primary_group}): {described}")
     return "\n".join(lines)
 
 

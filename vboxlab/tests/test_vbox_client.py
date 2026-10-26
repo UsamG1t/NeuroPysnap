@@ -193,6 +193,12 @@ class VBoxManageClientTests(unittest.TestCase):
         with self.assertRaisesRegex(VBoxLabError, "At most three"):
             client.configure_internal_networks("srv", ("a", "b", "c", "d"))
 
+    def test_configure_primary_nat(self) -> None:
+        """Attach NIC1 to NAT with modifyvm."""
+        runner = FakeRunner()
+        VBoxManageClient(runner=runner).configure_primary_nat("srv")
+        self.assertEqual(runner.commands, [("modifyvm", "srv", "--nic1", "nat")])
+
     def test_get_vm_info_reads_serial_tcp_port(self) -> None:
         """Read the TCP port configured in UART1 machine-readable properties."""
         runner = FakeRunner(

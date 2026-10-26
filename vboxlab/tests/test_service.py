@@ -229,17 +229,11 @@ class FakeClient:
             mode="tcpserver",
             port=serial_port,
         )
-        current = self.infos[vm_name]
-        self.infos[vm_name] = VMInfo(
-            name=current.name,
-            uuid=current.uuid,
-            groups=current.groups,
-            serial_port=serial_port,
-            vm_state=current.vm_state,
-            parent_name=current.parent_name,
-            managed=current.managed,
-            metadata=current.metadata,
-        )
+        self.infos[vm_name] = replace(self.infos[vm_name], serial_port=serial_port)
+
+    def configure_primary_nat(self, vm_name: str) -> None:
+        """Record attaching NIC1 to NAT."""
+        self.calls.append(("configure_primary_nat", vm_name))
 
     def configure_internal_networks(self, vm_name: str, networks: tuple[str, ...]) -> None:
         """Record network configuration."""
@@ -448,7 +442,7 @@ class ServiceTests(unittest.TestCase):
             service.clone_vm(base_vm="base-vm", clone_vm="clone-vm")
 
     def test_import_image_accepts_custom_name_for_single_vm_appliance(self) -> None:
-        """Rename a single imported appliance VM through the optional VMName."""
+        """Rename a single imported appliance VM through --output-name."""
         client = FakeClient()
         client.import_candidates = [
             ImportCandidate(vsys_index=0, vm_name="original-vm", group="/Lab")
@@ -475,6 +469,78 @@ class ServiceTests(unittest.TestCase):
             client.calls,
         )
 
+    def _import(self, setup: str, names=("vm-a",), **service_changes):
+        client = FakeClient()
+        client.import_candidates = [
+            ImportCandidate(vsys_index=index, vm_name=name, group="/Lab")
+            for index, name in enumerate(names)
+        ]
+        client.references["other"] = VMReference("other", "uuid-other")
+        client.infos["other"] = VMInfo(name="other", uuid="uuid-other", groups=("/Lab",), serial_port=2400)
+        service = self.make_service(client=client)
+        service._is_host_tcp_port_available = lambda port: True
+        with self.make_appliance(list(names)) as appliance:
+            imported = service.import_image(appliance.name, setup=setup)
+        return client, imported
+
+    def _calls(self, client: FakeClient, name: str) -> list[tuple]:
+        return [call for call in client.calls if call[0] == name]
+
+    def test_import_sets_up_ssh_by_default(self) -> None:
+        """Attach NIC1 to NAT and forward a free port; store the ssh access."""
+        client, imported = self._import("ssh")
+        self.assertEqual(self._calls(client, "configure_primary_nat"), [("configure_primary_nat", "vm-a")])
+        self.assertEqual(self._calls(client, "add_ssh_forwarding"), [("add_ssh_forwarding", "vm-a", 1, 2401, False)])
+        self.assertEqual(self._calls(client, "configure_serial_port"), [])
+        self.assertEqual(imported[0].metadata["vboxlab/access"], "ssh")
+        self.assertNotIn("vboxlab/lab", imported[0].metadata)
+        self.assertEqual(imported[0].metadata["vboxlab/kind"], "base")
+
+    def test_import_replaces_a_forwarding_rule_of_the_appliance(self) -> None:
+        """Drop an ssh rule that came with the appliance before forwarding a new port."""
+        client = FakeClient()
+        client.import_candidates = [ImportCandidate(vsys_index=0, vm_name="vm-a", group="/Lab")]
+        original = client.import_appliance
+
+        def import_appliance(image_path, candidates, progress_callback=None):
+            original(image_path, candidates, progress_callback)
+            client.ssh_rules["vm-a"] = (1, 2222)
+
+        client.import_appliance = import_appliance
+        service = self.make_service(client=client)
+        service._is_host_tcp_port_available = lambda port: True
+        with self.make_appliance(["vm-a"]) as appliance:
+            service.import_image(appliance.name)
+        self.assertEqual(self._calls(client, "remove_ssh_forwarding"), [("remove_ssh_forwarding", "vm-a", 1)])
+
+    def test_import_sets_up_com1_and_lab_vms(self) -> None:
+        """Give COM1 a free port; mark lab VMs; set every VM of the appliance up."""
+        client, imported = self._import("lab", names=("vm-a", "vm-b"))
+        self.assertEqual(
+            self._calls(client, "configure_serial_port"),
+            [("configure_serial_port", "vm-a", 2401), ("configure_serial_port", "vm-b", 2402)],
+        )
+        self.assertEqual(self._calls(client, "add_ssh_forwarding"), [])
+        self.assertEqual(len(self._calls(client, "configure_primary_nat")), 2)
+        for info in imported:
+            self.assertEqual((info.metadata["vboxlab/access"], info.metadata["vboxlab/lab"]), ("com", "true"))
+        client, imported = self._import("com")
+        self.assertEqual(self._calls(client, "configure_serial_port"), [("configure_serial_port", "vm-a", 2401)])
+        self.assertEqual(imported[0].metadata["vboxlab/access"], "com")
+        self.assertNotIn("vboxlab/lab", imported[0].metadata)
+
+    def test_clean_import_changes_nothing(self) -> None:
+        """Write only the bookkeeping metadata."""
+        client, imported = self._import("clean")
+        for name in ("configure_primary_nat", "configure_serial_port", "add_ssh_forwarding", "remove_ssh_forwarding"):
+            self.assertEqual(self._calls(client, name), [], name)
+        self.assertEqual(
+            {key for key in imported[0].metadata if key.startswith("vboxlab/")},
+            {"vboxlab/managed", "vboxlab/kind", "vboxlab/source"},
+        )
+        with self.assertRaisesRegex(VBoxLabError, 'Unknown import setup "fancy"'):
+            self._import("fancy")
+
     def test_import_image_rejects_duplicate_default_name_with_recommendation(self) -> None:
         """Abort import when the final default VM name already exists."""
         client = FakeClient()
@@ -494,7 +560,7 @@ class ServiceTests(unittest.TestCase):
             with self.assertRaises(VBoxLabError) as context:
                 service.import_image(appliance.name)
 
-        self.assertIn("Use the optional VMName parameter", str(context.exception))
+        self.assertIn("Choose a different name with --output-name", str(context.exception))
         import_calls = [call for call in client.calls if call[0] == "import_appliance"]
         self.assertEqual(import_calls, [])
 
@@ -534,7 +600,7 @@ class ServiceTests(unittest.TestCase):
             with self.assertRaises(VBoxLabError) as context:
                 service.import_image(appliance.name, vm_name="renamed-vm")
 
-        self.assertIn("Custom VMName can only be used", str(context.exception))
+        self.assertIn("--output-name can only be used", str(context.exception))
 
     def test_import_image_rejects_collision_even_when_dry_run_suggests_renamed_vm(self) -> None:
         """Reject imports that VirtualBox would auto-rename after a collision."""
@@ -556,7 +622,7 @@ class ServiceTests(unittest.TestCase):
                 service.import_image(appliance.name)
 
         self.assertIn('Virtual machine "existing-vm" already exists.', str(context.exception))
-        self.assertIn("Use the optional VMName parameter", str(context.exception))
+        self.assertIn("Choose a different name with --output-name", str(context.exception))
 
     def test_erase_vm_rejects_managed_descendants(self) -> None:
         """Reject deleting a VM that still has managed descendants."""
@@ -787,9 +853,16 @@ class ServiceTests(unittest.TestCase):
                 "vboxlab-it-case1234-base",
             ),
         )
+        # The base VM takes the first free port, 1024; the clones follow.
         self.assertEqual(
             probe_calls,
-            [("localhost", 1024)],
+            [("localhost", 1025)],
+        )
+        self.assertIn(("configure_serial_port", "vboxlab-it-case1234-base", 1024), client.calls)
+        dmi_vms = [call[1] for call in client.calls if call[0] == "configure_dmi_system_information"]
+        self.assertEqual(
+            dmi_vms,
+            ["vboxlab-it-case1234-clone-a", "vboxlab-it-case1234-clone-b", "vboxlab-it-case1234-clone-c"],
         )
         monitor_states = {
             record.name: record.display_state for record in result.monitor_records
