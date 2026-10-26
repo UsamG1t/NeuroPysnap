@@ -266,8 +266,8 @@ class _SshService:
     def ssh_target(self, vm_name: str):
         """Return the target or refuse like the real service."""
         if self.error:
-            from vboxlab.errors import PySnapError
-            raise PySnapError(self.error)
+            from vboxlab.errors import VBoxLabError
+            raise VBoxLabError(self.error)
         return self.target
 
 
@@ -316,7 +316,7 @@ class ExtractOverSshTests(unittest.TestCase):
         cases = [
             (self._answer(3), "was not found or is not readable"),
             (self._answer(255, stderr=b"root@127.0.0.1: Permission denied (publickey)."),
-             "refused the PySnap key for root; run pysnap ssh-key first"),
+             "refused the VBoxLab key for root; run vboxlab ssh-key first"),
             (self._answer(255, stderr=b"Connection refused"), "ssh transfer from \"first\" failed: Connection refused"),
             (self._answer(1), "failed: exit status 1"),
             (self._answer(stdout=b""), "incomplete transfer"),

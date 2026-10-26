@@ -1,4 +1,4 @@
-"""Tests for the keys, the mouse wheel and copying in pysnap connect."""
+"""Tests for the keys, the mouse wheel and copying in vboxlab connect."""
 
 from __future__ import annotations
 
@@ -97,7 +97,7 @@ class _Session:
 
 
 class KeyTests(unittest.TestCase):
-    """Verify which keys reach the guest and which belong to PySnap."""
+    """Verify which keys reach the guest and which belong to VBoxLab."""
 
     def test_editor_keys_reach_the_guest(self) -> None:
         """Forward Ctrl-Q, Ctrl-L, Esc and Alt+arrows unchanged."""

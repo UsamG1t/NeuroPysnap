@@ -1,4 +1,4 @@
-"""Domain models used by PySnap."""
+"""Domain models used by VBoxLab."""
 
 from __future__ import annotations
 
@@ -135,11 +135,11 @@ class VMHardware:
 
 @dataclass(frozen=True)
 class SshKeyResult:
-    """Represent the outcome of ``pysnap ssh-key``.
+    """Represent the outcome of ``vboxlab ssh-key``.
 
     :param vm_name: VM name.
-    :param users: Guest users whose login with the PySnap key works.
-    :param ssh_user: User that PySnap uses for ssh after the setup.
+    :param users: Guest users whose login with the VBoxLab key works.
+    :param ssh_user: User that VBoxLab uses for ssh after the setup.
     :param changed_user: Whether ``ssh_user`` was switched to make ssh work.
     :param already_installed: Whether the key worked before anything was done.
     """
@@ -153,13 +153,13 @@ class SshKeyResult:
 
 @dataclass(frozen=True)
 class VMSettingsResult:
-    """Represent the outcome of ``pysnap set``.
+    """Represent the outcome of ``vboxlab set``.
 
     :param vm_name: VM name.
     :param vm_state: Raw VirtualBox state.
     :param hardware: Serial ports and network adapters after the change.
     :param warnings: Notes about removed TCP servers and similar effects.
-    :param access: How PySnap reaches the guest after the change.
+    :param access: How VBoxLab reaches the guest after the change.
     """
 
     vm_name: str

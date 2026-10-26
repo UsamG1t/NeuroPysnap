@@ -1,1 +1,1 @@
-"""Test package for PySnap."""
+"""Test package for VBoxLab."""

@@ -20,7 +20,7 @@ class SessionRecord:
     """Represent one live terminal session.
 
     :param control_port: Local TCP port of the session control channel, used
-        by ``pysnap report extract`` while the session is attached.
+        by ``vboxlab report extract`` while the session is attached.
     :param control_token: Secret that a control request must present.
     """
 

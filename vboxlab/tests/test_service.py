@@ -1,4 +1,4 @@
-"""Unit tests for the PySnap service layer."""
+"""Unit tests for the VBoxLab service layer."""
 
 from __future__ import annotations
 
@@ -14,8 +14,8 @@ from pathlib import Path
 from vboxlab.config.protosettings import ProtoSettingsStore
 from vboxlab.core.models import ImportCandidate, VMInfo, VMMonitorRecord, VMReference
 from vboxlab.core.models import ComPortSetting, NicSetting, SerialPortConfiguration, VMHardware
-from vboxlab.core.service import PySnapService
-from vboxlab.errors import CommandExecutionError, PySnapError, VMDependencyError
+from vboxlab.core.service import VBoxLabService
+from vboxlab.errors import CommandExecutionError, VBoxLabError, VMDependencyError
 from vboxlab.runtime.sessions import SessionRecord
 
 
@@ -298,7 +298,7 @@ class FakeClient:
 
 
 class ServiceTests(unittest.TestCase):
-    """Verify PySnap service behavior."""
+    """Verify VBoxLab service behavior."""
 
     def setUp(self) -> None:
         """Create an isolated proto-settings store for every test."""
@@ -316,9 +316,9 @@ class ServiceTests(unittest.TestCase):
         client: FakeClient,
         session_registry: FakeSessionRegistry | None = None,
         serial_probe_factory=None,
-    ) -> PySnapService:
+    ) -> VBoxLabService:
         """Create a service instance with the isolated proto-settings store."""
-        return PySnapService(
+        return VBoxLabService(
             client=client,
             session_registry=session_registry,
             serial_probe_factory=serial_probe_factory,
@@ -457,7 +457,7 @@ class ServiceTests(unittest.TestCase):
         )
 
         service = self.make_service(client=client)
-        with self.assertRaises(PySnapError):
+        with self.assertRaises(VBoxLabError):
             service.clone_vm(base_vm="base-vm", clone_vm="clone-vm")
 
     def test_import_image_accepts_custom_name_for_single_vm_appliance(self) -> None:
@@ -504,7 +504,7 @@ class ServiceTests(unittest.TestCase):
 
         service = self.make_service(client=client)
         with self.make_appliance(["existing-vm"]) as appliance:
-            with self.assertRaises(PySnapError) as context:
+            with self.assertRaises(VBoxLabError) as context:
                 service.import_image(appliance.name)
 
         self.assertIn("Use the optional VMName parameter", str(context.exception))
@@ -527,7 +527,7 @@ class ServiceTests(unittest.TestCase):
 
         service = self.make_service(client=client)
         with self.make_appliance(["original-vm"]) as appliance:
-            with self.assertRaises(PySnapError) as context:
+            with self.assertRaises(VBoxLabError) as context:
                 service.import_image(appliance.name, vm_name="renamed-vm")
 
         self.assertIn('Virtual machine "renamed-vm" already exists.', str(context.exception))
@@ -544,7 +544,7 @@ class ServiceTests(unittest.TestCase):
 
         service = self.make_service(client=client)
         with self.make_appliance(["vm-a", "vm-b"]) as appliance:
-            with self.assertRaises(PySnapError) as context:
+            with self.assertRaises(VBoxLabError) as context:
                 service.import_image(appliance.name, vm_name="renamed-vm")
 
         self.assertIn("Custom VMName can only be used", str(context.exception))
@@ -565,7 +565,7 @@ class ServiceTests(unittest.TestCase):
 
         service = self.make_service(client=client)
         with self.make_appliance(["existing-vm"]) as appliance:
-            with self.assertRaises(PySnapError) as context:
+            with self.assertRaises(VBoxLabError) as context:
                 service.import_image(appliance.name)
 
         self.assertIn('Virtual machine "existing-vm" already exists.', str(context.exception))
@@ -649,7 +649,7 @@ class ServiceTests(unittest.TestCase):
         client = self._build_clone_topology_client()
 
         service = self.make_service(client=client)
-        with self.assertRaises(PySnapError) as context:
+        with self.assertRaises(VBoxLabError) as context:
             service.erase_clones("Empty")
 
         self.assertIn('Group "/Empty" does not contain any VMs.', str(context.exception))
@@ -668,7 +668,7 @@ class ServiceTests(unittest.TestCase):
         )
 
         service = self.make_service(client=client)
-        with self.assertRaises(PySnapError) as context:
+        with self.assertRaises(VBoxLabError) as context:
             service.erase_clones("Lab")
 
         self.assertIn("depend on them: lab-clone", str(context.exception))
@@ -892,7 +892,7 @@ class ServiceTests(unittest.TestCase):
         self.assertIn(("start_vm_headless", "srv"), client.calls)
 
     def test_plug_vm_assigns_tcpserver_uart1_to_stopped_vm(self) -> None:
-        """Configure a stopped VM for future PySnap serial connections."""
+        """Configure a stopped VM for future VBoxLab serial connections."""
         client = FakeClient()
         client.references["srv"] = VMReference("srv", "uuid-srv")
         client.infos["srv"] = VMInfo(
@@ -952,7 +952,7 @@ class ServiceTests(unittest.TestCase):
         )
 
         service = self.make_service(client=client)
-        with self.assertRaises(PySnapError):
+        with self.assertRaises(VBoxLabError):
             service.plug_vm("srv")
 
     def test_plug_vm_requires_stopped_vm_when_reconfiguration_is_needed(self) -> None:
@@ -968,7 +968,7 @@ class ServiceTests(unittest.TestCase):
         )
 
         service = self.make_service(client=client)
-        with self.assertRaises(PySnapError):
+        with self.assertRaises(VBoxLabError):
             service.plug_vm("srv")
 
     def test_plug_vm_skips_busy_host_ports(self) -> None:

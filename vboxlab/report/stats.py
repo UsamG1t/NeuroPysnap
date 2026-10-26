@@ -1,4 +1,4 @@
-"""Report information and statistics for ``pysnap report check``.
+"""Report information and statistics for ``vboxlab report check``.
 
 Every value comes directly from the report: the ``script`` headers, the
 archive member times, ``CPU.txt``, the timed keystrokes and the rendered
@@ -103,7 +103,7 @@ class MemberTimeCheck:
 
 @dataclass(frozen=True)
 class ReportStats:
-    """Represent the information block of ``pysnap report check``."""
+    """Represent the information block of ``vboxlab report check``."""
 
     source_name: str
     file_task: int | None

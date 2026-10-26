@@ -20,7 +20,7 @@ from vboxlab.core.models import (
     VMInfo,
     VMReference,
 )
-from vboxlab.errors import CommandExecutionError, PySnapError
+from vboxlab.errors import CommandExecutionError, VBoxLabError
 from vboxlab.vbox.parsers import (
     parse_extra_data,
     parse_import_candidates,
@@ -228,7 +228,7 @@ class SubprocessRunner(RunnerProtocol):
 
 
 class VBoxManageClient:
-    """Expose the subset of VirtualBox operations required by PySnap."""
+    """Expose the subset of VirtualBox operations required by VBoxLab."""
 
     IMPORT_PROGRESS_PATTERN = re.compile(r"(?P<percent>\d{1,3})%")
     DMI_SYSTEM_VENDOR_KEY = "VBoxInternal/Devices/pcbios/0/Config/DmiSystemVendor"
@@ -321,7 +321,7 @@ class VBoxManageClient:
             self.runner.run(["modifyvm", vm_name, f"--natpf{adapter}", rule])
 
     def get_ssh_forwarding(self, vm_name: str) -> tuple[int, int] | None:
-        """Return the NAT adapter and host port of the PySnap ssh rule.
+        """Return the NAT adapter and host port of the VBoxLab ssh rule.
 
         :param vm_name: VM name.
         :returns: ``(adapter, port)`` or ``None`` without such a rule.
@@ -329,7 +329,7 @@ class VBoxManageClient:
         return self._parse_ssh_rule(self._get_vm_properties(vm_name))
 
     def remove_ssh_forwarding(self, vm_name: str, adapter: int) -> None:
-        """Delete the PySnap ssh rule of a stopped VM.
+        """Delete the VBoxLab ssh rule of a stopped VM.
 
         :param vm_name: VM name.
         :param adapter: Number of the NAT adapter holding the rule.
@@ -584,10 +584,10 @@ class VBoxManageClient:
 
         :param vm_name: VM name.
         :param serial_port: Host TCP port exposed through ``UART1``.
-        :raises PySnapError: If the port number is unsupported.
+        :raises VBoxLabError: If the port number is unsupported.
         """
         if not 1 <= serial_port <= 65535:
-            raise PySnapError("Serial TCP port must be between 1 and 65535.")
+            raise VBoxLabError("Serial TCP port must be between 1 and 65535.")
 
         self.runner.run(
             [
@@ -614,10 +614,10 @@ class VBoxManageClient:
         :param networks: Internal network names.
         :param preserve_primary_nat: Keep ``NIC1`` on NAT and place networks on
             ``NIC2``-``NIC4`` without disabling omitted adapters.
-        :raises PySnapError: If more than three networks are provided.
+        :raises VBoxLabError: If more than three networks are provided.
         """
         if len(networks) > 3:
-            raise PySnapError("At most three internal network names can be provided.")
+            raise VBoxLabError("At most three internal network names can be provided.")
 
         arguments: list[str] = ["modifyvm", vm_name]
         if preserve_primary_nat:
@@ -637,7 +637,7 @@ class VBoxManageClient:
         self.runner.run(arguments)
 
     def set_metadata(self, vm_name: str, metadata: dict[str, str]) -> None:
-        """Persist PySnap metadata in VirtualBox extra data.
+        """Persist VBoxLab metadata in VirtualBox extra data.
 
         :param vm_name: VM name.
         :param metadata: Extra data entries to set.
@@ -689,7 +689,7 @@ class VBoxManageClient:
 
     @staticmethod
     def _parse_ssh_rule(properties: dict[str, str]) -> tuple[int, int] | None:
-        """Return the NAT adapter and host port of the PySnap ssh rule.
+        """Return the NAT adapter and host port of the VBoxLab ssh rule.
 
         ``showvminfo --machinereadable`` prints the ``Forwarding(i)`` rules of
         a NAT adapter after its ``natnetN`` line.

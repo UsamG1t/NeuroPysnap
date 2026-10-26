@@ -1,4 +1,4 @@
-"""Timed replay of a recording for ``pysnap report show``.
+"""Timed replay of a recording for ``vboxlab report show``.
 
 The player runs without any user interface: it owns a terminal emulator of
 the recorded size and moves it to any moment of the recording. Playback uses a

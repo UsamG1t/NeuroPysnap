@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from vboxlab.docview import DOCUMENTATION_BROWSER_ERROR, open_bundled_documentation
-from vboxlab.errors import PySnapError
+from vboxlab.errors import VBoxLabError
 
 
 class DocumentationViewTests(unittest.TestCase):
@@ -49,7 +49,7 @@ class DocumentationViewTests(unittest.TestCase):
                 patch("vboxlab.docview.REPO_DOCS_BUILD_DIR", docs_dir / "missing"),
                 patch("vboxlab.docview.shutil.which", return_value=None),
             ):
-                with self.assertRaises(PySnapError) as context:
+                with self.assertRaises(VBoxLabError) as context:
                     open_bundled_documentation()
 
         self.assertEqual(str(context.exception), DOCUMENTATION_BROWSER_ERROR)
@@ -68,7 +68,7 @@ class DocumentationViewTests(unittest.TestCase):
                     side_effect=FileNotFoundError("browser not found"),
                 ),
             ):
-                with self.assertRaises(PySnapError) as context:
+                with self.assertRaises(VBoxLabError) as context:
                     open_bundled_documentation(browser="missing-browser")
 
         self.assertEqual(str(context.exception), DOCUMENTATION_BROWSER_ERROR)

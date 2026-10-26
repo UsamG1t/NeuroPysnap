@@ -1,6 +1,6 @@
 """Interactive viewers for reports: the ``text`` pager and the ``show`` player.
 
-Both viewers draw only styled text produced by PySnap itself (transcript runs
+Both viewers draw only styled text produced by VBoxLab itself (transcript runs
 or the ``pyte`` screen of the player), so nothing from a report reaches the
 reader's terminal as a raw control sequence.
 """

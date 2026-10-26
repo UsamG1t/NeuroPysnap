@@ -1,4 +1,4 @@
-"""Tests for pysnap connect over ssh."""
+"""Tests for vboxlab connect over ssh."""
 
 from __future__ import annotations
 
@@ -15,8 +15,8 @@ from prompt_toolkit.output import DummyOutput
 
 from vboxlab.config.protosettings import ProtoSettingsStore
 from vboxlab.core.access import ACCESS_KEY, SSH_USER_KEY
-from vboxlab.core.service import PySnapService
-from vboxlab.errors import PySnapError
+from vboxlab.core.service import VBoxLabService
+from vboxlab.errors import VBoxLabError
 from vboxlab.ssh import client as ssh_client
 from vboxlab.ssh.client import AccessCheck, SshTarget
 from vboxlab.terminal.session import SessionStatus, SessionTransport, TerminalSession
@@ -31,7 +31,7 @@ class PrepareTests(unittest.TestCase):
     def setUp(self) -> None:
         self._temp_dir = tempfile.TemporaryDirectory()
         self.client = AccessClient()
-        self.service = PySnapService(
+        self.service = VBoxLabService(
             client=self.client,
             session_registry=FakeSessionRegistry(),
             proto_settings_store=ProtoSettingsStore(path=Path(self._temp_dir.name) / "proto"),
@@ -53,10 +53,10 @@ class PrepareTests(unittest.TestCase):
     def test_prepare_vm_connection_follows_the_access(self) -> None:
         """Need an ssh port for ssh VMs and refuse paused ones; start stopped ones."""
         self.client.add("noport", state="running")
-        with self.assertRaisesRegex(PySnapError, "no forwarded ssh port; run pysnap plug noport"):
+        with self.assertRaisesRegex(VBoxLabError, "no forwarded ssh port; run vboxlab plug noport"):
             self.service.prepare_vm_connection("noport")
         self.client.add("paused", state="paused", ssh_port=2400)
-        with self.assertRaisesRegex(PySnapError, "paused; ssh needs a running guest. Run pysnap resume paused"):
+        with self.assertRaisesRegex(VBoxLabError, "paused; ssh needs a running guest. Run vboxlab resume paused"):
             self.service.prepare_vm_connection("paused")
         self.client.add("stopped", ssh_port=2401)
         self.assertEqual(self.service.prepare_vm_connection("stopped").vm_state, "running")
@@ -74,7 +74,7 @@ class PrepareTests(unittest.TestCase):
         self.assertEqual(messages, ['Waiting for the ssh server of "vm" (Ctrl-C stops)...'])
 
         self.answers = ["unreachable"] * 1000
-        with self.assertRaisesRegex(PySnapError, "No ssh server answered on port 2400"):
+        with self.assertRaisesRegex(VBoxLabError, "No ssh server answered on port 2400"):
             self.service.prepare_ssh_terminal("vm", timeout=0.05, poll_interval=0.01)
 
     def test_installs_the_key_on_first_connect(self) -> None:

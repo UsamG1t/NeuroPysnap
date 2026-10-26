@@ -1,11 +1,11 @@
-"""Custom exceptions used by PySnap."""
+"""Custom exceptions used by VBoxLab."""
 
 
-class PySnapError(Exception):
+class VBoxLabError(Exception):
     """Base exception for application-level failures."""
 
 
-class CommandExecutionError(PySnapError):
+class CommandExecutionError(VBoxLabError):
     """Represent a failed ``VBoxManage`` command execution."""
 
     def __init__(self, command: list[str], stdout: str, stderr: str) -> None:
@@ -22,7 +22,7 @@ class CommandExecutionError(PySnapError):
         super().__init__(message)
 
 
-class VMNotFoundError(PySnapError):
+class VMNotFoundError(VBoxLabError):
     """Report that a requested virtual machine does not exist."""
 
     def __init__(self, vm_name: str) -> None:
@@ -33,7 +33,7 @@ class VMNotFoundError(PySnapError):
         super().__init__(f'Virtual machine "{vm_name}" was not found.')
 
 
-class VMDependencyError(PySnapError):
+class VMDependencyError(VBoxLabError):
     """Report that a VM cannot be deleted because dependent clones exist."""
 
     def __init__(self, subject: str, dependents: list[str]) -> None:
@@ -50,5 +50,5 @@ class VMDependencyError(PySnapError):
 
 
 
-class ReportFormatError(PySnapError):
+class ReportFormatError(VBoxLabError):
     """Report that a file cannot be read as a ``report`` session archive."""

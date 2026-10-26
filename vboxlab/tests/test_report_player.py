@@ -224,7 +224,7 @@ class ViewerHelperTests(unittest.TestCase):
         self.assertEqual(rows, [[("bold", "a"), ("", "b")], [("", "c")]])
 
     def test_style_conversion_matches_the_connect_terminal(self) -> None:
-        """Translate cell styles the same way ``pysnap connect`` does."""
+        """Translate cell styles the same way ``vboxlab connect`` does."""
         style = CellStyle(fg="brightred", bg="8a8a8a", bold=True, underscore=True)
 
         self.assertEqual(

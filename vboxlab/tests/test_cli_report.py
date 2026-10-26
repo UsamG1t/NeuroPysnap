@@ -1,4 +1,4 @@
-"""CLI tests for ``pysnap report``."""
+"""CLI tests for ``vboxlab report``."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ class _TtyStringIO(io.StringIO):
 
 
 class ReportTextCommandTests(unittest.TestCase):
-    """Verify ``pysnap report text``."""
+    """Verify ``vboxlab report text``."""
 
     def setUp(self) -> None:
         """Write a two-command report into a scratch directory."""
@@ -295,7 +295,7 @@ class ReportTextCommandTests(unittest.TestCase):
         self.assertEqual(errors.strip(), "Error: boom")
 
     def test_requires_a_subcommand(self) -> None:
-        """Refuse ``pysnap report`` without a subcommand."""
+        """Refuse ``vboxlab report`` without a subcommand."""
         code, _, errors = self._run("report")
 
         self.assertEqual(code, 2)

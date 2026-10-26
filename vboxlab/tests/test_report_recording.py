@@ -245,7 +245,7 @@ class RealScriptCrossCheckTests(unittest.TestCase):
                     ],
                 )
             _drain(fd, 0.5)
-            for chunk in (b"echo pysnap-check\r", b"exit\r"):
+            for chunk in (b"echo vboxlab-check\r", b"exit\r"):
                 os.write(fd, chunk)
                 _drain(fd, 0.5)
             os.waitpid(pid, 0)
@@ -263,8 +263,8 @@ class RealScriptCrossCheckTests(unittest.TestCase):
         self.assertLess(
             abs(recording.start_time - datetime.now(timezone.utc)), timedelta(minutes=5)
         )
-        self.assertIn(b"echo pysnap-check\r", recording.input_bytes)
-        self.assertIn(b"pysnap-check", recording.output_bytes)
+        self.assertIn(b"echo vboxlab-check\r", recording.input_bytes)
+        self.assertIn(b"vboxlab-check", recording.output_bytes)
 
 
 def _drain(fd: int, seconds: float) -> None:

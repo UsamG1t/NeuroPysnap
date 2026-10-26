@@ -1,4 +1,4 @@
-"""Tests for ``pysnap set``: serial ports and network adapters."""
+"""Tests for ``vboxlab set``: serial ports and network adapters."""
 
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ from dataclasses import replace
 from vboxlab.cli.app import run_cli
 from vboxlab.config.protosettings import ProtoSettingsStore
 from vboxlab.core.models import ComPortSetting, NicSetting, VMHardware, VMInfo, VMReference
-from vboxlab.core.service import PySnapService
+from vboxlab.core.service import VBoxLabService
 from vboxlab.core.settings import host_pipe_name, host_pipe_path, parse_set_options
-from vboxlab.errors import PySnapError
+from vboxlab.errors import VBoxLabError
 from vboxlab.tests.test_service import FakeClient
 from vboxlab.tests.test_vbox_client import FakeRunner
 from vboxlab.vbox.client import VBoxManageClient
@@ -113,11 +113,11 @@ class ParseOptionsTests(unittest.TestCase):
             "nic2=": "internal network name",
         }
         for option, message in cases.items():
-            with self.subTest(option=option), self.assertRaisesRegex(PySnapError, message):
+            with self.subTest(option=option), self.assertRaisesRegex(VBoxLabError, message):
                 parse_set_options([option])
-        with self.assertRaisesRegex(PySnapError, "COM1 is given more than once"):
+        with self.assertRaisesRegex(VBoxLabError, "COM1 is given more than once"):
             parse_set_options(["com1=auto", "com1=off"])
-        with self.assertRaisesRegex(PySnapError, "NIC2 is given more than once"):
+        with self.assertRaisesRegex(VBoxLabError, "NIC2 is given more than once"):
             parse_set_options(["nic2=a", "NIC2=b"])
 
     def test_builds_host_pipe_paths(self) -> None:
@@ -216,7 +216,7 @@ class ServiceSettingsTests(unittest.TestCase):
         self.client.add_vm("first", com=[ComPortSetting("tcpserver", port=2326)], nics=[NicSetting("nat")])
         self.client.add_vm("second", com=[ComPortSetting("tcpserver", port=2327),
                                           ComPortSetting("tcpserver", port=2400)])
-        self.service = PySnapService(
+        self.service = VBoxLabService(
             client=self.client,
             proto_settings_store=ProtoSettingsStore(path=Path(self._temp_dir.name) / ".ptotosettings"),
         )
@@ -249,7 +249,7 @@ class ServiceSettingsTests(unittest.TestCase):
         """Refuse changes on a running or paused VM."""
         for state in ("running", "paused"):
             self.client.infos["first"] = replace(self.client.infos["first"], vm_state=state)
-            with self.subTest(state=state), self.assertRaisesRegex(PySnapError, "must be stopped"):
+            with self.subTest(state=state), self.assertRaisesRegex(VBoxLabError, "must be stopped"):
                 self.service.set_vm_settings("first", ["nic2=left"])
         self.assertEqual(self._applied(), [])
 
@@ -261,10 +261,10 @@ class ServiceSettingsTests(unittest.TestCase):
             ("com2=3000", "com3=3000"): "another COM port of this VM",
         }
         for options, message in cases.items():
-            with self.subTest(options=options), self.assertRaisesRegex(PySnapError, message):
+            with self.subTest(options=options), self.assertRaisesRegex(VBoxLabError, message):
                 self.service.set_vm_settings("first", list(options))
         self.busy_host_ports.add(3001)
-        with self.assertRaisesRegex(PySnapError, "busy on this computer"):
+        with self.assertRaisesRegex(VBoxLabError, "busy on this computer"):
             self.service.set_vm_settings("first", ["com2=3001"])
         self.assertEqual(self._applied(), [])
 
@@ -288,7 +288,7 @@ class ServiceSettingsTests(unittest.TestCase):
                            metadata={"pysnap/access": "com"})
         result = self.service.set_vm_settings("third", ["com1=off", "com2=client:link"])
         self.assertEqual(result.warnings, (
-            "COM1 no longer serves TCP port 2500; pysnap connect uses COM1 and cannot reach this VM.",
+            "COM1 no longer serves TCP port 2500; vboxlab connect uses COM1 and cannot reach this VM.",
             "COM2 no longer serves TCP port 2501.",
         ))
 
@@ -314,9 +314,9 @@ class ServiceSettingsTests(unittest.TestCase):
         """Allow NIC5 and above up to the chipset limit, refuse beyond it."""
         result = self.service.set_vm_settings("first", ["nic8=far"])
         self.assertEqual(result.hardware.nics[7], NicSetting("intnet", "far"))
-        with self.assertRaisesRegex(PySnapError, 'NIC9: virtual machine "first" offers NIC1-NIC8'):
+        with self.assertRaisesRegex(VBoxLabError, 'NIC9: virtual machine "first" offers NIC1-NIC8'):
             self.service.set_vm_settings("first", ["nic9=far"])
-        with self.assertRaisesRegex(PySnapError, "COM5: VirtualBox offers COM1-COM4"):
+        with self.assertRaisesRegex(VBoxLabError, "COM5: VirtualBox offers COM1-COM4"):
             self.service.set_vm_settings("first", ["com5=auto"])
 
     def test_leaves_vms_without_sku_alone(self) -> None:
@@ -339,7 +339,7 @@ class SetCommandTests(unittest.TestCase):
         client = SettingsClient()
         client.add_vm("first", com=[ComPortSetting("tcpserver", port=2326)], nics=[NicSetting("nat")])
         with tempfile.TemporaryDirectory() as temp_dir:
-            service = PySnapService(
+            service = VBoxLabService(
                 client=client,
                 proto_settings_store=ProtoSettingsStore(path=Path(temp_dir) / ".ptotosettings"),
             )
@@ -351,7 +351,7 @@ class SetCommandTests(unittest.TestCase):
         self.assertIn("Warning: COM1 no longer serves TCP port 2326", errors.getvalue())
         self.assertEqual(output.getvalue().splitlines(), [
             "first (poweroff)",
-            "  Access  ssh as root, no forwarded port yet: run pysnap plug (default)",
+            "  Access  ssh as root, no forwarded port yet: run vboxlab plug (default)",
             "  COM1  off",
             f'  COM2  pipe server, creates "link" ({host_pipe_path("link")})',
             "  COM3  off",
@@ -367,7 +367,7 @@ class SetCommandTests(unittest.TestCase):
         client = SettingsClient()
         client.add_vm("first")
         output, errors = io.StringIO(), io.StringIO()
-        code = run_cli(["set", "first", "speed=auto"], service=PySnapService(client=client),
+        code = run_cli(["set", "first", "speed=auto"], service=VBoxLabService(client=client),
                        stdout=output, stderr=errors)
         self.assertEqual(code, 1)
         self.assertIn("Error: Invalid option", errors.getvalue())
@@ -377,7 +377,7 @@ class SetCommandTests(unittest.TestCase):
         client = SettingsClient()
         client.add_vm("first", nics=[NicSetting("nat")] + [NO_NIC] * 4 + [NicSetting("intnet", "far")])
         output = io.StringIO()
-        run_cli(["set", "first"], service=PySnapService(client=client), stdout=output, stderr=io.StringIO())
+        run_cli(["set", "first"], service=VBoxLabService(client=client), stdout=output, stderr=io.StringIO())
         lines = output.getvalue().splitlines()
         self.assertEqual(lines[-6:], [
             "  NIC1  NAT", "  NIC2  off", "  NIC3  off", "  NIC4  off", "  NIC5  off",

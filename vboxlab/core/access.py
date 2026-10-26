@@ -1,10 +1,10 @@
-"""How PySnap reaches the guest of a VM: serial console or ssh.
+"""How VBoxLab reaches the guest of a VM: serial console or ssh.
 
-Base VMs registered with ``pysnap protosettings`` and their clones are known
+Base VMs registered with ``vboxlab protosettings`` and their clones are known
 to have their console on COM1, so they are reached through the serial TCP
 server of COM1. Every other VM is reached through ssh: its NAT adapter
 forwards a host port on ``127.0.0.1`` to port 22 of the guest. The automatic
-choice can be overridden per VM with ``pysnap set VM access=com|ssh``.
+choice can be overridden per VM with ``vboxlab set VM access=com|ssh``.
 
 The override and the ssh user are kept in VirtualBox extra data of the VM;
 the forwarded port is read from the NAT port-forwarding rule named
@@ -18,7 +18,7 @@ import re
 from typing import Collection
 
 from vboxlab.core.models import VMInfo
-from vboxlab.errors import PySnapError
+from vboxlab.errors import VBoxLabError
 
 ACCESS_KEY = "pysnap/access"
 SSH_USER_KEY = "pysnap/ssh-user"
@@ -33,10 +33,10 @@ _SSH_USER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]{0,31}$")
 
 @dataclass(frozen=True)
 class AccessInfo:
-    """Describe how PySnap reaches the guest of one VM.
+    """Describe how VBoxLab reaches the guest of one VM.
 
     :param mode: ``"com"`` for the COM1 serial console, ``"ssh"`` for ssh.
-    :param source: Why this mode applies: ``"override"`` (``pysnap set``),
+    :param source: Why this mode applies: ``"override"`` (``vboxlab set``),
         ``"protosettings"`` (the VM or its parent is registered) or
         ``"default"``.
     :param serial_port: TCP port of COM1, if any.
@@ -54,7 +54,7 @@ class AccessInfo:
 def resolve_access(info: VMInfo, proto_settings_vms: Collection[str]) -> AccessInfo:
     """Return the access mode and connection details of a VM.
 
-    :param info: VM information including PySnap metadata.
+    :param info: VM information including VBoxLab metadata.
     :param proto_settings_vms: Base VM names registered with protosettings.
     :returns: Access description.
     """
@@ -81,11 +81,11 @@ def validate_access_mode(value: str) -> str:
 
     :param value: ``com``, ``ssh`` or ``auto``.
     :returns: The lower-case value.
-    :raises PySnapError: For other values.
+    :raises VBoxLabError: For other values.
     """
     lowered = value.strip().lower()
     if lowered not in (*ACCESS_MODES, "auto"):
-        raise PySnapError(f'access: invalid value "{value}"; use com, ssh or auto.')
+        raise VBoxLabError(f'access: invalid value "{value}"; use com, ssh or auto.')
     return lowered
 
 
@@ -94,10 +94,10 @@ def validate_ssh_user(value: str) -> str:
 
     :param value: User name in the guest.
     :returns: The user name.
-    :raises PySnapError: For names that are not plain user names.
+    :raises VBoxLabError: For names that are not plain user names.
     """
     if not _SSH_USER_PATTERN.match(value):
-        raise PySnapError(
+        raise VBoxLabError(
             f'ssh-user: invalid user name "{value}"; use letters, digits, "_", "." or "-".'
         )
     return value
@@ -113,7 +113,7 @@ def ssh_forwarding_rule(port: int) -> str:
 
 
 def parse_ssh_forwarding(rule: str) -> int | None:
-    """Return the host port of a PySnap ssh forwarding rule.
+    """Return the host port of a VBoxLab ssh forwarding rule.
 
     :param rule: Rule as printed by ``showvminfo --machinereadable``,
         ``name,protocol,host address,host port,guest address,guest port``.

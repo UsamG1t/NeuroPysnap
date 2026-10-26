@@ -1,6 +1,6 @@
 """Pairwise comparison of session reports.
 
-``pysnap report compare`` looks for signs that reports of different students
+``vboxlab report compare`` looks for signs that reports of different students
 share their origin. Every pair of the given reports is compared; deciding
 which reports belong to the same student is left to the teacher. The
 signals only point at pairs worth a look and never decide anything.
@@ -46,7 +46,7 @@ from pathlib import Path
 import re
 from typing import Iterable, Sequence
 
-from vboxlab.errors import PySnapError
+from vboxlab.errors import VBoxLabError
 from vboxlab.report.models import Recording, ReportLimits, ReportName, Transcript
 from vboxlab.report.recording import load_report
 from vboxlab.report.render import render_transcript
@@ -304,7 +304,7 @@ def compare_reports(paths: Iterable[str | Path], limits: ReportLimits | None = N
         try:
             recording = load_report(path, limits)
             fingerprints.append(fingerprint_report(path, recording, render_transcript(recording)))
-        except (PySnapError, OSError) as error:
+        except (VBoxLabError, OSError) as error:
             warnings.append(f"{path}: skipped: {error}")
     return CompareResult(
         reports=tuple(fingerprint.path for fingerprint in fingerprints),

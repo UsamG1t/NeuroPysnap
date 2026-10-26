@@ -1,6 +1,6 @@
 """Run the system ``ssh`` client against a forwarded guest port.
 
-Every call uses the PySnap key, the known_hosts file of the VM with
+Every call uses the VBoxLab key, the known_hosts file of the VM with
 ``StrictHostKeyChecking=accept-new`` (the first key is trusted, a changed key
 is refused) and no user configuration (``-F`` with the null device), so the
 behaviour does not depend on ``~/.ssh``. Non-interactive calls run in batch
@@ -17,7 +17,7 @@ import subprocess
 from typing import Sequence
 
 from vboxlab.core.access import SSH_HOST_ADDRESS
-from vboxlab.errors import PySnapError
+from vboxlab.errors import VBoxLabError
 from vboxlab.ssh.keys import SshKeyStore, find_executable
 
 CONNECT_TIMEOUT = 10
@@ -64,8 +64,8 @@ def ssh_command(
     """Build an ``ssh`` command line.
 
     :param target: Connection target.
-    :param store: PySnap key store.
-    :param batch: Use the PySnap key only and never ask for a password.
+    :param store: VBoxLab key store.
+    :param batch: Use the VBoxLab key only and never ask for a password.
     :param tty: Request a terminal on the guest (``-tt``).
     :param remote_command: Command for the guest shell; a login shell without.
     :param extra: Further ssh options placed before the destination.
@@ -101,10 +101,10 @@ def ssh_command(
 
 
 def check_key_access(target: SshTarget, store: SshKeyStore) -> AccessCheck:
-    """Try to log in with the PySnap key.
+    """Try to log in with the VBoxLab key.
 
     :param target: Connection target.
-    :param store: PySnap key store.
+    :param store: VBoxLab key store.
     :returns: Whether the key works, is refused or no server answers.
     """
     result = subprocess.run(
@@ -129,10 +129,10 @@ def run_remote(
     *,
     timeout: float | None = None,
 ) -> subprocess.CompletedProcess:
-    """Run one command on the guest with the PySnap key.
+    """Run one command on the guest with the VBoxLab key.
 
     :param target: Connection target.
-    :param store: PySnap key store.
+    :param store: VBoxLab key store.
     :param command: Shell command line for the guest.
     :param timeout: Seconds to wait.
     :returns: Completed process with bytes output.
@@ -158,7 +158,7 @@ async def open_terminal(
     (errors) is merged into the stream.
 
     :param target: Connection target.
-    :param store: PySnap key store.
+    :param store: VBoxLab key store.
     :param columns: Terminal width.
     :param rows: Terminal height.
     :returns: Reader, writer and the ssh process.
@@ -175,7 +175,7 @@ async def open_terminal(
 
 
 def install_script(public_key: str, *, with_root: bool) -> str:
-    """Return the guest shell script that adds the PySnap key.
+    """Return the guest shell script that adds the VBoxLab key.
 
     The key is appended to ``~/.ssh/authorized_keys`` unless it is there
     already. With ``with_root``, a user other than root then runs the same
@@ -194,12 +194,12 @@ def install_script(public_key: str, *, with_root: bool) -> str:
     if not with_root:
         return add
     return (
-        f"{add} && echo 'PySnap: the key is installed for '\"$(id -un)\". && "
+        f"{add} && echo 'VBoxLab: the key is installed for '\"$(id -un)\". && "
         "if [ \"$(id -u)\" != 0 ]; then "
-        "echo 'PySnap: enter the root password to install the key for root too "
+        "echo 'VBoxLab: enter the root password to install the key for root too "
         "(press Enter to skip).'; "
-        f"su - root -c {shlex.quote(add)} && echo 'PySnap: the key is installed for root.' "
-        "|| echo 'PySnap: the key is not installed for root.'; fi"
+        f"su - root -c {shlex.quote(add)} && echo 'VBoxLab: the key is installed for root.' "
+        "|| echo 'VBoxLab: the key is not installed for root.'; fi"
     )
 
 
@@ -210,7 +210,7 @@ def install_key_interactively(target: SshTarget, store: SshKeyStore) -> int:
     root password. Nothing is captured, the user sees the whole dialogue.
 
     :param target: Connection target with the password login user.
-    :param store: PySnap key store.
+    :param store: VBoxLab key store.
     :returns: Exit status of ssh.
     """
     script = install_script(store.public_key_text(), with_root=True)
@@ -220,20 +220,20 @@ def install_key_interactively(target: SshTarget, store: SshKeyStore) -> int:
 
 
 def check_or_raise(target: SshTarget, store: SshKeyStore) -> None:
-    """Raise a helpful error unless the PySnap key logs in.
+    """Raise a helpful error unless the VBoxLab key logs in.
 
     :param target: Connection target.
-    :param store: PySnap key store.
-    :raises PySnapError: When the key is refused or no server answers.
+    :param store: VBoxLab key store.
+    :raises VBoxLabError: When the key is refused or no server answers.
     """
     check = check_key_access(target, store)
     if check.status == "denied":
-        raise PySnapError(
-            f'The ssh server of "{target.vm_name}" refused the PySnap key for '
-            f"{target.user}; run pysnap ssh-key {target.vm_name}."
+        raise VBoxLabError(
+            f'The ssh server of "{target.vm_name}" refused the VBoxLab key for '
+            f"{target.user}; run vboxlab ssh-key {target.vm_name}."
         )
     if check.status == "unreachable":
-        raise PySnapError(
+        raise VBoxLabError(
             f'No ssh server answered on port {target.port} of "{target.vm_name}": '
             f"{check.message or 'connection failed'}."
         )

@@ -1,4 +1,4 @@
-"""Module entry point for ``python -m pysnap``."""
+"""Module entry point for ``python -m vboxlab``."""
 
 from vboxlab.cli.app import main
 

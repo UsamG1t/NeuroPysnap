@@ -9,14 +9,14 @@ import socket
 from time import monotonic, sleep
 from typing import Iterator
 
-from vboxlab.errors import PySnapError
+from vboxlab.errors import VBoxLabError
 
 
 def _candidate_hosts(host: str) -> tuple[str, ...]:
     """Return connection candidates for one requested host value.
 
     macOS loopback services are not always reachable through the same textual
-    loopback address as Linux, so PySnap tries a small set of equivalent
+    loopback address as Linux, so VBoxLab tries a small set of equivalent
     loopback targets when a local host is requested.
 
     :param host: Requested host name.
@@ -57,7 +57,7 @@ def open_serial_socket(
     :param timeout: Maximum time to wait.
     :param retry_delay: Delay between connection attempts.
     :returns: Connected socket object.
-    :raises PySnapError: If the TCP server does not become available in time.
+    :raises VBoxLabError: If the TCP server does not become available in time.
     """
     deadline = monotonic() + timeout
     last_error: OSError | None = None
@@ -78,8 +78,8 @@ def open_serial_socket(
         sleep(retry_delay)
 
     if last_error is None:
-        raise PySnapError(f"Timed out while waiting for serial TCP port {port}.")
-    raise PySnapError(
+        raise VBoxLabError(f"Timed out while waiting for serial TCP port {port}.")
+    raise VBoxLabError(
         f"Timed out while waiting for serial TCP port {port}: {last_error}"
     )
 
@@ -128,7 +128,7 @@ async def open_serial_connection(
     :param timeout: Maximum time to wait.
     :param retry_delay: Delay between connection attempts.
     :returns: Reader and writer stream objects.
-    :raises PySnapError: If the TCP server does not become available in time.
+    :raises VBoxLabError: If the TCP server does not become available in time.
     """
     deadline = monotonic() + timeout
     last_error: OSError | None = None
@@ -142,7 +142,7 @@ async def open_serial_connection(
         await asyncio.sleep(retry_delay)
 
     if last_error is None:
-        raise PySnapError(f"Timed out while waiting for serial TCP port {port}.")
-    raise PySnapError(
+        raise VBoxLabError(f"Timed out while waiting for serial TCP port {port}.")
+    raise VBoxLabError(
         f"Timed out while waiting for serial TCP port {port}: {last_error}"
     )

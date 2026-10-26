@@ -1,4 +1,4 @@
-"""Output formatters used by the PySnap CLI."""
+"""Output formatters used by the VBoxLab CLI."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ def format_vm_info(vm_info: VMInfo, access: AccessInfo | None = None) -> str:
     """Format one VM description for terminal output.
 
     :param vm_info: VM information to format.
-    :param access: How PySnap reaches the guest, if known.
+    :param access: How VBoxLab reaches the guest, if known.
     :returns: Human-readable text output.
     """
     serial_value = str(vm_info.serial_port) if vm_info.serial_port is not None else "none"
@@ -91,14 +91,14 @@ def format_vm_info(vm_info: VMInfo, access: AccessInfo | None = None) -> str:
 
 
 _ACCESS_SOURCES = {
-    "override": "set with pysnap set",
+    "override": "set with vboxlab set",
     "protosettings": "protosettings",
     "default": "default",
 }
 
 
 def format_access(access: AccessInfo) -> str:
-    """Describe how PySnap reaches a guest in one line.
+    """Describe how VBoxLab reaches a guest in one line.
 
     :param access: Access description.
     :returns: For example ``ssh root@127.0.0.1:2222 (default)``.
@@ -106,7 +106,7 @@ def format_access(access: AccessInfo) -> str:
     source = _ACCESS_SOURCES.get(access.source, access.source)
     if access.mode == "ssh":
         if access.ssh_port is None:
-            return f"ssh as {access.ssh_user}, no forwarded port yet: run pysnap plug ({source})"
+            return f"ssh as {access.ssh_user}, no forwarded port yet: run vboxlab plug ({source})"
         return f"ssh {access.ssh_user}@{SSH_HOST_ADDRESS}:{access.ssh_port} ({source})"
     port = access.serial_port if access.serial_port is not None else "none"
     return f"COM1 serial console, port {port} ({source})"
@@ -115,7 +115,7 @@ def format_access(access: AccessInfo) -> str:
 def format_vm_settings(result: VMSettingsResult) -> str:
     """Format the serial ports and network adapters of a VM.
 
-    :param result: Result of ``pysnap set``.
+    :param result: Result of ``vboxlab set``.
     :returns: Human-readable text output.
     """
     lines = [f"{result.vm_name} ({result.vm_state or 'unknown state'})"]

@@ -11,8 +11,8 @@ import unittest
 from vboxlab.cli.app import run_cli
 from vboxlab.config.protosettings import ProtoSettingsStore
 from vboxlab.core.models import VMInfo, VMReference
-from vboxlab.core.service import PySnapService
-from vboxlab.errors import PySnapError
+from vboxlab.core.service import VBoxLabService
+from vboxlab.errors import VBoxLabError
 from vboxlab.runtime.sessions import SessionRecord
 from vboxlab.terminal.session import PauseTracker
 from vboxlab.tests.test_service import FakeClient, FakeSessionRegistry
@@ -67,7 +67,7 @@ class ServiceTests(unittest.TestCase):
         self.client.add_vm("second", "paused", 2327)
         self.client.add_vm("third", "poweroff", 2328)
         self.registry = FakeSessionRegistry()
-        self.service = PySnapService(
+        self.service = VBoxLabService(
             client=self.client,
             session_registry=self.registry,
             proto_settings_store=ProtoSettingsStore(path=Path(self._temp_dir.name) / ".ptotosettings"),
@@ -101,7 +101,7 @@ class ServiceTests(unittest.TestCase):
             (self.service.resume_runtime_vm, "third", r"is not paused \(Stopped\)"),
         ]
         for action, name, message in cases:
-            with self.subTest(name=name, message=message), self.assertRaisesRegex(PySnapError, message):
+            with self.subTest(name=name, message=message), self.assertRaisesRegex(VBoxLabError, message):
                 action(name)
         self.assertNotIn("pause_vm", [call[0] for call in self.client.calls])
         self.assertNotIn("resume_vm", [call[0] for call in self.client.calls])
@@ -118,10 +118,10 @@ class ServiceTests(unittest.TestCase):
     def test_reports_failures_of_all(self) -> None:
         """Name the VMs that did not change."""
         def broken(vm_name: str) -> None:
-            raise PySnapError("controlvm failed")
+            raise VBoxLabError("controlvm failed")
 
         self.client.pause_vm = broken
-        with self.assertRaisesRegex(PySnapError, "Unable to pause all requested VMs: first: controlvm failed"):
+        with self.assertRaisesRegex(VBoxLabError, "Unable to pause all requested VMs: first: controlvm failed"):
             self.service.pause_all_runtime_vms()
 
     def test_stop_resumes_a_paused_vm_first(self) -> None:
@@ -174,7 +174,7 @@ class CommandTests(unittest.TestCase):
         client.add_vm("first", "running")
         client.add_vm("second", "paused", 2327)
         with tempfile.TemporaryDirectory() as temp_dir:
-            service = PySnapService(
+            service = VBoxLabService(
                 client=client,
                 session_registry=FakeSessionRegistry(),
                 proto_settings_store=ProtoSettingsStore(path=Path(temp_dir) / ".ptotosettings"),

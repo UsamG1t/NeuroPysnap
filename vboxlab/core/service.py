@@ -1,4 +1,4 @@
-"""Application service layer for PySnap."""
+"""Application service layer for VBoxLab."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ from vboxlab.ssh.keys import SshKeyStore
 from vboxlab.core.settings import ComPortRequest, com_setting_from_request, parse_set_options
 from vboxlab.errors import (
     CommandExecutionError,
-    PySnapError,
+    VBoxLabError,
     VMDependencyError,
     VMNotFoundError,
 )
@@ -62,8 +62,8 @@ def normalize_group_name(group: str | None) -> str:
     return group if group.startswith("/") else f"/{group}"
 
 
-class PySnapService:
-    """Provide the main PySnap business operations."""
+class VBoxLabService:
+    """Provide the main VBoxLab business operations."""
 
     SNAPSHOT_NAME = "pysnap-base"
     DEFAULT_SERIAL_TCP_PORT = 1024
@@ -88,7 +88,7 @@ class PySnapService:
         """Initialize the service.
 
         :param client: Optional VirtualBox client implementation.
-        :param ssh_key_store: Optional PySnap ssh key store.
+        :param ssh_key_store: Optional VBoxLab ssh key store.
         """
         self.client = client or VBoxManageClient()
         self.session_registry = session_registry or SessionRegistry()
@@ -108,24 +108,24 @@ class PySnapService:
         :param vm_name: Optional custom name for a single imported VM.
         :param progress_callback: Optional import progress callback.
         :returns: Imported VM information objects.
-        :raises PySnapError: If the file is invalid or import does not create VMs.
+        :raises VBoxLabError: If the file is invalid or import does not create VMs.
         """
         image = Path(image_path).expanduser().resolve()
         if image.suffix.lower() not in {".ova", ".ovf"}:
-            raise PySnapError("Only .ova and .ovf images can be imported.")
+            raise VBoxLabError("Only .ova and .ovf images can be imported.")
         if not image.exists():
-            raise PySnapError(f'Image "{image}" does not exist.')
+            raise VBoxLabError(f'Image "{image}" does not exist.')
 
         declared_vm_names = read_appliance_vm_names(image)
         planned_imports = self.client.dry_run_import(str(image))
         if not planned_imports:
-            raise PySnapError("The appliance dry run did not expose any virtual systems.")
+            raise VBoxLabError("The appliance dry run did not expose any virtual systems.")
         if vm_name is not None and len(planned_imports) != 1:
-            raise PySnapError(
+            raise VBoxLabError(
                 "Custom VMName can only be used when the appliance contains exactly one VM."
             )
         if len(declared_vm_names) != len(planned_imports):
-            raise PySnapError(
+            raise VBoxLabError(
                 "The appliance descriptor VM count does not match the VirtualBox dry run."
             )
 
@@ -149,16 +149,16 @@ class PySnapService:
         if colliding_names:
             names_text = ", ".join(colliding_names)
             if vm_name is None and len(colliding_names) == 1 and len(declared_vm_names) == 1:
-                raise PySnapError(
+                raise VBoxLabError(
                     f'Virtual machine "{colliding_names[0]}" already exists. '
                     "Use the optional VMName parameter to choose a different name."
                 )
             if vm_name is not None and len(colliding_names) == 1:
-                raise PySnapError(
+                raise VBoxLabError(
                     f'Virtual machine "{colliding_names[0]}" already exists. '
                     "Choose a different VMName."
                 )
-            raise PySnapError(
+            raise VBoxLabError(
                 f"Virtual machine names already exist: {names_text}. "
                 "Import aborted before creating duplicate VM names."
             )
@@ -178,7 +178,7 @@ class PySnapService:
             ]
 
         if not imported_names:
-            raise PySnapError("The appliance import finished, but no imported VMs were detected.")
+            raise VBoxLabError("The appliance import finished, but no imported VMs were detected.")
 
         imported_infos: list[VMInfo] = []
         for vm_name in imported_names:
@@ -208,17 +208,17 @@ class PySnapService:
         :param image_path: Path to the appliance used for the test.
         :param name_token: Optional deterministic suffix for generated VM names.
         :returns: Integration test result with machine info and deletion order.
-        :raises PySnapError: If the appliance is invalid or the test fails.
+        :raises VBoxLabError: If the appliance is invalid or the test fails.
         """
         image = Path(image_path).expanduser().resolve()
         if image.suffix.lower() not in {".ova", ".ovf"}:
-            raise PySnapError("Only .ova and .ovf images can be used for integration tests.")
+            raise VBoxLabError("Only .ova and .ovf images can be used for integration tests.")
         if not image.exists():
-            raise PySnapError(f'Image "{image}" does not exist.')
+            raise VBoxLabError(f'Image "{image}" does not exist.')
 
         planned_imports = self.client.dry_run_import(str(image))
         if len(planned_imports) != 1:
-            raise PySnapError(
+            raise VBoxLabError(
                 "Integration test expects an appliance containing exactly one VM."
             )
 
@@ -302,7 +302,7 @@ class PySnapService:
             cleanup_errors = self._cleanup_integration_vms(created_vm_names, deleted_vm_names)
             if cleanup_errors:
                 cleanup_message = "; ".join(cleanup_errors)
-                raise PySnapError(
+                raise VBoxLabError(
                     f"Integration test failed: {error}. Cleanup issues: {cleanup_message}"
                 ) from error
             raise
@@ -373,21 +373,21 @@ class PySnapService:
         :param vm_name: VM name.
         :param timeout: Optional startup timeout in seconds.
         :returns: Updated VM information.
-        :raises PySnapError: If the VM cannot be connected.
+        :raises VBoxLabError: If the VM cannot be connected.
         """
         vm_info = self._require_vm(vm_name)
         access = self._access_of(vm_info)
         if access.mode == "ssh" and access.ssh_port is None:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Virtual machine "{vm_name}" is reached through ssh but has no forwarded '
-                f"ssh port; run pysnap plug {vm_name}."
+                f"ssh port; run vboxlab plug {vm_name}."
             )
         if access.mode == "com" and vm_info.serial_port is None:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Virtual machine "{vm_name}" does not have a TCP-backed serial port.'
             )
         if self.session_registry.get_live_session(vm_name) is not None:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Virtual machine "{vm_name}" already has an active terminal session.'
             )
 
@@ -397,13 +397,13 @@ class PySnapService:
         if raw_state in self.PAUSED_STATES:
             if access.mode == "ssh":
                 # A paused guest cannot answer the ssh login.
-                raise PySnapError(
+                raise VBoxLabError(
                     f'Virtual machine "{vm_name}" is paused; ssh needs a running guest. '
-                    f"Run pysnap resume {vm_name}."
+                    f"Run vboxlab resume {vm_name}."
                 )
             return vm_info
         if raw_state in self.ERROR_STATES:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Virtual machine "{vm_name}" is in an error state: {raw_state}.'
             )
 
@@ -427,17 +427,17 @@ class PySnapService:
 
         :param vm_name: VM name.
         :param timeout: Optional timeout in seconds.
-        :raises PySnapError: If the VM is not in a stoppable state.
+        :raises VBoxLabError: If the VM is not in a stoppable state.
         """
         vm_info = self._require_vm(vm_name)
         display_state = self.get_monitor_state_label(vm_name)
 
         if display_state == "Stopped":
-            raise PySnapError(f'Virtual machine "{vm_name}" is not running.')
+            raise VBoxLabError(f'Virtual machine "{vm_name}" is not running.')
         if display_state == "Stopping":
-            raise PySnapError(f'Virtual machine "{vm_name}" is already stopping.')
+            raise VBoxLabError(f'Virtual machine "{vm_name}" is already stopping.')
         if display_state == "Changing":
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Virtual machine "{vm_name}" is changing state; try again later.'
             )
         if display_state == "Paused":
@@ -445,7 +445,7 @@ class PySnapService:
             self._resume_vm_and_wait(vm_name, timeout)
             display_state = "Active"
         if display_state not in {"Working", "Active"}:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Virtual machine "{vm_name}" cannot be stopped from state {display_state}.'
             )
 
@@ -469,7 +469,7 @@ class PySnapService:
             paused_names, lambda vm_name: self._resume_vm_and_wait(vm_name, timeout)
         )
         if resume_failures:
-            raise PySnapError(
+            raise VBoxLabError(
                 "Unable to resume paused VMs before stopping them: "
                 + "; ".join(f"{name}: {message}" for name, message in sorted(resume_failures.items()))
             )
@@ -484,13 +484,13 @@ class PySnapService:
 
         :param vm_name: VM name.
         :param timeout: Optional timeout in seconds.
-        :raises PySnapError: If the VM is not running.
+        :raises VBoxLabError: If the VM is not running.
         """
         display_state = self.get_monitor_state_label(vm_name)
         if display_state == "Paused":
-            raise PySnapError(f'Virtual machine "{vm_name}" is already paused.')
+            raise VBoxLabError(f'Virtual machine "{vm_name}" is already paused.')
         if display_state not in {"Working", "Active"}:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Virtual machine "{vm_name}" cannot be paused from state {display_state}.'
             )
         self.client.pause_vm(vm_name)
@@ -506,11 +506,11 @@ class PySnapService:
 
         :param vm_name: VM name.
         :param timeout: Optional timeout in seconds.
-        :raises PySnapError: If the VM is not paused.
+        :raises VBoxLabError: If the VM is not paused.
         """
         display_state = self.get_monitor_state_label(vm_name)
         if display_state != "Paused":
-            raise PySnapError(f'Virtual machine "{vm_name}" is not paused ({display_state}).')
+            raise VBoxLabError(f'Virtual machine "{vm_name}" is not paused ({display_state}).')
         self._resume_vm_and_wait(vm_name, timeout)
 
     def pause_all_runtime_vms(self, timeout: float | None = None) -> list[str]:
@@ -518,7 +518,7 @@ class PySnapService:
 
         :param timeout: Optional per-VM timeout in seconds.
         :returns: Names of the paused VMs.
-        :raises PySnapError: If one or more VMs cannot be paused.
+        :raises VBoxLabError: If one or more VMs cannot be paused.
         """
         names = [
             record.name
@@ -538,7 +538,7 @@ class PySnapService:
 
         :param timeout: Optional per-VM timeout in seconds.
         :returns: Names of the resumed VMs.
-        :raises PySnapError: If one or more VMs cannot be resumed.
+        :raises VBoxLabError: If one or more VMs cannot be resumed.
         """
         names = [
             record.name for record in self.list_monitored_vms() if record.display_state == "Paused"
@@ -577,7 +577,7 @@ class PySnapService:
         :param timeout: Per-VM timeout in seconds.
         :param action: Verb used in messages, such as ``"pause"``.
         :returns: Sorted names of the changed VMs.
-        :raises PySnapError: If one or more VMs did not change.
+        :raises VBoxLabError: If one or more VMs did not change.
         """
         failures = self._run_parallel_vm_actions(vm_names, request)
         requested = [name for name in vm_names if name not in failures]
@@ -593,7 +593,7 @@ class PySnapService:
             )
         )
         if failures:
-            raise PySnapError(
+            raise VBoxLabError(
                 f"Unable to {action} all requested VMs: "
                 + "; ".join(f"{name}: {message}" for name, message in sorted(failures.items()))
             )
@@ -610,17 +610,17 @@ class PySnapService:
         return self.client.get_vm_info(vm_name)
 
     def plug_vm(self, vm_name: str) -> VMInfo:
-        """Configure one VM for PySnap connections.
+        """Configure one VM for VBoxLab connections.
 
         A VM reached through COM1 gets ``UART1`` as a TCP server: if it already
-        is one, the VM is returned unchanged; otherwise PySnap assigns a free
+        is one, the VM is returned unchanged; otherwise VBoxLab assigns a free
         TCP port and enables the same ``UART1`` tcpserver mode used by the
         imported protocol images. A VM reached through ssh gets a NAT rule that
         forwards a free host port to port 22 of the guest.
 
         :param vm_name: VM name to configure.
         :returns: Updated VM information.
-        :raises PySnapError: If the VM cannot be configured safely.
+        :raises VBoxLabError: If the VM cannot be configured safely.
         """
         vm_info = self._require_vm(vm_name)
         if self._access_of(vm_info).mode == "ssh":
@@ -629,14 +629,14 @@ class PySnapService:
         if serial_config.mode == "tcpserver" and serial_config.port is not None:
             return self.client.get_vm_info(vm_name)
         if serial_config.enabled and serial_config.mode not in {None, "tcpserver"}:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Virtual machine "{vm_name}" already uses UART1 mode '
                 f'"{serial_config.mode}".'
             )
 
         raw_state = (vm_info.vm_state or "").lower()
         if raw_state not in self.STOPPED_STATES:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Virtual machine "{vm_name}" must be stopped before UART1 can be '
                 "plugged as a TCP server."
             )
@@ -651,7 +651,7 @@ class PySnapService:
         :param vm_name: VM name.
         :param vm_info: Current VM information.
         :returns: Updated VM information.
-        :raises PySnapError: Without a NAT adapter or in a transitional state.
+        :raises VBoxLabError: Without a NAT adapter or in a transitional state.
         """
         if vm_info.ssh_port is not None:
             return vm_info
@@ -661,9 +661,9 @@ class PySnapService:
             None,
         )
         if adapter is None:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Virtual machine "{vm_name}" is reached through ssh but has no NAT adapter; '
-                f"run pysnap set {vm_name} nic1=nat first."
+                f"run vboxlab set {vm_name} nic1=nat first."
             )
         raw_state = (vm_info.vm_state or "").lower()
         if raw_state in self.STOPPED_STATES:
@@ -671,7 +671,7 @@ class PySnapService:
         elif raw_state in {"running", *self.PAUSED_STATES}:
             running = True
         else:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Virtual machine "{vm_name}" is changing state; try again later.'
             )
         port = self._allocate_serial_port(require_host_availability=True)
@@ -689,7 +689,7 @@ class PySnapService:
         :param vm_name: VM name.
         :param options: ``comN=VALUE`` and ``nicN=VALUE`` options.
         :returns: Settings after the change and warnings.
-        :raises PySnapError: For invalid options, a VM that is not stopped or
+        :raises VBoxLabError: For invalid options, a VM that is not stopped or
             TCP ports in use.
         """
         request = parse_set_options(options)
@@ -701,19 +701,19 @@ class PySnapService:
             )
         for number in request.com_ports:
             if number > len(current.com_ports):
-                raise PySnapError(
+                raise VBoxLabError(
                     f"COM{number}: VirtualBox offers COM1-COM{len(current.com_ports)}."
                 )
         for number in request.nics:
             if number > len(current.nics):
-                raise PySnapError(
+                raise VBoxLabError(
                     f'NIC{number}: virtual machine "{vm_name}" offers NIC1-NIC{len(current.nics)} '
                     "with its chipset."
                 )
         if request.hardware_changes and (vm_info.vm_state or "").lower() not in self.STOPPED_STATES:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Virtual machine "{vm_name}" must be stopped before its serial ports '
-                f"and network adapters can be changed; run pysnap stop {vm_name}."
+                f"and network adapters can be changed; run vboxlab stop {vm_name}."
             )
 
         com_settings = self._resolve_com_requests(vm_name, current, request.com_ports)
@@ -732,7 +732,7 @@ class PySnapService:
             if before.mode == "tcpserver" and setting.mode != "tcpserver":
                 note = f"COM{number} no longer serves TCP port {before.port}"
                 if number == 1 and access.mode == "com":
-                    note += "; pysnap connect uses COM1 and cannot reach this VM"
+                    note += "; vboxlab connect uses COM1 and cannot reach this VM"
                 warnings.append(note + ".")
 
         updated = current
@@ -744,7 +744,7 @@ class PySnapService:
         if access.mode == "ssh" and not any(nic.attachment == "nat" for nic in updated.nics):
             warnings.append(
                 "The VM is reached through ssh but has no NAT adapter; set one, for "
-                "example nic1=nat, and run pysnap plug."
+                "example nic1=nat, and run vboxlab plug."
             )
         return VMSettingsResult(vm_name, vm_info.vm_state, updated, tuple(warnings), access)
 
@@ -754,20 +754,20 @@ class PySnapService:
         :param vm_name: VM name.
         :param user: Guest user; the ssh user of the VM by default.
         :returns: Connection target.
-        :raises PySnapError: Without a forwarded ssh port or a running VM.
+        :raises VBoxLabError: Without a forwarded ssh port or a running VM.
         """
         info = self._require_vm(vm_name)
         access = self._access_of(info)
         if access.ssh_port is None:
             hint = (
-                f"run pysnap plug {vm_name}"
+                f"run vboxlab plug {vm_name}"
                 if access.mode == "ssh"
-                else f"it is reached through COM1; run pysnap set {vm_name} access=ssh "
-                f"and pysnap plug {vm_name}"
+                else f"it is reached through COM1; run vboxlab set {vm_name} access=ssh "
+                f"and vboxlab plug {vm_name}"
             )
-            raise PySnapError(f'Virtual machine "{vm_name}" has no forwarded ssh port; {hint}.')
+            raise VBoxLabError(f'Virtual machine "{vm_name}" has no forwarded ssh port; {hint}.')
         if (info.vm_state or "").lower() != "running":
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Virtual machine "{vm_name}" is not running; ssh needs a running guest.'
             )
         return SshTarget(
@@ -786,7 +786,7 @@ class PySnapService:
         installer=None,
         poll_interval: float = 2.0,
     ) -> SshTarget:
-        """Wait for the guest ssh server and make sure the PySnap key works.
+        """Wait for the guest ssh server and make sure the VBoxLab key works.
 
         A freshly started guest needs time to boot, so a missing ssh server is
         retried until ``timeout``. A refused key starts the interactive key
@@ -798,7 +798,7 @@ class PySnapService:
         :param installer: Interactive installer, for tests.
         :param poll_interval: Seconds between attempts.
         :returns: Connection target for the ssh user of the VM.
-        :raises PySnapError: When no ssh server answers in time or the key
+        :raises VBoxLabError: When no ssh server answers in time or the key
             cannot be installed.
         """
         notify = notify or (lambda message: None)
@@ -811,15 +811,15 @@ class PySnapService:
                 return target
             if check.status == "denied":
                 notify(
-                    f'The PySnap ssh key is not installed for {target.user} in "{vm_name}". '
-                    "Installing it now (see pysnap ssh-key --help)."
+                    f'The VBoxLab ssh key is not installed for {target.user} in "{vm_name}". '
+                    "Installing it now (see vboxlab ssh-key --help)."
                 )
                 result = self.setup_ssh_key(vm_name, installer=installer)
                 if result.changed_user:
                     notify(f"ssh user of {vm_name} set to {result.ssh_user}.")
                 return self.ssh_target(vm_name)
             if monotonic() >= deadline:
-                raise PySnapError(
+                raise VBoxLabError(
                     f'No ssh server answered on port {target.port} of "{vm_name}": '
                     f"{check.message or 'connection failed'}."
                 )
@@ -837,7 +837,7 @@ class PySnapService:
         installer=None,
         console_wait: float = 10.0,
     ) -> SshKeyResult:
-        """Install the PySnap key in the guest so that ssh needs no password.
+        """Install the VBoxLab key in the guest so that ssh needs no password.
 
         By default ssh logs in with the password of ``user`` (the ssh user of
         the VM) in the current terminal, adds the key for that user and, when
@@ -852,7 +852,7 @@ class PySnapService:
         :param installer: Interactive installer, for tests.
         :param console_wait: Seconds to wait for a typed command to work.
         :returns: Users that can log in with the key afterwards.
-        :raises PySnapError: When no ssh server answers or nothing worked.
+        :raises VBoxLabError: When no ssh server answers or nothing worked.
         """
         target = self.ssh_target(vm_name, user)
         access = self.get_vm_access(vm_name)
@@ -861,7 +861,7 @@ class PySnapService:
 
         before = ssh_client.check_key_access(target, store)
         if before.status == "unreachable":
-            raise PySnapError(
+            raise VBoxLabError(
                 f'No ssh server answered on port {target.port} of "{vm_name}": '
                 f"{before.message or 'connection failed'}."
             )
@@ -882,8 +882,8 @@ class PySnapService:
             if ssh_client.check_key_access(replace(target, user=name), store).status == "ok"
         )
         if not working:
-            raise PySnapError(
-                f'The PySnap key was not installed in "{vm_name}"; the guest refused it '
+            raise VBoxLabError(
+                f'The VBoxLab key was not installed in "{vm_name}"; the guest refused it '
                 f"for {', '.join(candidates)}. Many systems refuse a root password over "
                 f"ssh: log in as an ordinary user with --user NAME, or type the key on "
                 f"the VM screen with --console."
@@ -895,7 +895,7 @@ class PySnapService:
         return SshKeyResult(vm_name, working, ssh_user, changed, already)
 
     def get_vm_access(self, vm_name: str) -> AccessInfo:
-        """Return how PySnap reaches the guest of a VM.
+        """Return how VBoxLab reaches the guest of a VM.
 
         :param vm_name: VM name.
         :returns: Access mode, its source and the connection details.
@@ -920,15 +920,15 @@ class PySnapService:
         :param serial_port: Optional TCP port assigned to ``UART1``.
         :param networks: Up to three internal network names.
         :returns: Detailed information about the created clone.
-        :raises PySnapError: If invalid parameters are supplied.
+        :raises VBoxLabError: If invalid parameters are supplied.
         """
         base_info = self._require_vm(base_vm)
         if self._vm_exists(clone_vm):
-            raise PySnapError(f'Virtual machine "{clone_vm}" already exists.')
+            raise VBoxLabError(f'Virtual machine "{clone_vm}" already exists.')
         if serial_port is not None and not 1 <= serial_port <= 65535:
-            raise PySnapError("Serial TCP port must be between 1 and 65535.")
+            raise VBoxLabError("Serial TCP port must be between 1 and 65535.")
         if len(networks) > 3:
-            raise PySnapError("At most three internal network names can be provided.")
+            raise VBoxLabError("At most three internal network names can be provided.")
         if serial_port is None:
             serial_port = self._allocate_serial_port()
 
@@ -1014,7 +1014,7 @@ class PySnapService:
             be available on the host system.
         :param reserved: Further ports that must not be chosen.
         :returns: The next TCP port to assign.
-        :raises PySnapError: If the TCP port range is exhausted.
+        :raises VBoxLabError: If the TCP port range is exhausted.
         """
         used_ports = set(reserved)
         for info in self._collect_vm_infos():
@@ -1028,7 +1028,7 @@ class PySnapService:
                 next_port += 1
                 continue
             return next_port
-        raise PySnapError("No free serial TCP ports are available.")
+        raise VBoxLabError("No free serial TCP ports are available.")
 
     def _resolve_com_requests(
         self,
@@ -1044,7 +1044,7 @@ class PySnapService:
         :param current: Current settings of the VM.
         :param requests: Requested changes by port number.
         :returns: New settings by port number.
-        :raises PySnapError: When a TCP port is used by another VM, by another
+        :raises VBoxLabError: When a TCP port is used by another VM, by another
             port of this VM or on the host.
         """
         other_ports: dict[int, str] = {}
@@ -1069,16 +1069,16 @@ class PySnapService:
                 continue
             port = request.port
             if port in other_ports:
-                raise PySnapError(
+                raise VBoxLabError(
                     f'COM{number}: TCP port {port} is already used by virtual machine '
                     f'"{other_ports[port]}".'
                 )
             if port in taken:
-                raise PySnapError(
+                raise VBoxLabError(
                     f"COM{number}: TCP port {port} is already used by another COM port of this VM."
                 )
             if port not in own_ports and not self._is_host_tcp_port_available(port):
-                raise PySnapError(f"COM{number}: TCP port {port} is busy on this computer.")
+                raise VBoxLabError(f"COM{number}: TCP port {port} is busy on this computer.")
             taken.add(port)
             resolved[number] = com_setting_from_request(request, port)
 
@@ -1165,13 +1165,13 @@ class PySnapService:
                 tuple(pending),
                 timeout=self.DEFAULT_INTEGRATION_STOP_TIMEOUT,
             )
-        except PySnapError as error:
+        except VBoxLabError as error:
             cleanup_errors.append(str(error))
 
         try:
             self._delete_with_retries(pending)
             return cleanup_errors
-        except PySnapError as error:
+        except VBoxLabError as error:
             cleanup_errors.append(str(error))
             return cleanup_errors
 
@@ -1193,17 +1193,17 @@ class PySnapService:
 
         :param group_name: Group to erase.
         :returns: Names of removed VMs.
-        :raises PySnapError: If the group is empty or contains blocked base VMs.
+        :raises VBoxLabError: If the group is empty or contains blocked base VMs.
         """
         normalized_group = normalize_group_name(group_name)
         all_infos = self._collect_vm_infos()
         selected = [info.name for info in all_infos if normalized_group in info.groups]
         if not selected:
-            raise PySnapError(f'Group "{normalized_group}" does not contain any VMs.')
+            raise VBoxLabError(f'Group "{normalized_group}" does not contain any VMs.')
 
         blocked = self._find_external_dependents(selected, all_infos)
         if blocked:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Cannot erase group "{normalized_group}" because clones outside the '
                 f"group depend on it: {', '.join(sorted(blocked))}."
             )
@@ -1229,7 +1229,7 @@ class PySnapService:
 
         :param group_name: Optional group that limits the deleted clones.
         :returns: Names of removed clone VMs.
-        :raises PySnapError: If the group is empty or clones outside the
+        :raises VBoxLabError: If the group is empty or clones outside the
             selection still depend on the selected clones.
         """
         all_infos = self._collect_vm_infos()
@@ -1238,7 +1238,7 @@ class PySnapService:
             normalized_group = normalize_group_name(group_name)
             candidates = [info for info in all_infos if normalized_group in info.groups]
             if not candidates:
-                raise PySnapError(
+                raise VBoxLabError(
                     f'Group "{normalized_group}" does not contain any VMs.'
                 )
 
@@ -1248,7 +1248,7 @@ class PySnapService:
 
         blocked = self._find_external_dependents(selected, all_infos)
         if blocked:
-            raise PySnapError(
+            raise VBoxLabError(
                 "Cannot erase the selected clones because clones outside the "
                 f"selection depend on them: {', '.join(sorted(blocked))}."
             )
@@ -1270,7 +1270,7 @@ class PySnapService:
 
         :param paths: Directories to remove recursively.
         :returns: Paths of directories that were removed.
-        :raises PySnapError: If one or more directories cannot be removed.
+        :raises VBoxLabError: If one or more directories cannot be removed.
         """
         removed: list[str] = []
         failures: list[str] = []
@@ -1286,7 +1286,7 @@ class PySnapService:
             removed.append(str(target))
 
         if failures:
-            raise PySnapError(
+            raise VBoxLabError(
                 "Unable to remove all requested directories. " + "; ".join(failures)
             )
         return removed
@@ -1312,7 +1312,7 @@ class PySnapService:
         :param timeout: Timeout in seconds.
         :param action_description: Human-readable action description.
         :returns: Updated VM information once the state is acceptable.
-        :raises PySnapError: If the timeout expires.
+        :raises VBoxLabError: If the timeout expires.
         """
         deadline = monotonic() + timeout
         last_query_error: CommandExecutionError | None = None
@@ -1342,7 +1342,7 @@ class PySnapService:
         details = ""
         if last_query_error is not None:
             details = f" Last VBoxManage error: {last_query_error}"
-        raise PySnapError(
+        raise VBoxLabError(
             f'Timed out while waiting for "{vm_name}" to {action_description} '
             f"(expected states: {states}).{details}"
         )
@@ -1357,7 +1357,7 @@ class PySnapService:
         :param connected_vm_name: VM attached through a serial terminal probe.
         :param active_vm_name: VM started without an attached session.
         :returns: Monitor records captured during the runtime check.
-        :raises PySnapError: If the monitor output does not match expectations.
+        :raises VBoxLabError: If the monitor output does not match expectations.
         """
         with self._integration_terminal_attachment(connected_vm_name):
             self.prepare_vm_connection(active_vm_name)
@@ -1373,7 +1373,7 @@ class PySnapService:
         for vm_name, expected_state in expected_states.items():
             observed_state = monitor_states.get(vm_name)
             if observed_state != expected_state:
-                raise PySnapError(
+                raise VBoxLabError(
                     f'Integration monitor expected "{vm_name}" to be {expected_state}, '
                     f"but observed {observed_state or 'no entry'}."
                 )
@@ -1388,7 +1388,7 @@ class PySnapService:
         """
         vm_info = self.prepare_vm_connection(vm_name)
         if vm_info.serial_port is None:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Virtual machine "{vm_name}" does not have a TCP-backed serial port.'
             )
 
@@ -1412,7 +1412,7 @@ class PySnapService:
                 continue
             try:
                 display_state = self.get_monitor_state_label(vm_name)
-            except PySnapError:
+            except VBoxLabError:
                 continue
             if display_state in {"Working", "Active"}:
                 stoppable_names.append(vm_name)
@@ -1452,7 +1452,7 @@ class PySnapService:
         """Map a raw VirtualBox state to a user-facing monitor label.
 
         :param raw_state: Raw VirtualBox state.
-        :param has_live_session: Whether PySnap currently has a live session.
+        :param has_live_session: Whether VBoxLab currently has a live session.
         :returns: User-facing state label.
         """
         normalized = raw_state.lower()
@@ -1533,7 +1533,7 @@ class PySnapService:
         """Delete several VMs in parallel waves that respect dependencies.
 
         :param vm_names: Names of the VMs to delete.
-        :raises PySnapError: If the requested set cannot be fully removed.
+        :raises VBoxLabError: If the requested set cannot be fully removed.
         """
         remaining = list(dict.fromkeys(vm_names))
         if not remaining:
@@ -1544,7 +1544,7 @@ class PySnapService:
             ready = self._deletion_wave(remaining, infos)
             if not ready:
                 unresolved = ", ".join(sorted(remaining))
-                raise PySnapError(
+                raise VBoxLabError(
                     "Unable to erase all requested VMs. "
                     f"No deletable dependency wave found for: {unresolved}."
                 )
@@ -1555,7 +1555,7 @@ class PySnapService:
                 details = "; ".join(
                     f'{name}: {message}' for name, message in sorted(failures.items())
                 )
-                raise PySnapError(f"Unable to erase all requested VMs. {details}")
+                raise VBoxLabError(f"Unable to erase all requested VMs. {details}")
 
             self.proto_settings_store.remove_vm_names(deleted_names)
             remaining = [vm_name for vm_name in remaining if vm_name not in deleted_names]
@@ -1570,7 +1570,7 @@ class PySnapService:
         :param vm_names: Names of VMs to stop.
         :param timeout: Optional per-VM timeout in seconds.
         :returns: VM names that were successfully stopped.
-        :raises PySnapError: If one or more VMs cannot be stopped.
+        :raises VBoxLabError: If one or more VMs cannot be stopped.
         """
         if not vm_names:
             return []
@@ -1606,7 +1606,7 @@ class PySnapService:
                         for name, message in sorted(wait_failures.items())
                     )
                 )
-            raise PySnapError("Unable to stop all requested VMs. " + " ".join(details))
+            raise VBoxLabError("Unable to stop all requested VMs. " + " ".join(details))
 
         return requested_names
 
@@ -1655,7 +1655,7 @@ class PySnapService:
                 vm_name = future_to_name[future]
                 try:
                     future.result()
-                except (CommandExecutionError, PySnapError) as error:
+                except (CommandExecutionError, VBoxLabError) as error:
                     failures[vm_name] = str(error)
         return failures
 

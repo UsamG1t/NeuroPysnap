@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from vboxlab.errors import PySnapError
+from vboxlab.errors import VBoxLabError
 
 
 class ProtoSettingsStore:
@@ -23,7 +23,7 @@ class ProtoSettingsStore:
         """Return configured VM names without duplicates.
 
         :returns: Configured VM names in file order.
-        :raises PySnapError: If the file cannot be read.
+        :raises VBoxLabError: If the file cannot be read.
         """
         if not self.path.exists():
             return ()
@@ -31,7 +31,7 @@ class ProtoSettingsStore:
         try:
             raw_lines = self.path.read_text(encoding="utf-8").splitlines()
         except OSError as error:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Unable to read proto settings from "{self.path}": {error}'
             ) from error
 
@@ -58,7 +58,7 @@ class ProtoSettingsStore:
 
         :param vm_name: VM name to persist.
         :returns: Updated VM names.
-        :raises PySnapError: If the file cannot be written.
+        :raises VBoxLabError: If the file cannot be written.
         """
         vm_names = list(self.list_vm_names())
         if vm_name not in vm_names:
@@ -71,7 +71,7 @@ class ProtoSettingsStore:
 
         :param vm_names: VM names to remove.
         :returns: Remaining VM names.
-        :raises PySnapError: If the file cannot be written.
+        :raises VBoxLabError: If the file cannot be written.
         """
         current_names = list(self.list_vm_names())
         if not current_names:
@@ -87,7 +87,7 @@ class ProtoSettingsStore:
         """Write VM names to the store file.
 
         :param vm_names: VM names to write.
-        :raises PySnapError: If the file cannot be written.
+        :raises VBoxLabError: If the file cannot be written.
         """
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -96,6 +96,6 @@ class ProtoSettingsStore:
                 content = f"{content}\n"
             self.path.write_text(content, encoding="utf-8")
         except OSError as error:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Unable to write proto settings to "{self.path}": {error}'
             ) from error

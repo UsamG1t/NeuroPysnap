@@ -1,1 +1,1 @@
-"""Runtime helpers for PySnap."""
+"""Runtime helpers for VBoxLab."""

@@ -1,4 +1,4 @@
-"""Sphinx configuration for the PySnap project."""
+"""Sphinx configuration for the VBoxLab project."""
 
 from __future__ import annotations
 
@@ -12,9 +12,9 @@ sys.path.insert(0, str(ROOT))
 
 from vboxlab import __version__
 
-project = "PySnap"
-author = "PySnap Authors"
-copyright = "2026, PySnap Authors"
+project = "VBoxLab"
+author = "VBoxLab Authors"
+copyright = "2026, VBoxLab Authors"
 release = __version__
 
 # Download links for the ``Downloads`` section on the documentation index.
@@ -69,7 +69,7 @@ autodoc_type_aliases = {
 # ``viewcode`` follows imported members by default and therefore also renders
 # source pages for standard-library modules such as ``pathlib`` and ``re``.
 # Restricting it to locally defined objects keeps ``_modules`` limited to the
-# PySnap sources.
+# VBoxLab sources.
 viewcode_follow_imported_members = False
 
 graphviz_dot = shutil.which("dot") or "dot"

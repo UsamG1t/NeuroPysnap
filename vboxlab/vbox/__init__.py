@@ -1,1 +1,1 @@
-"""VirtualBox integration package for PySnap."""
+"""VirtualBox integration package for VBoxLab."""

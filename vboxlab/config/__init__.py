@@ -1,1 +1,1 @@
-"""Configuration helpers for PySnap."""
+"""Configuration helpers for VBoxLab."""

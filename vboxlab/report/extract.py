@@ -2,16 +2,16 @@
 
 A VM reached through ssh gets a separate ssh session that runs one command:
 it prints the ``sha256sum`` of the file and then the file itself. The
-student's terminal is not touched, so this works while ``pysnap connect`` is
+student's terminal is not touched, so this works while ``vboxlab connect`` is
 attached. Every other VM uses its serial console.
 
 The serial transfer uses only the guest shell and coreutils:
 
 1. The VM must be running and expose ``UART1`` as a TCP server. VirtualBox
-   serves one client, so when ``pysnap connect`` is attached the transfer is
+   serves one client, so when ``vboxlab connect`` is attached the transfer is
    delegated to that process through its control channel
    (:mod:`vboxlab.report.control`), which runs the same protocol.
-2. PySnap wakes the console with Enter and refuses to continue when the
+2. VBoxLab wakes the console with Enter and refuses to continue when the
    prompt installed by ``report`` is visible: a recording is running and every
    further command would end up in the student's report.
 3. ``echo PYSNAP_$((20+22))`` must answer ``PYSNAP_42``. The echoed command
@@ -20,7 +20,7 @@ The serial transfer uses only the guest shell and coreutils:
 4. One command prints a begin marker, the file as one ``base64`` line, its
    ``sha256sum`` and an end marker. The markers are split in the command so
    that its echo never looks like a marker.
-5. PySnap decodes the data, compares the checksum, writes the file
+5. VBoxLab decodes the data, compares the checksum, writes the file
    atomically and clears the guest screen.
 
 Service commands start with a space, so shells with ``HISTCONTROL`` set to
@@ -45,7 +45,7 @@ from time import monotonic
 import subprocess
 from typing import Callable, Protocol
 
-from vboxlab.errors import PySnapError
+from vboxlab.errors import VBoxLabError
 from vboxlab.ssh import client as ssh_client
 from vboxlab.terminal.transport import open_serial_socket
 
@@ -67,7 +67,7 @@ _REPORT_PROMPT = re.compile(rb"\[[^@\]\s]+@\d+-[^\s\]]+ [^\]]*\][#$] ?")
 Connector = Callable[[str, int, float], socket.socket]
 
 
-class ExtractError(PySnapError):
+class ExtractError(VBoxLabError):
     """Report a file transfer from a VM that could not be completed."""
 
 
@@ -104,7 +104,7 @@ def extract_file(
 ) -> ExtractResult:
     """Copy one file from a running VM to the host.
 
-    :param service: PySnap service used to inspect the VM and its sessions.
+    :param service: VBoxLab service used to inspect the VM and its sessions.
     :param vm_name: VM to copy from.
     :param name: File name in the root home directory, or a path with ``/``.
     :param destination: Host path; defaults to the file name in the current
@@ -132,7 +132,7 @@ def extract_file(
     if session is not None:
         if session.control_port is None or session.control_token is None:
             raise ExtractError(
-                f'Virtual machine "{vm_name}" has an attached pysnap connect session '
+                f'Virtual machine "{vm_name}" has an attached vboxlab connect session '
                 "without a control channel; detach with Ctrl-] q and try again."
             )
         from vboxlab.report.control import request_transfer
@@ -190,13 +190,13 @@ def run_transfer(
     if _REPORT_PROMPT.search(_plain(greeting)):
         raise ExtractError(
             f'A report recording is running on "{vm_name}". Finish it with exit or '
-            "Ctrl-D in pysnap connect, then extract the report."
+            "Ctrl-D in vboxlab connect, then extract the report."
         )
     console.send(PROBE_COMMAND)
     if not console.read_until(lambda data: PROBE_ANSWER in data, shell_timeout):
         raise ExtractError(
             f'The console of "{vm_name}" is not at a shell prompt. Open it with '
-            "pysnap connect, log in or leave the running program and try again."
+            "vboxlab connect, log in or leave the running program and try again."
         )
     console.exchange(b"", quiet=_QUIET_PERIOD, limit=1.0)
     data, checksum = _transfer(console, remote_path, idle_timeout, max_bytes)
@@ -213,9 +213,9 @@ def ssh_transfer(
     max_bytes: int = DEFAULT_MAX_BYTES,
     timeout: float = DEFAULT_SSH_TIMEOUT,
 ) -> tuple[bytes, str]:
-    """Copy a file through a separate ssh session with the PySnap key.
+    """Copy a file through a separate ssh session with the VBoxLab key.
 
-    :param service: PySnap service; gives the ssh target and the key store.
+    :param service: VBoxLab service; gives the ssh target and the key store.
     :param vm_name: VM to copy from.
     :param remote_path: Quoted shell path of the file.
     :param max_bytes: Largest accepted file size.
@@ -225,7 +225,7 @@ def ssh_transfer(
     """
     try:
         target = service.ssh_target(vm_name)
-    except PySnapError as error:
+    except VBoxLabError as error:
         raise ExtractError(str(error)) from None
     # One more byte than allowed tells a file that is too large.
     script = (
@@ -245,8 +245,8 @@ def ssh_transfer(
         message = result.stderr.decode(errors="replace").strip()
         if "Permission denied" in message:
             raise ExtractError(
-                f'The ssh server of "{vm_name}" refused the PySnap key for {target.user}; '
-                f"run pysnap ssh-key {vm_name}."
+                f'The ssh server of "{vm_name}" refused the VBoxLab key for {target.user}; '
+                f"run vboxlab ssh-key {vm_name}."
             )
         raise ExtractError(
             f'The ssh transfer from "{vm_name}" failed: {message or f"exit status {result.returncode}"}.'
@@ -282,11 +282,11 @@ def _connectable_port(service, vm_name: str) -> int:
     vm_info = service.show_vm(vm_name)
     if vm_info.serial_port is None:
         raise ExtractError(
-            f'Virtual machine "{vm_name}" has no TCP serial port; run pysnap plug first.'
+            f'Virtual machine "{vm_name}" has no TCP serial port; run vboxlab plug first.'
         )
     if (vm_info.vm_state or "").lower() != "running":
         raise ExtractError(
-            f'Virtual machine "{vm_name}" is not running; start it with pysnap connect.'
+            f'Virtual machine "{vm_name}" is not running; start it with vboxlab connect.'
         )
     return vm_info.serial_port
 
@@ -433,7 +433,7 @@ class SocketConsole(_BufferedConsole):
 
 
 class QueueConsole(_BufferedConsole):
-    """Console fed by another thread, such as the ``pysnap connect`` loop.
+    """Console fed by another thread, such as the ``vboxlab connect`` loop.
 
     The owner calls :meth:`feed` with guest output and :meth:`close` when the
     serial connection ends; ``write`` must be safe to call from the transfer
@@ -479,5 +479,5 @@ class QueueConsole(_BufferedConsole):
                 self._pending = b""
                 return True
             if self._closed:
-                raise ExtractError("The serial connection of pysnap connect was closed.")
+                raise ExtractError("The serial connection of vboxlab connect was closed.")
             return False

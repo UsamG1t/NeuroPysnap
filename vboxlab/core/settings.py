@@ -1,4 +1,4 @@
-"""Parse ``pysnap set`` options for serial ports and network adapters.
+"""Parse ``vboxlab set`` options for serial ports and network adapters.
 
 Each option is ``KEY=VALUE``:
 
@@ -28,7 +28,7 @@ from typing import Sequence
 
 from vboxlab.core.access import validate_access_mode, validate_ssh_user
 from vboxlab.core.models import ComPortSetting, NicSetting
-from vboxlab.errors import PySnapError
+from vboxlab.errors import VBoxLabError
 
 PIPE_PREFIX = "pysnap-"
 WINDOWS_PIPE_ROOT = "\\\\.\\pipe\\"
@@ -54,7 +54,7 @@ class ComPortRequest:
 
 @dataclass(frozen=True)
 class SetRequest:
-    """Represent the changes requested by ``pysnap set``.
+    """Represent the changes requested by ``vboxlab set``.
 
     :param com_ports: Port numbers mapped to the requested change.
     :param nics: Adapter numbers mapped to the requested setting.
@@ -83,7 +83,7 @@ def parse_set_options(options: Sequence[str]) -> SetRequest:
 
     :param options: Command line options.
     :returns: Requested changes.
-    :raises PySnapError: For unknown keys, repeated keys and invalid values.
+    :raises VBoxLabError: For unknown keys, repeated keys and invalid values.
     """
     com_ports: dict[int, ComPortRequest] = {}
     nics: dict[int, NicSetting] = {}
@@ -93,13 +93,13 @@ def parse_set_options(options: Sequence[str]) -> SetRequest:
         name = key.strip().lower()
         if separator and name in {"access", "ssh-user"}:
             if name in settings:
-                raise PySnapError(f"{name} is given more than once.")
+                raise VBoxLabError(f"{name} is given more than once.")
             value = value.strip()
             settings[name] = validate_access_mode(value) if name == "access" else validate_ssh_user(value)
             continue
         match = _KEY_PATTERN.match(name)
         if not separator or match is None:
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Invalid option "{option}"; use comN=VALUE, nicN=VALUE, access=VALUE '
                 "or ssh-user=NAME."
             )
@@ -107,11 +107,11 @@ def parse_set_options(options: Sequence[str]) -> SetRequest:
         value = value.strip()
         if match["kind"] == "com":
             if number in com_ports:
-                raise PySnapError(f"COM{number} is given more than once.")
+                raise VBoxLabError(f"COM{number} is given more than once.")
             com_ports[number] = _parse_com_value(number, value)
         else:
             if number in nics:
-                raise PySnapError(f"NIC{number} is given more than once.")
+                raise VBoxLabError(f"NIC{number} is given more than once.")
             nics[number] = _parse_nic_value(number, value)
     return SetRequest(
         com_ports=com_ports,
@@ -137,7 +137,7 @@ def host_pipe_path(name: str, *, windows: bool | None = None) -> str:
 
 
 def host_pipe_name(path: str) -> str | None:
-    """Return the short name of a pipe path created by PySnap.
+    """Return the short name of a pipe path created by VBoxLab.
 
     :param path: Host pipe path.
     :returns: Short name, or ``None`` for other paths.
@@ -172,16 +172,16 @@ def _parse_com_value(number: int, value: str) -> ComPortRequest:
     if value.isdigit():
         port = int(value)
         if not 1 <= port <= 65535:
-            raise PySnapError(f"COM{number}: the TCP port must be between 1 and 65535.")
+            raise VBoxLabError(f"COM{number}: the TCP port must be between 1 and 65535.")
         return ComPortRequest(mode="tcpserver", port=port)
     mode, separator, name = value.partition(":")
     if separator and mode.lower() in {"server", "client"}:
         if not _PIPE_NAME_PATTERN.match(name):
-            raise PySnapError(
+            raise VBoxLabError(
                 f'COM{number}: invalid pipe name "{name}"; use letters, digits, ".", "_" or "-".'
             )
         return ComPortRequest(mode=mode.lower(), pipe_name=name)
-    raise PySnapError(
+    raise VBoxLabError(
         f'COM{number}: invalid value "{value}"; use auto, a TCP port, '
         "server:NAME, client:NAME or off."
     )
@@ -190,7 +190,7 @@ def _parse_com_value(number: int, value: str) -> ComPortRequest:
 def _parse_nic_value(number: int, value: str) -> NicSetting:
     """Parse the value of a ``nicN`` option."""
     if not value or any(ord(character) < 32 for character in value):
-        raise PySnapError(f"NIC{number}: give an internal network name, nat or off.")
+        raise VBoxLabError(f"NIC{number}: give an internal network name, nat or off.")
     lowered = value.lower()
     if lowered == "off":
         return NicSetting(attachment="none")

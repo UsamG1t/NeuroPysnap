@@ -1,4 +1,4 @@
-"""Command line interface for PySnap."""
+"""Command line interface for VBoxLab."""
 
 from __future__ import annotations
 
@@ -20,9 +20,9 @@ from vboxlab.cli.formatters import (
 )
 from vboxlab import __version__
 from vboxlab.cli.report import run_report_command
-from vboxlab.core.service import PySnapService
+from vboxlab.core.service import VBoxLabService
 from vboxlab.docview import open_bundled_documentation
-from vboxlab.errors import CommandExecutionError, PySnapError
+from vboxlab.errors import CommandExecutionError, VBoxLabError
 from vboxlab.terminal.session import TerminalSession
 
 
@@ -64,7 +64,7 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         return "\n\n".join(blocks)
 
 
-# Command groups and one-line summaries shown by ``pysnap --help``.
+# Command groups and one-line summaries shown by ``vboxlab --help``.
 COMMAND_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     (
         "Virtual machines",
@@ -83,7 +83,7 @@ COMMAND_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "Running virtual machines",
         (
             ("connect", "Start a VM headless and attach to its console or ssh."),
-            ("ssh-key", "Install the PySnap ssh key in a guest reached through ssh."),
+            ("ssh-key", "Install the VBoxLab ssh key in a guest reached through ssh."),
             ("monitor", "List VMs that are running, paused or changing state."),
             ("pause", "Pause running VMs; they stay in memory."),
             ("resume", "Resume paused VMs."),
@@ -113,7 +113,7 @@ def _commands_epilog() -> str:
         lines.append(f"{title}:")
         lines.extend(f"  {name:<{width}}  {summary}" for name, summary in commands)
         lines.append("")
-    lines.append('Run "pysnap COMMAND --help" for the arguments and examples of a command.')
+    lines.append('Run "vboxlab COMMAND --help" for the arguments and examples of a command.')
     return "\n".join(lines)
 
 
@@ -185,8 +185,8 @@ def build_root_parser(
     :returns: Configured argument parser.
     """
     parser = CliArgumentParser(
-        prog="pysnap",
-        usage="pysnap COMMAND [ARGUMENTS] | pysnap COMMAND --help",
+        prog="vboxlab",
+        usage="vboxlab COMMAND [ARGUMENTS] | vboxlab COMMAND --help",
         description=(
             "Manage VirtualBox appliance imports and linked clones for network "
             "labs: import images, clone and configure virtual machines, attach "
@@ -198,15 +198,15 @@ def build_root_parser(
         stderr=stderr,
     )
     parser.add_argument(
-        "-v", "--version", action="version", version=f"pysnap {__version__}",
-        help="show the PySnap version and exit",
+        "-v", "--version", action="version", version=f"vboxlab {__version__}",
+        help="show the VBoxLab version and exit",
     )
     return parser
 
 
 def run_cli(
     argv: Sequence[str] | None = None,
-    service: PySnapService | None = None,
+    service: VBoxLabService | None = None,
     stdout: TextIO | None = None,
     stderr: TextIO | None = None,
     stdin: TextIO | None = None,
@@ -221,7 +221,7 @@ def run_cli(
     :returns: Process exit code.
     """
     arguments = list(argv if argv is not None else sys.argv[1:])
-    app_service = service or PySnapService()
+    app_service = service or VBoxLabService()
     output = stdout or sys.stdout
     error_output = stderr or sys.stderr
     input_stream = stdin or sys.stdin
@@ -272,10 +272,10 @@ def run_cli(
             return _run_erase(arguments[1:], app_service, output, error_output)
         if command == "report":
             return run_report_command(arguments[1:], app_service, output, error_output)
-        root_parser.error("unknown command. Run `pysnap --help` to see available commands.")
+        root_parser.error("unknown command. Run `vboxlab --help` to see available commands.")
     except ParserExit as error:
         return error.status
-    except PySnapError as error:
+    except VBoxLabError as error:
         print(f"Error: {error}", file=error_output)
         return 1
 
@@ -293,7 +293,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def _run_list(
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
@@ -306,13 +306,13 @@ def _run_list(
     :returns: Process exit code.
     """
     parser = CliArgumentParser(
-        prog="pysnap list",
+        prog="vboxlab list",
         description=(
             "List the VirtualBox groups and the virtual machines in each group. "
             "VMs without a group are listed under /Others."
         ),
         epilog=_examples(
-            "pysnap list",
+            "vboxlab list",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -323,7 +323,7 @@ def _run_list(
     except CommandExecutionError:
         # ``VBoxManage list`` fails or times out when the VirtualBox data
         # directories are missing or corrupted, for example right after
-        # ``pysnap full-clean``. An empty listing is the correct answer for
+        # ``vboxlab full-clean``. An empty listing is the correct answer for
         # the user in that situation, so report the stub and exit cleanly.
         print(format_groups([]), file=stdout)
         return 0
@@ -333,7 +333,7 @@ def _run_list(
 
 def _run_show(
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
@@ -346,14 +346,14 @@ def _run_show(
     :returns: Process exit code.
     """
     parser = CliArgumentParser(
-        prog="pysnap show",
+        prog="vboxlab show",
         description=(
             "Show the name, group, serial TCP port (COM1) and, for linked "
-            "clones, the parent of a virtual machine, and how PySnap reaches its "
+            "clones, the parent of a virtual machine, and how VBoxLab reaches its "
             "guest: through the COM1 serial console or through ssh."
         ),
         epilog=_examples(
-            "pysnap show first",
+            "vboxlab show first",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -367,7 +367,7 @@ def _run_show(
 
 def _run_protosettings(
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
@@ -380,17 +380,17 @@ def _run_protosettings(
     :returns: Process exit code.
     """
     parser = CliArgumentParser(
-        prog="pysnap protosettings",
+        prog="vboxlab protosettings",
         description=(
             "Register a base VM whose linked clones get lab settings: NIC1 "
-            "stays on NAT, the internal networks of pysnap clone go to "
+            "stays on NAT, the internal networks of vboxlab clone go to "
             "NIC2-NIC4, and the clone name, serial port and networks are "
             "written into its DMI system information. These VMs and their clones "
             "are reached through the COM1 serial console; other VMs through ssh. "
             "The list of such base VMs is kept in ~/.ptotosettings."
         ),
         epilog=_examples(
-            "pysnap protosettings protocols-jeos-20251218-x86_64",
+            "vboxlab protosettings protocols-jeos-20251218-x86_64",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -409,7 +409,7 @@ def _run_protosettings(
 
 def _run_import(
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
@@ -422,15 +422,15 @@ def _run_import(
     :returns: Process exit code.
     """
     parser = CliArgumentParser(
-        prog="pysnap import",
+        prog="vboxlab import",
         description=(
             "Import an OVA or OVF appliance into VirtualBox. The imported VMs "
             "keep the group of the appliance or go to /Others. Nothing is "
             "created when a VM with the same name already exists."
         ),
         epilog=_examples(
-            "pysnap import image.ova",
-            "pysnap import image.ova RenamedVM",
+            "vboxlab import image.ova",
+            "vboxlab import image.ova RenamedVM",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -458,7 +458,7 @@ def _run_import(
 
 def _run_plug(
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
@@ -471,19 +471,19 @@ def _run_plug(
     :returns: Process exit code.
     """
     parser = CliArgumentParser(
-        prog="pysnap plug",
+        prog="vboxlab plug",
         description=(
-            "Prepare an existing VM for pysnap connect. A VM reached through the "
+            "Prepare an existing VM for vboxlab connect. A VM reached through the "
             "COM1 console gets COM1 (UART1) as a TCP server on a free port; a VM "
             "whose COM1 already is a TCP server is left unchanged, otherwise it "
             "must be stopped. A VM reached through ssh gets a rule on its NAT "
             "adapter that forwards a free port on 127.0.0.1 to port 22 of the "
-            "guest, on a stopped, running or paused VM. Use pysnap set for other "
+            "guest, on a stopped, running or paused VM. Use vboxlab set for other "
             "ports and adapters and to choose the access."
         ),
         epilog=_examples(
-            "pysnap plug MyVM",
-            "pysnap connect MyVM",
+            "vboxlab plug MyVM",
+            "vboxlab connect MyVM",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -497,7 +497,7 @@ def _run_plug(
 
 def _run_set(
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
@@ -510,11 +510,11 @@ def _run_set(
     :returns: Process exit code.
     """
     parser = CliArgumentParser(
-        prog="pysnap set",
+        prog="vboxlab set",
         description=(
             "Show or change the serial (COM) ports and network adapters of a VM: "
             "COM1-COM4, and NIC1-NIC8 or NIC1-NIC36 depending on the chipset of the "
-            "VM, and how PySnap reaches the guest. Without options the current "
+            "VM, and how VBoxLab reaches the guest. Without options the current "
             "settings are shown. Ports and adapters change only on a stopped VM; "
             "access and ssh-user can change at any time. All options are checked "
             "first and then applied together, so an invalid option changes "
@@ -536,11 +536,11 @@ def _run_set(
             "  ssh-user=NAME    guest user for ssh (default: root)\n"
             "\n"
             + _examples(
-                "pysnap set first",
-                "pysnap set first nic2=left nic3=right com2=server:link",
-                "pysnap set second nic2=left com2=client:link",
-                "pysnap set first com1=2330 nic4=off",
-                "pysnap set first access=ssh ssh-user=student",
+                "vboxlab set first",
+                "vboxlab set first nic2=left nic3=right com2=server:link",
+                "vboxlab set second nic2=left com2=client:link",
+                "vboxlab set first com1=2330 nic4=off",
+                "vboxlab set first access=ssh ssh-user=student",
             )
         ),
         stdout=stdout,
@@ -560,7 +560,7 @@ def _run_set(
 
 def _run_clone(
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
@@ -573,18 +573,18 @@ def _run_clone(
     :returns: Process exit code.
     """
     parser = CliArgumentParser(
-        prog="pysnap clone",
+        prog="vboxlab clone",
         description=(
             "Create a linked clone of a base VM in the same group. The clone "
             "gets COM1 as a TCP server and up to three internal networks on "
             "NIC2-NIC4, while NIC1 stays on NAT. A clone reached through ssh "
             "also gets a forwarded ssh port; only base VMs set to COM1 access "
-            "with pysnap set keep the old layout with networks on NIC1-NIC3. A "
+            "with vboxlab set keep the old layout with networks on NIC1-NIC3. A "
             "snapshot of the base VM is taken when it has none."
         ),
         epilog=_examples(
-            "pysnap clone base first",
-            "pysnap clone base first -p 2330 left right",
+            "vboxlab clone base first",
+            "vboxlab clone base first -p 2330 left right",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -604,7 +604,7 @@ def _run_clone(
         metavar="NETWORK",
         help="Internal network names in adapter order, at most three.",
     )
-    # ``pysnap clone BASE CLONE -p PORT NET...`` places an optional between
+    # ``vboxlab clone BASE CLONE -p PORT NET...`` places an optional between
     # positional groups. Plain ``parse_args`` supports this only from the
     # argparse shipped with Python 3.13, so intermixed parsing keeps the
     # documented syntax working on every supported interpreter.
@@ -623,7 +623,7 @@ def _run_clone(
 
 def _run_connect(
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
@@ -636,24 +636,24 @@ def _run_connect(
     :returns: Process exit code.
     """
     parser = CliArgumentParser(
-        prog="pysnap connect",
+        prog="vboxlab connect",
         description=(
-            "Start a VM in headless mode when needed and attach the PySnap "
+            "Start a VM in headless mode when needed and attach the VBoxLab "
             "terminal to its serial console (COM1) or, for VMs reached through "
-            "ssh (see pysnap show), to an ssh login shell. All keys go to the "
-            "guest except Ctrl-], which starts a PySnap command: q detaches "
+            "ssh (see vboxlab show), to an ssh login shell. All keys go to the "
+            "guest except Ctrl-], which starts a VBoxLab command: q detaches "
             "without stopping the VM, Up/Down/PgUp/PgDn/Home/End scroll the local "
             "history, Ctrl-] sends Ctrl-] itself and Esc goes back. Text selected "
             "with the mouse is copied to the host clipboard when the button is "
             "released; the mouse wheel scrolls the local history, or sends cursor "
             "keys to full-screen programs such as less and vim. A paused VM can "
             "be attached through COM1: keys wait until "
-            "pysnap resume. Over ssh, PySnap waits for the guest ssh server, "
+            "vboxlab resume. Over ssh, VBoxLab waits for the guest ssh server, "
             "installs its key on the first connect when the guest refuses it "
-            "(see pysnap ssh-key) and ends the session when the login shell exits."
+            "(see vboxlab ssh-key) and ends the session when the login shell exits."
         ),
         epilog=_examples(
-            "pysnap connect first",
+            "vboxlab connect first",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -677,14 +677,14 @@ def _run_docs(
     :returns: Process exit code.
     """
     parser = CliArgumentParser(
-        prog="pysnap docs",
+        prog="vboxlab docs",
         description=(
-            "Open the HTML documentation bundled with PySnap in a web browser "
+            "Open the HTML documentation bundled with VBoxLab in a web browser "
             "(firefox unless --browser names another one)."
         ),
         epilog=_examples(
-            "pysnap docs",
-            "pysnap docs --browser chromium",
+            "vboxlab docs",
+            "vboxlab docs --browser chromium",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -701,7 +701,7 @@ def _run_docs(
 
 def _run_monitor(
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
@@ -714,16 +714,16 @@ def _run_monitor(
     :returns: Process exit code.
     """
     parser = CliArgumentParser(
-        prog="pysnap monitor",
+        prog="vboxlab monitor",
         description=(
             "List the virtual machines that are not stopped, with their state, "
             "port and group; the port is the COM1 TCP port or ssh:PORT for VMs "
-            "reached through ssh. States: Working (a pysnap connect "
+            "reached through ssh. States: Working (a vboxlab connect "
             "session is attached), Active (running without a session), Paused, "
             "Stopping, Changing and Error."
         ),
         epilog=_examples(
-            "pysnap monitor",
+            "vboxlab monitor",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -735,7 +735,7 @@ def _run_monitor(
 
 def _run_stop(
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
@@ -748,15 +748,15 @@ def _run_stop(
     :returns: Process exit code.
     """
     parser = CliArgumentParser(
-        prog="pysnap stop",
+        prog="vboxlab stop",
         description=(
             "Shut a VM down through the ACPI power button and wait until it "
             "stops. A paused VM is resumed first, because a paused guest "
             "ignores the power button. Give either a VM name or --all."
         ),
         epilog=_examples(
-            "pysnap stop first",
-            "pysnap stop --all",
+            "vboxlab stop first",
+            "vboxlab stop --all",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -783,7 +783,7 @@ def _run_stop(
 
 def _run_ssh_key(
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
@@ -796,13 +796,13 @@ def _run_ssh_key(
     :returns: Process exit code.
     """
     parser = CliArgumentParser(
-        prog="pysnap ssh-key",
+        prog="vboxlab ssh-key",
         description=(
-            "Install the PySnap ssh key in a running guest, so that ssh "
-            "connections need no password. PySnap keeps its own key pair in "
+            "Install the VBoxLab ssh key in a running guest, so that ssh "
+            "connections need no password. VBoxLab keeps its own key pair in "
             "~/.pysnap/ssh (pysnap_vm_access_ed25519) and never touches ~/.ssh.\n\n"
             "By default ssh logs in with the password of USER (the ssh user of "
-            "the VM, see pysnap set ssh-user) in this terminal and adds the key "
+            "the VM, see vboxlab set ssh-user) in this terminal and adds the key "
             "for that user; then the guest asks for the root password to add it "
             "for root too, which may be skipped with Enter. Many systems refuse "
             "a root password over ssh, so log in as an ordinary user with --user.\n\n"
@@ -813,9 +813,9 @@ def _run_ssh_key(
             "can, the ssh user of the VM is switched to USER."
         ),
         epilog=_examples(
-            "pysnap ssh-key first",
-            "pysnap ssh-key first --user student",
-            "pysnap ssh-key first --console",
+            "vboxlab ssh-key first",
+            "vboxlab ssh-key first --user student",
+            "vboxlab ssh-key first --console",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -830,8 +830,8 @@ def _run_ssh_key(
     namespace = parser.parse_args(list(arguments))
     result = service.setup_ssh_key(namespace.vm, namespace.user, console=namespace.console)
     if result.already_installed:
-        print(f"The PySnap key already works for {result.users[0]}.", file=stdout)
-    print(f"PySnap key works for: {', '.join(result.users)}", file=stdout)
+        print(f"The VBoxLab key already works for {result.users[0]}.", file=stdout)
+    print(f"VBoxLab key works for: {', '.join(result.users)}", file=stdout)
     if result.changed_user:
         print(f"ssh user of {result.vm_name} set to {result.ssh_user}.", file=stdout)
     return 0
@@ -840,7 +840,7 @@ def _run_ssh_key(
 def _run_pause_resume(
     command: str,
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
@@ -855,17 +855,17 @@ def _run_pause_resume(
     """
     pausing = command == "pause"
     parser = CliArgumentParser(
-        prog=f"pysnap {command}",
+        prog=f"vboxlab {command}",
         description=(
             "Pause a running VM. It stays in memory and is shown as Paused in "
-            "pysnap monitor until pysnap resume; nothing is written to disk. An "
-            "attached pysnap connect session stays open and holds keys back. "
+            "vboxlab monitor until vboxlab resume; nothing is written to disk. An "
+            "attached vboxlab connect session stays open and holds keys back. "
             "Give either a VM name or --all."
             if pausing
-            else "Resume a paused VM; an attached pysnap connect session takes "
+            else "Resume a paused VM; an attached vboxlab connect session takes "
             "keys again. Give either a VM name or --all."
         ),
-        epilog=_examples(f"pysnap {command} first", f"pysnap {command} --all"),
+        epilog=_examples(f"vboxlab {command} first", f"vboxlab {command} --all"),
         stdout=stdout,
         stderr=stderr,
     )
@@ -898,7 +898,7 @@ def _run_pause_resume(
 
 def _run_erase(
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
@@ -911,7 +911,7 @@ def _run_erase(
     :returns: Process exit code.
     """
     parser = CliArgumentParser(
-        prog="pysnap erase",
+        prog="vboxlab erase",
         description=(
             "Unregister virtual machines and delete their files. A base VM is "
             "not deleted while linked clones outside the selection depend on "
@@ -919,9 +919,9 @@ def _run_erase(
             "a VM name, --all or --group."
         ),
         epilog=_examples(
-            "pysnap erase first",
-            "pysnap erase --group /Lab",
-            "pysnap erase --clones-only --all",
+            "vboxlab erase first",
+            "vboxlab erase --group /Lab",
+            "vboxlab erase --clones-only --all",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -934,7 +934,7 @@ def _run_erase(
     parser.add_argument(
         "--clones-only",
         action="store_true",
-        help="Delete only linked clones made by pysnap clone and keep base VMs.",
+        help="Delete only linked clones made by vboxlab clone and keep base VMs.",
     )
     namespace = parser.parse_args(list(arguments))
 
@@ -976,7 +976,7 @@ def _default_virtualbox_directories() -> tuple[Path, ...]:
     An explicit ``VBOX_USER_HOME`` environment variable overrides the
     configuration directory on every platform.
 
-    :returns: Directories removed by ``pysnap full-clean`` by default.
+    :returns: Directories removed by ``vboxlab full-clean`` by default.
     """
     machine_folder = Path.home() / "VirtualBox VMs"
     vbox_user_home = os.environ.get("VBOX_USER_HOME")
@@ -1006,7 +1006,7 @@ def _read_confirmation(prompt: str, stdout: TextIO, stdin: TextIO) -> str:
 
 def _run_full_clean(
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
     stdin: TextIO,
@@ -1021,14 +1021,14 @@ def _run_full_clean(
     :returns: Process exit code.
     """
     parser = CliArgumentParser(
-        prog="pysnap full-clean",
+        prog="vboxlab full-clean",
         description=(
             "Permanently delete the VirtualBox machine directory (~/VirtualBox "
             "VMs) and the VirtualBox configuration directory of this system "
             "(VBOX_USER_HOME overrides it). Two confirmations are asked first. "
             "Stop VirtualBox and all VMs before running this."
         ),
-        epilog=_examples("pysnap full-clean", "pysnap full-clean --path /data/vms"),
+        epilog=_examples("vboxlab full-clean", "vboxlab full-clean --path /data/vms"),
         stdout=stdout,
         stderr=stderr,
     )
@@ -1078,7 +1078,7 @@ def _run_full_clean(
 
 def _run_integration_test(
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
@@ -1091,14 +1091,14 @@ def _run_integration_test(
     :returns: Process exit code.
     """
     parser = CliArgumentParser(
-        prog="pysnap --integration-test",
+        prog="vboxlab --integration-test",
         description=(
             "Run the end-to-end check on a real VirtualBox: import the appliance, "
             "create three linked clones in a triangle of internal networks, start "
-            "and attach to them, check pysnap monitor and delete everything "
+            "and attach to them, check vboxlab monitor and delete everything "
             "created."
         ),
-        epilog=_examples("pysnap --integration-test image.ova"),
+        epilog=_examples("vboxlab --integration-test image.ova"),
         stdout=stdout,
         stderr=stderr,
     )

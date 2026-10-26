@@ -1,1 +1,1 @@
-"""Core business logic package for PySnap."""
+"""Core business logic package for VBoxLab."""

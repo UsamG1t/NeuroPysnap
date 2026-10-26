@@ -1,4 +1,4 @@
-"""Tests for extracting reports through an attached ``pysnap connect``."""
+"""Tests for extracting reports through an attached ``vboxlab connect``."""
 
 from __future__ import annotations
 

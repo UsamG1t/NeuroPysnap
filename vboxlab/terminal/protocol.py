@@ -14,7 +14,7 @@ class TerminalQueryResponder:
     """Recognize terminal queries and synthesize compatible replies.
 
     Raw serial consoles do not provide a PTY-style ``SIGWINCH`` channel into
-    the guest system. PySnap therefore acts like a small terminal emulator and
+    the guest system. VBoxLab therefore acts like a small terminal emulator and
     replies to xterm-compatible size queries that guest-side tools may emit.
     """
 

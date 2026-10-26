@@ -1,4 +1,4 @@
-"""``pysnap report`` subcommands."""
+"""``vboxlab report`` subcommands."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ import re
 import shutil
 from typing import Sequence, TextIO
 
-from vboxlab.core.service import PySnapService
-from vboxlab.errors import PySnapError, ReportFormatError
+from vboxlab.core.service import VBoxLabService
+from vboxlab.errors import VBoxLabError, ReportFormatError
 from vboxlab.report.highlight import highlight_transcript
 from vboxlab.report.models import (
     CellStyle,
@@ -44,7 +44,7 @@ _RESET = "\x1b[0m"
 
 
 def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentParser:
-    """Build the ``pysnap report`` parser with its subcommands.
+    """Build the ``vboxlab report`` parser with its subcommands.
 
     :param stdout: Stream used for help output.
     :param stderr: Stream used for parser errors.
@@ -55,7 +55,7 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
     from vboxlab.cli.app import CliArgumentParser, _examples
 
     parser = CliArgumentParser(
-        prog="pysnap report",
+        prog="vboxlab report",
         description=(
             "Read session reports (report.NN.HOST archives) recorded by the "
             "report utility inside the lab VMs. Reports are read safely: nothing "
@@ -63,11 +63,11 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
             "as a raw control sequence."
         ),
         epilog=(
-            'Run "pysnap report SUBCOMMAND --help" for the arguments of a subcommand.\n\n'
+            'Run "vboxlab report SUBCOMMAND --help" for the arguments of a subcommand.\n\n'
             + _examples(
-                "pysnap report text report.01.first",
-                "pysnap report check report.01.first lab01-first.check.toml",
-                "pysnap report compare reports/",
+                "vboxlab report text report.01.first",
+                "vboxlab report check report.01.first lab01-first.check.toml",
+                "vboxlab report compare reports/",
             )
         ),
         stdout=stdout,
@@ -87,9 +87,9 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
             "PgUp/PgDn and Home/End jump, q quits."
         ),
         epilog=_examples(
-            "pysnap report text report.01.first",
-            "pysnap report text report.01.first --commands",
-            "pysnap report text report.01.first --color never --no-pager > first.txt",
+            "vboxlab report text report.01.first",
+            "vboxlab report text report.01.first --commands",
+            "vboxlab report text report.01.first --color never --no-pager > first.txt",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -123,8 +123,8 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
             "and grade the report."
         ),
         epilog=_examples(
-            "pysnap report check report.01.first",
-            "pysnap report check report.01.first lab01-first.check.toml",
+            "vboxlab report check report.01.first",
+            "vboxlab report check report.01.first lab01-first.check.toml",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -150,8 +150,8 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
             "listed first with their signals, other pairs as OK."
         ),
         epilog=_examples(
-            "pysnap report compare reports/",
-            "pysnap report compare ivanov/report.01.first petrov/report.01.first",
+            "vboxlab report compare reports/",
+            "vboxlab report compare ivanov/report.01.first petrov/report.01.first",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -165,18 +165,18 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
         help="Copy a report file from a running VM through its console or ssh.",
         description=(
             "Copy a file from a running VM to the host. A VM reached through ssh "
-            "is read through a separate ssh session with the PySnap key (see "
-            "pysnap ssh-key); the student's terminal is not touched. Other VMs "
+            "is read through a separate ssh session with the VBoxLab key (see "
+            "vboxlab ssh-key); the student's terminal is not touched. Other VMs "
             "use the UART1 serial console: it must be at a shell prompt, without "
-            "a running report recording, and an attached pysnap connect session "
+            "a running report recording, and an attached vboxlab connect session "
             "runs the transfer on its own connection. A name without / is looked "
             "up only in the home directory of the user logged in on the console, "
-            "or of the ssh user of the VM (pysnap set VM ssh-user=NAME, root by "
+            "or of the ssh user of the VM (vboxlab set VM ssh-user=NAME, root by "
             "default); give the full path for a report of another user."
         ),
         epilog=_examples(
-            "pysnap report extract first report.01.first",
-            "pysnap report extract first /tmp/report.03.pc1 --output reports/pc1 --force",
+            "vboxlab report extract first report.01.first",
+            "vboxlab report extract first /tmp/report.03.pc1 --output reports/pc1 --force",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -205,8 +205,8 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
             "q quit; while paused Alt+Up/Down scroll the history."
         ),
         epilog=_examples(
-            "pysnap report show report.01.first",
-            "pysnap report show report.01.first --speed 4 --max-delay 0.5",
+            "vboxlab report show report.01.first",
+            "vboxlab report show report.01.first --speed 4 --max-delay 0.5",
         ),
         stdout=stdout,
         stderr=stderr,
@@ -234,11 +234,11 @@ def build_report_parser(stdout: TextIO, stderr: TextIO) -> argparse.ArgumentPars
 
 def run_report_command(
     arguments: Sequence[str],
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
-    """Run ``pysnap report``.
+    """Run ``vboxlab report``.
 
     :param arguments: Arguments after ``report``.
     :param service: Application service.
@@ -261,7 +261,7 @@ def run_report_command(
 
 
 def _run_compare(namespace: argparse.Namespace, stdout: TextIO, stderr: TextIO) -> int:
-    """Run ``pysnap report compare``.
+    """Run ``vboxlab report compare``.
 
     :param namespace: Parsed arguments.
     :param stdout: Output stream.
@@ -317,11 +317,11 @@ def _plural(count: int, noun: str) -> str:
 
 def _run_extract(
     namespace: argparse.Namespace,
-    service: PySnapService,
+    service: VBoxLabService,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
-    """Run ``pysnap report extract``.
+    """Run ``vboxlab report extract``.
 
     :param namespace: Parsed arguments.
     :param service: Application service.
@@ -343,13 +343,13 @@ def _run_extract(
     )
     try:
         load_report(result.destination)
-    except PySnapError as error:
+    except VBoxLabError as error:
         print(f"Warning: the file is not a readable report: {error}", file=stderr)
     return 0
 
 
 def _run_check(namespace: argparse.Namespace, stdout: TextIO) -> int:
-    """Run ``pysnap report check``.
+    """Run ``vboxlab report check``.
 
     :param namespace: Parsed arguments.
     :param stdout: Output stream.
@@ -536,7 +536,7 @@ def _format_share(value: float | None) -> str:
 
 
 def _run_text(namespace: argparse.Namespace, stdout: TextIO, stderr: TextIO) -> int:
-    """Run ``pysnap report text``.
+    """Run ``vboxlab report text``.
 
     :param namespace: Parsed arguments.
     :param stdout: Output stream.
@@ -564,18 +564,18 @@ def _run_text(namespace: argparse.Namespace, stdout: TextIO, stderr: TextIO) -> 
 
 
 def _run_show(namespace: argparse.Namespace, stdout: TextIO, stderr: TextIO) -> int:
-    """Run ``pysnap report show``.
+    """Run ``vboxlab report show``.
 
     :param namespace: Parsed arguments.
     :param stdout: Output stream.
     :param stderr: Error stream.
     :returns: Process exit code.
-    :raises PySnapError: When the output is not an interactive terminal.
+    :raises VBoxLabError: When the output is not an interactive terminal.
     """
     if not _is_terminal(stdout):
-        raise PySnapError(
-            "pysnap report show needs an interactive terminal; "
-            "use pysnap report text for redirected output."
+        raise VBoxLabError(
+            "vboxlab report show needs an interactive terminal; "
+            "use vboxlab report text for redirected output."
         )
     recording = load_report(namespace.report)
     transcript = render_transcript(recording)

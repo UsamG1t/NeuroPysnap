@@ -1,7 +1,7 @@
 Architecture
 ============
 
-PySnap is organized into a few focused packages.
+VBoxLab is organized into a few focused packages.
 
 Package Layout
 --------------
@@ -9,7 +9,7 @@ Package Layout
 - ``vboxlab.cli`` contains argument parsing and terminal output formatting.
 - ``vboxlab.config`` contains persistent configuration helpers.
 - ``vboxlab.core`` contains domain models and the main application service.
-- ``pysnap/docs`` stores compiled HTML documentation bundled with the wheel.
+- ``vboxlab/docs`` stores compiled HTML documentation bundled with the wheel.
 - ``vboxlab.report`` reads session reports recorded inside VMs by the
   ``report`` utility: safe archive loading, parsing of the ``script``
   recording, rendering of the session text and commands, timed replay and
@@ -26,7 +26,7 @@ Package Relationship Diagram
 .. only:: graphviz
 
    .. graphviz::
-      :caption: High-level relationships between PySnap packages.
+      :caption: High-level relationships between VBoxLab packages.
 
       digraph package_relationships {
           rankdir=LR;
@@ -60,7 +60,7 @@ Execution Flow
 --------------
 
 1. The CLI entry point parses command line arguments.
-2. ``PySnapService`` validates the request and coordinates the workflow.
+2. ``VBoxLabService`` validates the request and coordinates the workflow.
 3. ``VBoxManageClient`` executes VirtualBox commands.
 4. Parser helpers convert command output into Python models.
 5. ``SessionRegistry`` tracks active terminal attachments across processes.
@@ -71,10 +71,10 @@ Execution Flow
 Metadata Strategy
 -----------------
 
-PySnap stores management metadata in VirtualBox extra data entries with the
+VBoxLab stores management metadata in VirtualBox extra data entries with the
 ``pysnap/`` prefix. These values are used to:
 
-- mark imported and cloned VMs as managed by PySnap
+- mark imported and cloned VMs as managed by VBoxLab
 - record clone ancestry
 - support dependency checks before erase operations
 - select linked clones for ``erase --clones-only`` without a separate registry
@@ -82,7 +82,7 @@ PySnap stores management metadata in VirtualBox extra data entries with the
 Serial Port Strategy
 --------------------
 
-PySnap uses ``UART1`` for the serial TCP endpoint of clones. If no explicit
+VBoxLab uses ``UART1`` for the serial TCP endpoint of clones. If no explicit
 port is supplied, the service automatically assigns ``max(used_ports) + 1`` or
 ``1024`` when no TCP serial port has been configured yet.
 
@@ -93,7 +93,7 @@ When needed, the selected TCP port must be available both in VirtualBox and on
 the host system.
 
 Automatic allocation counts the TCP servers of all four serial ports and the
-forwarded ssh ports of all VMs as used. ``pysnap set`` reads ``COM1``-``COM4`` and every network adapter
+forwarded ssh ports of all VMs as used. ``vboxlab set`` reads ``COM1``-``COM4`` and every network adapter
 of the VM from ``showvminfo``; the adapter count of its chipset comes from
 ``VBoxManage list systemproperties`` (8 for PIIX3 and 36 for ICH9 when it is
 not reported). It validates every option and TCP port before changing anything,
@@ -101,19 +101,19 @@ and applies the result with one ``modifyvm`` call using the standard PC
 resources of each COM port. Host pipes are named by a short name that is
 mapped to the host's pipe path format.
 
-During ``pysnap connect``, PySnap continuously tracks the outer terminal size
+During ``vboxlab connect``, VBoxLab continuously tracks the outer terminal size
 and resizes the local emulator to the current visible guest area. Because raw
-serial TCP does not offer a PTY-style ``SIGWINCH`` path into the guest, PySnap
+serial TCP does not offer a PTY-style ``SIGWINCH`` path into the guest, VBoxLab
 also replies to xterm-compatible in-band terminal queries such as ``CSI 18 t``
 and ``CSI 6 n`` so guest-side Linux tools can rediscover the current geometry.
 
 Terminal Selection Strategy
 ---------------------------
 
-Mouse selection in ``pysnap connect`` copies the text to the host clipboard
+Mouse selection in ``vboxlab connect`` copies the text to the host clipboard
 when the button is released: many terminal emulators keep ``Ctrl-Shift-C``
 for their own copy command and never pass it on. Where it does arrive,
-``Ctrl-Shift-C`` and ``Ctrl-C`` are the same ``ETX`` byte, so PySnap resolves
+``Ctrl-Shift-C`` and ``Ctrl-C`` are the same ``ETX`` byte, so VBoxLab resolves
 the chord by selection state: with a selected text it copies again, without
 one it forwards a real interrupt to the guest. Incoming guest output drops
 only the visible highlight and keeps the selected text.
@@ -121,7 +121,7 @@ only the visible highlight and keeps the selected text.
 Key Strategy
 ------------
 
-Every key goes to the guest except ``Ctrl-]``, the PySnap command prefix
+Every key goes to the guest except ``Ctrl-]``, the VBoxLab command prefix
 borrowed from ``telnet``: editors need ``Esc``, ``Ctrl-L``, ``Ctrl-Q`` and
 ``Alt`` combinations, which earlier versions used for detaching, redrawing
 and scrolling. A ``Condition`` filter enables the command bindings (``q``,
@@ -138,9 +138,9 @@ switched DECCKM on.
 Proto Settings Strategy
 -----------------------
 
-PySnap stores proto-settings base VM names in ``Path.home() / ".ptotosettings"``
+VBoxLab stores proto-settings base VM names in ``Path.home() / ".ptotosettings"``
 with one VM name per line. When a clone is created from a registered base VM,
-PySnap writes additional DMI settings through ``VBoxManage setextradata``:
+VBoxLab writes additional DMI settings through ``VBoxManage setextradata``:
 
 - ``DmiSystemVendor = <CloneVM>``
 - ``DmiSystemSKU = port<Port>[.<net1>[.<net2>[.<net3>]]]``
@@ -164,11 +164,11 @@ ssh Strategy
 ------------
 
 ``vboxlab.ssh`` runs the system OpenSSH client instead of a Python ssh library,
-so PySnap gains no dependency. Every call uses ``-F`` with the null device (no
-user configuration), the PySnap key with ``IdentitiesOnly`` and no agent, the
+so VBoxLab gains no dependency. Every call uses ``-F`` with the null device (no
+user configuration), the VBoxLab key with ``IdentitiesOnly`` and no agent, the
 known_hosts file of the VM with ``StrictHostKeyChecking=accept-new`` and batch
 mode, so a missing key fails instead of asking for a password. Only
-``pysnap ssh-key`` runs ssh with password login in the user's terminal; its
+``vboxlab ssh-key`` runs ssh with password login in the user's terminal; its
 guest script appends the key to ``~/.ssh/authorized_keys`` unless it is there
 and then runs the same for root through ``su``. Whether the key works is
 decided afterwards by key logins, not by parsing the dialogue. Interactive
@@ -181,23 +181,23 @@ The serial transport opens the ``UART1`` TCP connection; the ssh transport
 starts ``ssh -tt``, merges its error output into the stream and terminates the
 process on close. Before an ssh session the service checks the key login
 (``prepare_ssh_terminal``): it waits for a booting guest, and a refused key
-starts the same key setup as ``pysnap ssh-key``. Features of the serial
+starts the same key setup as ``vboxlab ssh-key``. Features of the serial
 console only (the waking newline, the silence hint, the report control
 channel) run only for the serial transport.
 
 Runtime State Strategy
 ----------------------
 
-PySnap translates raw VirtualBox runtime states into compact monitor labels:
+VBoxLab translates raw VirtualBox runtime states into compact monitor labels:
 
-- ``Working`` for running VMs with an active PySnap terminal session
-- ``Active`` for running VMs without an attached PySnap terminal session
+- ``Working`` for running VMs with an active VBoxLab terminal session
+- ``Active`` for running VMs without an attached VBoxLab terminal session
 - ``Stopping`` for graceful shutdown in progress
 - ``Changing`` for startup and other transitional states
 - ``Paused`` for paused VMs
 - ``Error`` for explicit error-like VirtualBox states
 
-A ``pysnap connect`` session ends on every label except ``Working``,
+A ``vboxlab connect`` session ends on every label except ``Working``,
 ``Active`` and ``Paused``. ``PauseTracker`` follows pause and resume: while
 paused, keys are not forwarded, and a session that started on a paused VM
 wakes the console after the resume only when no guest output arrived yet.
@@ -208,7 +208,7 @@ Host Cleanup Strategy
 The ``full-clean`` command removes the VirtualBox machine folder and the
 platform-specific configuration directory directly from the host file system
 through ``shutil.rmtree``. The CLI layer owns the double confirmation dialog,
-while ``PySnapService.full_clean`` performs the removal and reports partial
+while ``VBoxLabService.full_clean`` performs the removal and reports partial
 failures. The ``VBOX_USER_HOME`` environment variable overrides the detected
 configuration directory, and the repeated ``--path`` option replaces the
 default selection entirely.
@@ -218,7 +218,7 @@ Listing Robustness Strategy
 
 ``VBoxManage list`` can block indefinitely when the VirtualBox configuration
 directory is missing while a stale ``VBoxSVC`` process is still running, for
-example right after ``pysnap full-clean``. ``VBoxManageClient`` therefore runs
+example right after ``vboxlab full-clean``. ``VBoxManageClient`` therefore runs
 the ``list`` commands with a bounded timeout and reports expired timeouts as
 regular command errors. The ``list`` CLI command translates such failures into
 an empty listing, so the user sees ``No virtual machines found.`` instead of a
@@ -277,7 +277,7 @@ rows, is read at that moment. ``Ctrl-C``, ``Ctrl-D`` and ``Ctrl-Z`` abandon
 the current input line. Keys typed ahead while a program was running are
 skipped by starting the command after the last ``report`` prompt in the line.
 
-``pysnap report text`` highlights the ``report`` prompt parts and the
+``vboxlab report text`` highlights the ``report`` prompt parts and the
 entered commands, keeps the colors produced by the guest, and emits ANSI
 styles only for terminals unless ``--color`` says otherwise. The styles are
 generated from the parsed cell attributes, never copied from the report.
@@ -287,7 +287,7 @@ Report Viewing Strategy
 
 ``vboxlab.report.highlight`` turns a transcript into styled runs with the
 highlighted ``report`` prompt and bold commands; the ANSI printer of
-``pysnap report text`` and the pager both draw these runs. The pager opens
+``vboxlab report text`` and the pager both draw these runs. The pager opens
 only when the output is a terminal and the text is longer than the screen.
 A report is an image of a fixed-width terminal, so the pager cuts long lines
 at the window edge like ``less -S`` instead of wrapping them: tables such as
@@ -302,13 +302,13 @@ seconds, like ``scriptreplay -m``. Seeking backwards replays from the start.
 that the key bindings change. ``vboxlab.report.viewer`` draws the player in a
 full-screen window at the recorded size; when the window is smaller, the view
 is clipped around the cursor and the status line says so. Both viewers reuse
-the scrollable control and mouse-wheel handling of ``pysnap connect``.
+the scrollable control and mouse-wheel handling of ``vboxlab connect``.
 
 Report Statistics Strategy
 --------------------------
 
 ``vboxlab.report.stats`` derives the information block of
-``pysnap report check`` from the report alone. Commands, their prompts and
+``vboxlab report check`` from the report alone. Commands, their prompts and
 their input events come from the rendered transcript; keystrokes are counted
 by splitting input chunks into keys, because the serial console may deliver
 two fast keys in one chunk and an escape sequence such as an arrow key is a
@@ -342,11 +342,11 @@ Report Transfer Strategy
 ------------------------
 
 For a VM reached through ssh, ``vboxlab.report.extract`` runs one batch-mode
-ssh command with the PySnap key: ``sh -c`` checks that the file is readable
+ssh command with the VBoxLab key: ``sh -c`` checks that the file is readable
 (exit status 3 otherwise), prints its ``sha256sum`` and then at most one byte
 more than the size limit of the file with ``head -c``. The host splits the
 first line off, checks the size and the checksum and writes the file
-atomically. This session is independent of ``pysnap connect``, so the session
+atomically. This session is independent of ``vboxlab connect``, so the session
 registry and the control channel are not used.
 
 For other VMs ``vboxlab.report.extract`` reuses the ``UART1`` TCP endpoint of
@@ -360,11 +360,11 @@ command so that the echo of the command never looks like a marker. The host
 verifies the checksum and writes the file atomically. The ``report`` prompt is
 detected before any command is sent, so a running recording is never modified.
 
-While ``pysnap connect`` is attached, the port is taken, so the terminal
+While ``vboxlab connect`` is attached, the port is taken, so the terminal
 session also serves a control channel (``vboxlab.report.control``): it listens
 on ``127.0.0.1`` on a random port and stores the port and a random secret in
 its session record, which is readable only by the current user.
-``pysnap report extract`` sends one JSON line with the secret and the quoted
+``vboxlab report extract`` sends one JSON line with the secret and the quoted
 path; the session runs the same protocol through a ``QueueConsole`` fed by
 its serial reader, pauses keyboard input meanwhile, and answers with the file
 as ``base64`` and its checksum, which the client verifies again. One transfer
@@ -390,7 +390,7 @@ Invisible Character Strategy
 ``pyte`` stops drawing the rest of an output chunk at the first character
 without width that is not a combining mark, such as U+200B or U+202E. The
 ``TerminalEmulator`` therefore replaces such characters before drawing: the
-live ``pysnap connect`` terminal skips them like a regular terminal does,
+live ``vboxlab connect`` terminal skips them like a regular terminal does,
 while report views show them as ``?`` so that hidden characters in a student
 report stay visible to the reader.
 
@@ -437,6 +437,6 @@ Documentation Packaging Strategy
 --------------------------------
 
 Sphinx builds the HTML documentation into ``docs/_build/html``. During wheel
-packaging, ``doit`` copies that compiled tree into ``pysnap/docs`` so the
-installed package can open its own local documentation through ``pysnap docs``
+packaging, ``doit`` copies that compiled tree into ``vboxlab/docs`` so the
+installed package can open its own local documentation through ``vboxlab docs``
 without requiring Sphinx at runtime.

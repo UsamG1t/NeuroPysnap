@@ -1,1 +1,1 @@
-"""Terminal interface components for PySnap."""
+"""Terminal interface components for VBoxLab."""

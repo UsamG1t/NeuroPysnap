@@ -1,4 +1,4 @@
-"""Unit tests for the PySnap CLI."""
+"""Unit tests for the VBoxLab CLI."""
 
 from __future__ import annotations
 
@@ -198,7 +198,7 @@ class CliTests(unittest.TestCase):
         exit_code = run_cli([], service=FakeService(), stdout=stdout, stderr=stderr)
 
         self.assertEqual(exit_code, 0)
-        self.assertIn("usage: pysnap", stdout.getvalue())
+        self.assertIn("usage: vboxlab", stdout.getvalue())
         self.assertEqual("", stderr.getvalue())
 
     def test_help_flag_is_shown_without_error(self) -> None:
@@ -503,7 +503,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual("", stderr.getvalue())
 
     def test_plug_command_configures_vm_for_connection(self) -> None:
-        """Prepare one VM for PySnap serial-console connections."""
+        """Prepare one VM for VBoxLab serial-console connections."""
         service = FakeService()
         stdout = io.StringIO()
         stderr = io.StringIO()
@@ -648,8 +648,8 @@ class HelpTests(unittest.TestCase):
         self.assertEqual(len(names), len(set(names)))
         for name in names:
             self.assertRegex(text, rf"\n  {re.escape(name)} +\S")
-        self.assertIn('Run "pysnap COMMAND --help"', text)
-        self.assertNotIn("pysnap report text REPORT", text)
+        self.assertIn('Run "vboxlab COMMAND --help"', text)
+        self.assertNotIn("vboxlab report text REPORT", text)
 
     def test_root_help_lists_every_dispatched_command(self) -> None:
         """Keep the root list in line with the commands run_cli dispatches."""
@@ -676,10 +676,10 @@ class HelpTests(unittest.TestCase):
             with self.subTest(command=" ".join(arguments)):
                 code, text = self._help(*arguments)
                 self.assertEqual(code, 0)
-                self.assertTrue(text.startswith(f"usage: pysnap {' '.join(arguments)}"), text[:80])
+                self.assertTrue(text.startswith(f"usage: vboxlab {' '.join(arguments)}"), text[:80])
                 description = text.split("\n\n")[1]
                 self.assertGreater(len(description), 40)
-                self.assertIn("Examples:\n  pysnap ", text)
+                self.assertIn("Examples:\n  vboxlab ", text)
 
     def test_version_flag(self) -> None:
         """Print the package version with -v and --version."""
@@ -689,7 +689,7 @@ class HelpTests(unittest.TestCase):
             with self.subTest(flag=flag):
                 stdout = io.StringIO()
                 code = run_cli([flag], service=FakeService(), stdout=stdout, stderr=io.StringIO())
-                self.assertEqual((code, stdout.getvalue()), (0, f"pysnap {__version__}\n"))
+                self.assertEqual((code, stdout.getvalue()), (0, f"vboxlab {__version__}\n"))
         self.assertIn("-v, --version", self._help()[1])
 
     def test_unknown_command_points_to_help(self) -> None:
@@ -697,7 +697,7 @@ class HelpTests(unittest.TestCase):
         stderr = io.StringIO()
         code = run_cli(["frobnicate"], service=FakeService(), stdout=io.StringIO(), stderr=stderr)
         self.assertEqual(code, 2)
-        self.assertIn("pysnap --help", stderr.getvalue())
+        self.assertIn("vboxlab --help", stderr.getvalue())
 
 
 if __name__ == "__main__":

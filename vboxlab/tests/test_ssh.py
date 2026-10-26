@@ -1,4 +1,4 @@
-"""Tests for the PySnap ssh key, the ssh client and ssh-key setup."""
+"""Tests for the VBoxLab ssh key, the ssh client and ssh-key setup."""
 
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ import unittest
 from vboxlab.cli.app import run_cli
 from vboxlab.config.protosettings import ProtoSettingsStore
 from vboxlab.core.access import ACCESS_KEY, SSH_USER_KEY
-from vboxlab.core.service import PySnapService
-from vboxlab.errors import PySnapError
+from vboxlab.core.service import VBoxLabService
+from vboxlab.errors import VBoxLabError
 from vboxlab.ssh import client as ssh_client
 from vboxlab.ssh.client import SshTarget, install_script, ssh_command
 from vboxlab.ssh.keys import KEY_NAME, SshKeyStore
@@ -33,7 +33,7 @@ HAVE_OPENSSH = bool(shutil.which("ssh") and shutil.which("ssh-keygen"))
 
 
 class KeyStoreTests(unittest.TestCase):
-    """Verify the PySnap key pair and known_hosts files."""
+    """Verify the VBoxLab key pair and known_hosts files."""
 
     def setUp(self) -> None:
         self._temp_dir = tempfile.TemporaryDirectory()
@@ -60,20 +60,20 @@ class KeyStoreTests(unittest.TestCase):
         """Refuse a half pair, a non-directory root and symlinks."""
         self.root.mkdir(mode=0o700)
         (self.root / KEY_NAME).write_text("someone else's key")
-        with self.assertRaisesRegex(PySnapError, "does not overwrite"):
+        with self.assertRaisesRegex(VBoxLabError, "does not overwrite"):
             SshKeyStore(self.root).ensure_key()
         self.assertEqual((self.root / KEY_NAME).read_text(), "someone else's key")
 
         other = Path(self._temp_dir.name) / "file"
         other.write_text("x")
-        with self.assertRaisesRegex(PySnapError, "not a directory"):
+        with self.assertRaisesRegex(VBoxLabError, "not a directory"):
             SshKeyStore(other).ensure_key()
 
         linked = Path(self._temp_dir.name) / "linked"
         linked.mkdir()
         (linked / KEY_NAME).symlink_to(other)
         (linked / f"{KEY_NAME}.pub").write_text("x")
-        with self.assertRaisesRegex(PySnapError, "not a regular file"):
+        with self.assertRaisesRegex(VBoxLabError, "not a regular file"):
             SshKeyStore(linked).ensure_key()
 
     def test_known_hosts_per_vm(self) -> None:
@@ -82,7 +82,7 @@ class KeyStoreTests(unittest.TestCase):
         path = store.known_hosts("4f1c-77aa")
         self.assertEqual(path, self.root / "known_hosts.d" / "4f1c-77aa")
         for bad in ("../x", "", "a b"):
-            with self.subTest(uuid=bad), self.assertRaisesRegex(PySnapError, "Invalid virtual machine UUID"):
+            with self.subTest(uuid=bad), self.assertRaisesRegex(VBoxLabError, "Invalid virtual machine UUID"):
                 store.known_hosts(bad)
 
 
@@ -99,7 +99,7 @@ class CommandTests(unittest.TestCase):
         self._temp_dir.cleanup()
 
     def test_batch_and_password_command_lines(self) -> None:
-        """Use only the PySnap key in batch mode and only passwords otherwise."""
+        """Use only the VBoxLab key in batch mode and only passwords otherwise."""
         batch = ssh_command(self.target, self.store, remote_command="true")
         self.assertEqual(batch[1:3], ["-F", os.devnull])
         self.assertIn(f"UserKnownHostsFile={self.store.known_hosts('uuid-1')}", batch)
@@ -166,7 +166,7 @@ class _TestSshd:
 
 @unittest.skipUnless(HAVE_OPENSSH and SSHD and os.name == "posix", "OpenSSH client and server are required")
 class SshdFixture(unittest.TestCase):
-    """Start a real sshd that accepts the PySnap key of a temporary store."""
+    """Start a real sshd that accepts the VBoxLab key of a temporary store."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -238,7 +238,7 @@ class ServiceTests(unittest.TestCase):
         root = Path(self._temp_dir.name)
         self.client = AccessClient()
         self.client.add("vm", state="running", ssh_port=2400)
-        self.service = PySnapService(
+        self.service = VBoxLabService(
             client=self.client,
             session_registry=FakeSessionRegistry(),
             proto_settings_store=ProtoSettingsStore(path=root / "proto"),
@@ -263,13 +263,13 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual((target.port, target.user, target.vm_uuid), (2400, "root", "uuid-vm"))
         self.assertEqual(self.service.ssh_target("vm", "student").user, "student")
         self.client.add("noport", state="running")
-        with self.assertRaisesRegex(PySnapError, "no forwarded ssh port; run pysnap plug noport"):
+        with self.assertRaisesRegex(VBoxLabError, "no forwarded ssh port; run vboxlab plug noport"):
             self.service.ssh_target("noport")
         self.client.add("serial", state="running", metadata={ACCESS_KEY: "com"})
-        with self.assertRaisesRegex(PySnapError, "reached through COM1"):
+        with self.assertRaisesRegex(VBoxLabError, "reached through COM1"):
             self.service.ssh_target("serial")
         self.client.add("stopped", ssh_port=2401)
-        with self.assertRaisesRegex(PySnapError, "is not running"):
+        with self.assertRaisesRegex(VBoxLabError, "is not running"):
             self.service.ssh_target("stopped")
 
     def test_installs_through_the_password_login(self) -> None:
@@ -315,13 +315,13 @@ class ServiceTests(unittest.TestCase):
 
     def test_reports_when_nothing_worked(self) -> None:
         """Explain a failed setup with the hints."""
-        with self.assertRaisesRegex(PySnapError, "--user NAME.*--console"):
+        with self.assertRaisesRegex(VBoxLabError, "--user NAME.*--console"):
             self.service.setup_ssh_key("vm", installer=lambda target, store: None)
 
     def test_stops_when_no_server_answers(self) -> None:
         """Do not ask for passwords without an ssh server."""
         ssh_client.check_key_access = lambda target, store: ssh_client.AccessCheck("unreachable", "refused")
-        with self.assertRaisesRegex(PySnapError, "No ssh server answered on port 2400"):
+        with self.assertRaisesRegex(VBoxLabError, "No ssh server answered on port 2400"):
             self.service.setup_ssh_key("vm", installer=lambda *a: self.fail("asked for a password"))
 
 
@@ -360,7 +360,7 @@ class ConsoleAndCommandLineTests(unittest.TestCase):
                        stderr=io.StringIO())
         self.assertEqual(code, 0)
         self.assertEqual(output.getvalue().splitlines(), [
-            "PySnap key works for: student",
+            "VBoxLab key works for: student",
             "ssh user of vm set to student.",
         ])
 

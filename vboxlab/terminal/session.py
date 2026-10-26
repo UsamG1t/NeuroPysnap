@@ -18,8 +18,8 @@ from prompt_toolkit.layout import HSplit, Layout, Window
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.mouse_events import MouseButton, MouseEvent, MouseEventType
 
-from vboxlab.core.service import PySnapService
-from vboxlab.errors import PySnapError
+from vboxlab.core.service import VBoxLabService
+from vboxlab.errors import VBoxLabError
 from vboxlab.report.control import ControlServer
 from vboxlab.report.extract import ExtractError, QueueConsole, run_transfer
 from vboxlab.ssh import client as ssh_client
@@ -119,7 +119,7 @@ class SessionTransport:
         """Return the transport for an ssh login shell.
 
         :param target: ssh connection target.
-        :param store: PySnap key store.
+        :param store: VBoxLab key store.
         :returns: ssh transport.
         """
         async def opener(columns: int, rows: int):
@@ -142,7 +142,7 @@ class SessionTransport:
 
 
 DETACH_HINT = "Ctrl-] q detaches."
-PAUSED_MESSAGE = f"VM is paused; keys wait for pysnap resume. {DETACH_HINT}"
+PAUSED_MESSAGE = f"VM is paused; keys wait for vboxlab resume. {DETACH_HINT}"
 COMMAND_MESSAGE = "q detach, Up/Down/PgUp/PgDn/Home/End scroll, Esc back"
 # Lines one mouse wheel step scrolls; on the alternate screen the same number
 # of cursor keys goes to the guest.
@@ -355,12 +355,12 @@ class ScrollableTerminalControl(FormattedTextControl):
 class TerminalSession:
     """Manage one interactive terminal connection to a VM."""
 
-    def __init__(self, service: PySnapService | None = None) -> None:
+    def __init__(self, service: VBoxLabService | None = None) -> None:
         """Initialize the terminal session helper.
 
         :param service: Optional application service.
         """
-        self.service = service or PySnapService()
+        self.service = service or VBoxLabService()
 
     def run(self, vm_name: str) -> int:
         """Start or attach to a VM and launch the terminal interface.
@@ -379,7 +379,7 @@ class TerminalSession:
             transport = SessionTransport.for_ssh(target, self.service.ssh_key_store)
         else:
             if vm_info.serial_port is None:
-                raise PySnapError(f'Virtual machine "{vm_name}" does not expose a serial TCP port.')
+                raise VBoxLabError(f'Virtual machine "{vm_name}" does not expose a serial TCP port.')
             transport = SessionTransport.for_serial(
                 vm_info.serial_port, timeout=PAUSED_CONNECT_TIMEOUT if paused else None
             )
@@ -403,12 +403,12 @@ class TerminalSession:
         content_columns, content_rows = _terminal_content_size(columns=columns, rows=rows)
         try:
             reader, writer, close_transport = await transport.opener(content_columns, content_rows)
-        except PySnapError:
+        except VBoxLabError:
             if not paused:
                 raise
-            raise PySnapError(
+            raise VBoxLabError(
                 f'Virtual machine "{vm_name}" is paused and its serial port does not '
-                f"accept connections; run pysnap resume {vm_name}."
+                f"accept connections; run vboxlab resume {vm_name}."
             ) from None
         emulator = TerminalEmulator(content_columns, content_rows)
         query_responder = TerminalQueryResponder()
@@ -422,7 +422,7 @@ class TerminalSession:
         stop_event = asyncio.Event()
         received_output = asyncio.Event()
         selection_tracker = SelectionTracker(emulator)
-        # Set while ``pysnap report extract`` uses this connection: guest
+        # Set while ``vboxlab report extract`` uses this connection: guest
         # output goes to the transfer instead of the screen and keys pause.
         transfer: dict[str, QueueConsole | None] = {"console": None}
         transfer_output = bytearray()
@@ -446,7 +446,7 @@ class TerminalSession:
 
         def finish_selection(x: int, y: int) -> None:
             # Copy on release: many terminals keep Ctrl+Shift+C for their own
-            # copy command, so it may never reach PySnap.
+            # copy command, so it may never reach VBoxLab.
             if selection_tracker.finish(x, y):
                 copied = copy_text_to_host_clipboard(
                     selection_tracker.captured_text, output=app.output
@@ -522,7 +522,7 @@ class TerminalSession:
         )
 
         bindings = KeyBindings()
-        # Every PySnap command sits behind Ctrl-], which programs in the
+        # Every VBoxLab command sits behind Ctrl-], which programs in the
         # guest hardly use; all other keys belong to the guest.
         command_mode = {"active": False}
         in_command_mode = Condition(lambda: command_mode["active"])
@@ -533,7 +533,7 @@ class TerminalSession:
 
         @bindings.add(Keys.ControlSquareClose, filter=~in_command_mode)
         def _command_mode(event) -> None:
-            """Wait for one PySnap command key."""
+            """Wait for one VBoxLab command key."""
             command_mode["active"] = True
             status.message = COMMAND_MESSAGE
             event.app.invalidate()
@@ -573,7 +573,7 @@ class TerminalSession:
             """Copy the captured selection or forward an interrupt to the guest.
 
             Classic terminals deliver ``Ctrl+Shift+C`` and ``Ctrl+C`` as the
-            same ``ETX`` byte, so PySnap disambiguates by selection state:
+            same ``ETX`` byte, so VBoxLab disambiguates by selection state:
             with a captured selection the chord copies without touching the
             guest, and without one it forwards a real ``Ctrl+C``.
             """
@@ -739,12 +739,12 @@ class TerminalSession:
                 app.invalidate()
 
         async def run_control_transfer(remote_path: str, max_bytes: int) -> tuple[bytes, str]:
-            """Run a ``pysnap report extract`` transfer on this connection."""
+            """Run a ``vboxlab report extract`` transfer on this connection."""
             loop = asyncio.get_running_loop()
             console = QueueConsole(lambda data: loop.call_soon_threadsafe(writer.write, data))
             transfer_output.clear()
             transfer["console"] = console
-            status.message = "Extracting a report for pysnap report extract; keys are paused."
+            status.message = "Extracting a report for vboxlab report extract; keys are paused."
             app.invalidate()
             try:
                 result = await asyncio.to_thread(
@@ -854,7 +854,7 @@ async def _wake_serial_console(writer) -> None:
 def _terminal_content_size(*, columns: int, rows: int) -> tuple[int, int]:
     """Convert outer terminal geometry into the visible guest text area.
 
-    One row is reserved for PySnap's local status bar.
+    One row is reserved for VBoxLab's local status bar.
 
     :param columns: Outer terminal width.
     :param rows: Outer terminal height.
@@ -916,7 +916,7 @@ def _should_enable_mouse_scrolling() -> bool:
     """Return whether local wheel scrolling should be enabled.
 
     Linux terminals provide the most predictable wheel-event handling in the
-    current PySnap UI, so wheel-based scrollback stays Linux-only for now.
+    current VBoxLab UI, so wheel-based scrollback stays Linux-only for now.
 
     :returns: ``True`` when Linux mouse-wheel scrolling is preferred.
     """

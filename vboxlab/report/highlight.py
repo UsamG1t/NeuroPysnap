@@ -1,6 +1,6 @@
 """Highlighting of prompts and entered commands in a transcript.
 
-The ``report`` prompt is recorded without colors, so PySnap styles its parts
+The ``report`` prompt is recorded without colors, so VBoxLab styles its parts
 like a typical colored bash prompt and shows entered commands in bold. The
 result is a list of styled runs per line that any front end can draw.
 """

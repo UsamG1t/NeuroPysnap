@@ -1,1 +1,1 @@
-"""CLI helpers for PySnap."""
+"""CLI helpers for VBoxLab."""

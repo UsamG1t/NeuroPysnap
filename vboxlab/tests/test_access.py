@@ -20,8 +20,8 @@ from vboxlab.core.access import (
     validate_ssh_user,
 )
 from vboxlab.core.models import ComPortSetting, NicSetting, VMHardware, VMInfo, VMReference
-from vboxlab.core.service import PySnapService
-from vboxlab.errors import PySnapError
+from vboxlab.core.service import VBoxLabService
+from vboxlab.errors import VBoxLabError
 from vboxlab.tests.test_service import FakeClient, FakeSessionRegistry
 from vboxlab.tests.test_vbox_client import FakeRunner
 from vboxlab.vbox.client import VBoxManageClient
@@ -64,14 +64,14 @@ class ResolveAccessTests(unittest.TestCase):
         self.assertEqual(validate_access_mode("auto"), "auto")
         self.assertEqual(validate_ssh_user("st_ud-ent.1"), "st_ud-ent.1")
         for bad in ("serial", ""):
-            with self.subTest(value=bad), self.assertRaisesRegex(PySnapError, "access: invalid"):
+            with self.subTest(value=bad), self.assertRaisesRegex(VBoxLabError, "access: invalid"):
                 validate_access_mode(bad)
         for bad in ("", "1user", "a b", "root;rm", "x" * 33):
-            with self.subTest(value=bad), self.assertRaisesRegex(PySnapError, "ssh-user: invalid"):
+            with self.subTest(value=bad), self.assertRaisesRegex(VBoxLabError, "ssh-user: invalid"):
                 validate_ssh_user(bad)
 
     def test_forwarding_rules(self) -> None:
-        """Build and recognize the PySnap ssh rule."""
+        """Build and recognize the VBoxLab ssh rule."""
         self.assertEqual(ssh_forwarding_rule(2400), "pysnap-ssh,tcp,127.0.0.1,2400,,22")
         self.assertEqual(parse_ssh_forwarding("pysnap-ssh,tcp,127.0.0.1,2400,,22"), 2400)
         self.assertIsNone(parse_ssh_forwarding("web,tcp,,8080,,80"))
@@ -142,7 +142,7 @@ class ServiceTests(unittest.TestCase):
         self._temp_dir = tempfile.TemporaryDirectory()
         self.store = ProtoSettingsStore(path=Path(self._temp_dir.name) / ".ptotosettings")
         self.client = AccessClient()
-        self.service = PySnapService(
+        self.service = VBoxLabService(
             client=self.client,
             session_registry=FakeSessionRegistry(),
             proto_settings_store=self.store,
@@ -177,10 +177,10 @@ class ServiceTests(unittest.TestCase):
 
         self.client.add("isolated")
         self.client.adapters["isolated"] = (NicSetting("intnet", "x"),)
-        with self.assertRaisesRegex(PySnapError, "no NAT adapter; run pysnap set isolated nic1=nat"):
+        with self.assertRaisesRegex(VBoxLabError, "no NAT adapter; run vboxlab set isolated nic1=nat"):
             self.service.plug_vm("isolated")
         self.client.add("busy", state="starting")
-        with self.assertRaisesRegex(PySnapError, "changing state"):
+        with self.assertRaisesRegex(VBoxLabError, "changing state"):
             self.service.plug_vm("busy")
 
     def test_plug_keeps_com_vms_on_com1(self) -> None:
@@ -200,7 +200,7 @@ class ServiceTests(unittest.TestCase):
         result = self.service.set_vm_settings("vm", ["access=auto"])
         self.assertEqual((result.access.mode, result.access.source), ("ssh", "default"))
         self.assertEqual(self._calls("delete_metadata"), [("delete_metadata", "vm", ACCESS_KEY)])
-        with self.assertRaisesRegex(PySnapError, "must be stopped"):
+        with self.assertRaisesRegex(VBoxLabError, "must be stopped"):
             self.service.set_vm_settings("vm", ["access=ssh", "nic2=x"])
 
     def test_set_warns_about_ssh_vms_without_nat(self) -> None:
@@ -261,7 +261,7 @@ class CommandTests(unittest.TestCase):
         client.add("vm", state="running", serial_port=2326, ssh_port=2400,
                    metadata={SSH_USER_KEY: "student"})
         with tempfile.TemporaryDirectory() as temp_dir:
-            service = PySnapService(
+            service = VBoxLabService(
                 client=client,
                 session_registry=FakeSessionRegistry(),
                 proto_settings_store=ProtoSettingsStore(path=Path(temp_dir) / ".ptotosettings"),

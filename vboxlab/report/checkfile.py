@@ -40,7 +40,7 @@ from typing import Any
 
 import tomllib
 
-from vboxlab.errors import PySnapError
+from vboxlab.errors import VBoxLabError
 
 PARAMETER_TYPES = {
     "IP": r"(?:\d{1,3}\.){3}\d{1,3}",
@@ -62,7 +62,7 @@ _GRADING_KEYS = {"total", "scale"}
 _TOP_LEVEL_KEYS = {"report", "command", "output", "grading"}
 
 
-class CheckFileError(PySnapError):
+class CheckFileError(VBoxLabError):
     """Report a check file that cannot be used."""
 
 

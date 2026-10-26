@@ -1,10 +1,10 @@
-"""Control channel between ``pysnap report extract`` and ``pysnap connect``.
+"""Control channel between ``vboxlab report extract`` and ``vboxlab connect``.
 
 VirtualBox serves one client on a ``UART1`` TCP port, so while
-``pysnap connect`` is attached only that process can talk to the console.
+``vboxlab connect`` is attached only that process can talk to the console.
 The connect process listens on ``127.0.0.1`` on a random port
 and stores the port and a random secret in its session record, which only the
-current user can read. ``pysnap report extract`` sends one JSON request line
+current user can read. ``vboxlab report extract`` sends one JSON request line
 with the secret and the quoted file path; the connect process runs the
 transfer protocol of :mod:`vboxlab.report.extract` on its own serial
 connection and answers with one JSON line holding the file as base64 and its
@@ -34,7 +34,7 @@ TransferRunner = Callable[[str, int], Awaitable[tuple[bytes, str]]]
 
 
 class ControlServer:
-    """Serve transfer requests for one ``pysnap connect`` session."""
+    """Serve transfer requests for one ``vboxlab connect`` session."""
 
     def __init__(self, run_transfer: TransferRunner) -> None:
         """Initialize the server.
@@ -92,7 +92,7 @@ class ControlServer:
         if request.get("action") != "extract" or not isinstance(path, str) or not isinstance(max_bytes, int):
             return {"ok": False, "error": "Unsupported control request."}
         if self._busy:
-            return {"ok": False, "error": "Another transfer is running in pysnap connect."}
+            return {"ok": False, "error": "Another transfer is running in vboxlab connect."}
         self._busy = True
         try:
             data, checksum = await self._run_transfer(path, max_bytes)
@@ -111,7 +111,7 @@ def request_transfer(
     max_bytes: int = DEFAULT_MAX_BYTES,
     connect_timeout: float = 5.0,
 ) -> tuple[bytes, str]:
-    """Ask an attached ``pysnap connect`` process to transfer a file.
+    """Ask an attached ``vboxlab connect`` process to transfer a file.
 
     :param port: Control port from the session record.
     :param token: Control secret from the session record.
@@ -134,17 +134,17 @@ def request_transfer(
                     break
                 chunks.append(chunk)
     except OSError as error:
-        raise ExtractError(f"The attached pysnap connect session did not answer: {error}") from None
+        raise ExtractError(f"The attached vboxlab connect session did not answer: {error}") from None
     try:
         response = json.loads(b"".join(chunks).decode("utf-8"))
     except ValueError:
-        raise ExtractError("The attached pysnap connect session sent an invalid answer.") from None
+        raise ExtractError("The attached vboxlab connect session sent an invalid answer.") from None
     if not response.get("ok"):
-        raise ExtractError(str(response.get("error") or "The transfer failed in pysnap connect."))
+        raise ExtractError(str(response.get("error") or "The transfer failed in vboxlab connect."))
     try:
         data = base64.b64decode(response["data"], validate=True)
     except (KeyError, TypeError, binascii.Error, ValueError):
-        raise ExtractError("The attached pysnap connect session sent damaged data.") from None
+        raise ExtractError("The attached vboxlab connect session sent damaged data.") from None
     checksum = hashlib.sha256(data).hexdigest()
     if checksum != response.get("sha256"):
         raise ExtractError("The checksum of the received file does not match; try again.")

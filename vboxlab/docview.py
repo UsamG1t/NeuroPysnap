@@ -6,7 +6,7 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from vboxlab.errors import PySnapError
+from vboxlab.errors import VBoxLabError
 
 
 DEFAULT_BROWSER = "firefox"
@@ -22,12 +22,12 @@ REPO_DOCS_BUILD_DIR = Path(__file__).resolve().parent.parent / "docs" / "_build"
 def documentation_index_path() -> Path:
     """Return the bundled documentation index page path.
 
-    The installed wheel stores compiled HTML files inside ``pysnap/docs``.
-    During development, PySnap also accepts the Sphinx build directory under
+    The installed wheel stores compiled HTML files inside ``vboxlab/docs``.
+    During development, VBoxLab also accepts the Sphinx build directory under
     ``docs/_build/html`` as a fallback.
 
     :returns: Path to the ``index.html`` entry point.
-    :raises PySnapError: If no compiled HTML documentation is available.
+    :raises VBoxLabError: If no compiled HTML documentation is available.
     """
     for candidate in (
         PACKAGE_DOCS_DIR / "index.html",
@@ -35,7 +35,7 @@ def documentation_index_path() -> Path:
     ):
         if candidate.is_file():
             return candidate
-    raise PySnapError(
+    raise VBoxLabError(
         "Bundled documentation was not found. Build the documentation before packaging."
     )
 
@@ -45,14 +45,14 @@ def open_bundled_documentation(browser: str | None = None) -> Path:
 
     :param browser: Optional browser executable. When omitted, ``firefox`` is used.
     :returns: Path to the opened documentation index page.
-    :raises PySnapError: If the documentation or browser executable is unavailable.
+    :raises VBoxLabError: If the documentation or browser executable is unavailable.
     """
     index_path = documentation_index_path()
     executable = _resolve_browser(browser)
     try:
         subprocess.Popen([executable, index_path.as_uri()])
     except OSError as error:
-        raise PySnapError(DOCUMENTATION_BROWSER_ERROR) from error
+        raise VBoxLabError(DOCUMENTATION_BROWSER_ERROR) from error
     return index_path
 
 
@@ -61,11 +61,11 @@ def _resolve_browser(browser: str | None) -> str:
 
     :param browser: Optional browser override.
     :returns: Browser executable or path.
-    :raises PySnapError: If the default browser is unavailable.
+    :raises VBoxLabError: If the default browser is unavailable.
     """
     if browser:
         return browser
     resolved = shutil.which(DEFAULT_BROWSER)
     if resolved is None:
-        raise PySnapError(DOCUMENTATION_BROWSER_ERROR)
+        raise VBoxLabError(DOCUMENTATION_BROWSER_ERROR)
     return resolved
