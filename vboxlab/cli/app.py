@@ -70,10 +70,10 @@ COMMAND_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "Virtual machines",
         (
             ("list", "List VirtualBox groups and their virtual machines."),
-            ("show", "Show the group, serial TCP port and parent of a VM."),
-            ("import", "Import an OVA or OVF appliance."),
+            ("show", "Show the group, serial port, parent and access of a VM."),
+            ("import", "Import an OVA or OVF appliance and set up its access."),
             ("clone", "Create a linked clone with a serial port and networks."),
-            ("set", "Show or change the COM ports and network adapters of a VM."),
+            ("set", "Show or change the ports, adapters and access of a VM."),
             ("erase", "Delete VMs, with dependency checks for linked clones."),
         ),
     ),
@@ -81,7 +81,7 @@ COMMAND_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "Running virtual machines",
         (
             ("connect", "Start a VM headless and attach to its console or ssh."),
-            ("ssh-key", "Install the VBoxLab ssh key in a guest reached through ssh."),
+            ("ssh-key", "Install the VBoxLab ssh key in a guest reached by ssh."),
             ("monitor", "List VMs that are running, paused or changing state."),
             ("pause", "Pause running VMs; they stay in memory."),
             ("resume", "Resume paused VMs."),
@@ -96,7 +96,7 @@ COMMAND_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "Maintenance",
         (
             ("docs", "Open the bundled HTML documentation."),
-            ("full-clean", "Delete the VirtualBox machine and configuration directories."),
+            ("full-clean", "Delete the VirtualBox machine and config directories."),
             ("--integration-test", "Run the end-to-end check on a real VirtualBox."),
         ),
     ),
@@ -533,10 +533,11 @@ def _run_clone(
         description=(
             "Create a linked clone of a base VM in the same group. The clone "
             "gets COM1 as a TCP server and up to three internal networks on "
-            "NIC2-NIC4, while NIC1 stays on NAT. A clone reached through ssh "
-            "also gets a forwarded ssh port; only base VMs set to COM1 access "
-            "with vboxlab set keep the old layout with networks on NIC1-NIC3. A "
-            "snapshot of the base VM is taken when it has none."
+            "NIC2-NIC4; NIC1 and the other adapters keep the settings of the base "
+            "VM. The clone copies the access, the lab property and the ssh user of "
+            "the base VM: a clone of an ssh VM gets its own forwarded ssh port and "
+            "a clone of a lab VM the lab DMI system information. A snapshot of the "
+            "base VM is taken when it has none."
         ),
         epilog=_examples(
             "vboxlab clone base first",

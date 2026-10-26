@@ -137,7 +137,7 @@ class AccessClient(FakeClient):
 
 
 class ServiceTests(unittest.TestCase):
-    """Verify plug, set, clone and monitor for ssh VMs."""
+    """Verify set, clone and monitor for COM1 and ssh VMs."""
 
     def setUp(self) -> None:
         self._temp_dir = tempfile.TemporaryDirectory()

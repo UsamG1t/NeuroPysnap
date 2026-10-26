@@ -300,7 +300,7 @@ class ServiceTests(unittest.TestCase):
         session_registry: FakeSessionRegistry | None = None,
         serial_probe_factory=None,
     ) -> VBoxLabService:
-        """Create a service instance with the isolated proto-settings store."""
+        """Create a service instance with the fake client."""
         return VBoxLabService(
             client=client,
             session_registry=session_registry,

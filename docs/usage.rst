@@ -59,7 +59,7 @@ the command line:
 
 The integration scenario:
 
-- imports the appliance as a temporary base VM
+- imports the appliance as a temporary lab VM, as ``--lab-vm`` does
 - creates three linked clones
 - connects clone A and B with ``intnet``
 - connects clone B and C with ``deepnet``
@@ -71,60 +71,40 @@ The integration scenario:
 - prints details for the base VM and all three clones
 - removes the four VMs one by one
 
-Register Proto Settings for a Base VM
--------------------------------------
-
-The ``protosettings`` command registers one base VM in the persistent
-proto-settings list stored at ``Path.home() / ".vboxlab" / "protosettings"``. The file
-contains one VM name per line and is used as a set without duplicates.
-
-This option exists for the image conventions used in the educational program of
-CMC MSU. When a base VM is present in the proto-settings list, every linked
-clone created from it receives additional DMI values:
-
-- ``DmiSystemVendor = <CloneVM>``
-- ``DmiSystemSKU = port<Port>[.<net1-name>[.<net2-name>[.<net3-name>]]]``
-
-This behavior is relevant for the following CMC MSU courses:
-
-- `LinuxNetwork <https://uneex.org/LecturesCMC/LinuxNetwork2026>`_
-- `Nets: Introduction <https://asvk.cs.msu.ru/uchebnyj-process/chitaemye-kursy/vvedenie-v-seti-evm/>`_
-- `Methodics of Linux Net Protocols <https://github.com/UsamG1t/Methodics_LinuxNetProtocols>`_
-- `Labs of Linux Net Protocols <https://github.com/UsamG1t/Nets_ASVK_Labs>`_
-
-.. code-block:: text
-
-   vboxlab protosettings BaseVM
-
-Registered base VMs and their clones are also known to have their console on
-``COM1``, so VBoxLab reaches them through the serial console; every other VM is
-reached through ssh (see `Access to the Guest`_).
-
 Access to the Guest
 -------------------
 
 VBoxLab reaches the guest of a VM in one of two ways:
 
-- **COM1 serial console** for base VMs registered with ``vboxlab protosettings``
-  and their clones: ``UART1`` is a TCP server on the host
-- **ssh** for every other VM: a rule named ``vboxlab-ssh`` on the NAT adapter
-  forwards a host port on ``127.0.0.1`` to port 22 of the guest
+- **COM1 serial console**: ``UART1`` is a TCP server on the host
+- **ssh**: a rule named ``vboxlab-ssh`` on the NAT adapter forwards a host
+  port on ``127.0.0.1`` to port 22 of the guest
 
-The choice can be overridden per VM with ``vboxlab set VM access=com|ssh`` and
-returned to the automatic choice with ``access=auto``. Clones inherit an
-explicit choice of their base VM. ssh connections use the guest user ``root``
-unless ``vboxlab set VM ssh-user=NAME`` names another one; clones inherit it.
-``vboxlab show`` prints the access of a VM and ``vboxlab monitor`` shows
-``ssh:PORT`` instead of the serial port for ssh VMs.
+The access is a property of the VM, stored in VirtualBox extra data
+(``vboxlab/access``). ``vboxlab import`` sets it (ssh unless another access is
+chosen, see `Import an Appliance`_), linked clones copy it from their base VM
+and get ports of their own, and ``vboxlab set VM access=com|ssh`` changes it
+(see `Set Serial Ports and Network Adapters`_). A VM imported with
+``--clean-import`` stores no access; it counts as an ssh VM without a
+forwarded port until ``vboxlab set`` gives it one.
+
+Lab VMs (``--lab-vm`` or ``vboxlab set VM lab=yes``, extra data
+``vboxlab/lab``) are reached through the COM1 console and give their clones
+the lab DMI settings (see `Create a Linked Clone`_).
+
+ssh connections use the guest user ``root`` unless ``vboxlab set VM
+ssh-user=NAME`` names another one; clones inherit it. ``vboxlab show`` prints
+the access of a VM, marked ``(lab)`` for lab VMs and ``(default)`` for VMs that
+store none, and ``vboxlab monitor`` shows ``ssh:PORT`` instead of the serial
+port for ssh VMs.
 
 .. code-block:: text
 
    vboxlab show first
    ...
-   Access: ssh root@127.0.0.1:2400 (default)
+   Access: COM1 serial console, port 1024 (lab)
 
-   vboxlab set first access=com
-   vboxlab set first access=auto ssh-user=student
+   vboxlab set first access=ssh ssh-user=student
 
 Install the ssh Key
 ~~~~~~~~~~~~~~~~~~~
@@ -165,82 +145,69 @@ Windows 10 and newer.
 Import an Appliance
 -------------------
 
-Import either an ``.ova`` or ``.ovf`` appliance.
+Import either an ``.ova`` or ``.ovf`` appliance and set up how VBoxLab
+reaches the imported VMs.
 
 If the appliance already defines a group, VBoxLab keeps it. Otherwise, the
 virtual machine is placed into the ``/Others`` group.
 
-When the appliance contains exactly one VM, an optional ``VMName`` argument can
-override the imported VM name.
+When the appliance contains exactly one VM, ``-o``/``--output-name NAME``
+sets the name of the imported VM.
 
-Before running ``VBoxManage import``, VBoxLab checks the final VM name. If the
-name already exists, the import is aborted before creating anything. For the
-default one-VM case, VBoxLab recommends using the optional ``VMName`` argument
-to choose a different target name.
+Before running ``VBoxManage import``, VBoxLab checks the final VM names. If a
+name already exists, the import is aborted before creating anything, with a
+hint to choose another name with ``--output-name``.
+
+One of these options chooses the setup of every imported VM; they exclude
+each other:
+
+- ``--ssh-access-vm`` (the default): ssh access; a free host port is
+  forwarded to the guest ssh server on ``NIC1``
+- ``--com-access-vm``: access through the COM1 serial console; ``UART1``
+  becomes a TCP server on a free port
+- ``--lab-vm``: like ``--com-access-vm``, and the VM is a lab VM whose clones
+  get the lab DMI settings (see `Create a Linked Clone`_)
+- ``--clean-import``: nothing is changed; the VM keeps the settings of the
+  appliance and stores no access
+
+Except for ``--clean-import``, ``NIC1`` is attached to NAT, the port is always
+a free one (also when the appliance brings its own ``UART1`` TCP server), and
+an ssh forwarding rule that came with the appliance is replaced. VBoxLab
+always records that it imported the VM (``vboxlab/managed``, ``vboxlab/kind``
+and ``vboxlab/source`` in VirtualBox extra data).
 
 During the import, VBoxLab renders a live progress bar based on the percentage
-output reported by ``VBoxManage import``.
+output reported by ``VBoxManage import``; afterwards it lists the access of
+every imported VM.
 
 .. code-block:: text
 
    vboxlab import image.ova
-   vboxlab import image.ovf
-   vboxlab import image.ova RenamedVM
+   vboxlab import protocols.ova -o first --lab-vm
+   Importing [############################....]  87%
+   Imported virtual machines:
+   - first (/Lab): COM1 serial console, port 1024 (lab)
 
-Show Virtual Machine Details
-----------------------------
-
-The ``show`` command prints the VM name, the assigned group, and the serial TCP
-port configured through ``UART1``.
-
-.. code-block:: text
-
-   vboxlab show MyVM
-
-Plug a Virtual Machine for VBoxLab Connections
-----------------------------------------------
-
-The ``plug`` command prepares an existing VM for ``vboxlab connect``. For a VM
-reached through ssh it adds the ``vboxlab-ssh`` forwarding rule on the first NAT
-adapter with a free host port; this works on stopped, running and paused VMs,
-and a VM without a NAT adapter is refused with a hint to run
-``vboxlab set VM nic1=nat``. For a VM reached through the ``COM1`` console it
-configures ``UART1`` as a ``tcpserver`` endpoint when this can be done safely.
-
-For the ``COM1`` console VBoxLab checks these conditions:
-
-- the VM exists
-- if ``UART1`` is already configured as ``tcpserver,<port>``, the VM is left unchanged
-- if ``UART1`` is already bound to another backend, VBoxLab refuses to overwrite it
-- if a reconfiguration is needed, the VM must be in a stopped state
-- the selected TCP port must be free in both VirtualBox and the host OS
-
-When all checks pass, VBoxLab assigns the same kind of serial TCP port used by
-the imported ``protocols-*`` images, so the VM becomes connectable through the
-built-in terminal interface.
-
-.. code-block:: text
-
-   vboxlab plug MyVM
-   vboxlab connect MyVM
+   vboxlab import router.ova --com-access-vm
+   vboxlab import image.ova --clean-import
 
 .. only:: graphviz
 
    .. graphviz::
-      :caption: Plug-and-connect workflow for an existing VM.
+      :caption: Import-and-connect workflow for a lab VM.
 
-      digraph plug_connect_workflow {
+      digraph import_connect_workflow {
           rankdir=LR;
           node [shape=box, style="rounded,filled", fillcolor="#f6f6f6"];
 
-          plug [label="vboxlab plug VM"];
-          modifyvm [label="VBoxManage modifyvm\n--uart1 0x3F8 4\n--uartmode1 tcpserver PORT"];
+          import [label="vboxlab import IMAGE --lab-vm"];
+          modifyvm [label="VBoxManage modifyvm\n--nic1 nat\n--uart1 0x3F8 4\n--uartmode1 tcpserver PORT"];
           vm [label="VM with UART1 tcpserver", shape=ellipse, fillcolor="#fff8dc"];
           connect [label="vboxlab connect VM"];
           headless [label="VBoxManage startvm\n--type=headless"];
           terminal [label="VBoxLab terminal session"];
 
-          plug -> modifyvm -> vm;
+          import -> modifyvm -> vm;
           connect -> headless -> terminal -> vm;
       }
 
@@ -248,6 +215,16 @@ built-in terminal interface.
 
    Graphviz example diagrams are rendered automatically when the ``dot``
    executable is available on the documentation build host.
+
+Show Virtual Machine Details
+----------------------------
+
+The ``show`` command prints the VM name, the assigned group, the serial TCP
+port configured through ``UART1`` and the access (see `Access to the Guest`_).
+
+.. code-block:: text
+
+   vboxlab show MyVM
 
 Set Serial Ports and Network Adapters
 -------------------------------------
@@ -265,8 +242,17 @@ VM, ``NIC1``-``NIC8`` (PIIX3) or ``NIC1``-``NIC36`` (ICH9). The output lists
 - ``comN=off``: no serial port
 - ``nicN=NETWORK``: the internal network ``NETWORK``
 - ``nicN=nat``: NAT; ``nicN=off``: no network adapter
-- ``access=com|ssh|auto`` and ``ssh-user=NAME``: how VBoxLab reaches the guest
-  (see `Access to the Guest`_); these two work on a VM in any state
+- ``access=com``: access through the COM1 console; unless ``COM1`` already is
+  a TCP server (or ``com1=`` is given), it becomes one on a free port, which
+  needs a stopped VM
+- ``access=ssh``: access through ssh; unless a port is forwarded already, a
+  free port is forwarded on the first NAT adapter, on a stopped, running or
+  paused VM; without a NAT adapter a warning asks to add one
+  (``nic1=nat``) and to repeat ``access=ssh``
+- ``lab=yes|no``: whether clones of the VM get the lab DMI settings; the
+  access does not change
+- ``ssh-user=NAME``: the guest user for ssh; ``lab`` and ``ssh-user`` work on
+  a VM in any state (see `Access to the Guest`_)
 
 .. code-block:: text
 
@@ -283,8 +269,8 @@ VM, ``NIC1``-``NIC8`` (PIIX3) or ``NIC1``-``NIC36`` (ICH9). The output lists
      NIC3  internal network "right"
      NIC4  off
 
-Without options the current settings are printed. Changes require a stopped
-VM; all options are checked first and then applied together, so an invalid
+Without options the current settings are printed. Changes of ports and
+adapters require a stopped VM; all options are checked first and then applied together, so an invalid
 option changes nothing. VBoxLab checks that a TCP port is not used by another
 VM, by another COM port of the same VM or on the host. Removing a TCP server
 prints a warning; ``vboxlab connect`` uses ``COM1`` and cannot reach a VM
@@ -295,7 +281,7 @@ A pipe name is short; VBoxLab turns it into the path format of the host
 temporary directory elsewhere), so the same name connects two VMs on any
 platform.
 
-For clones of proto-settings base VMs, the DMI system SKU is rebuilt from the
+For clones of lab VMs, the DMI system SKU is rebuilt from the
 new ``COM1`` port and the internal networks of ``NIC2``-``NIC4``, for example
 ``port2326.left.right``. An adapter without an internal network leaves an
 empty place (``port2326..right``). When ``COM1`` is no TCP server, the
@@ -311,7 +297,8 @@ its ``UART1`` TCP console, or to an ssh login shell for VMs reached through
 ssh (see `Access to the Guest`_).
 
 For VMs that do not already expose a suitable ``UART1 tcpserver`` endpoint or
-a forwarded ssh port, run ``vboxlab plug <VM>`` first.
+a forwarded ssh port, run ``vboxlab set <VM> access=com`` or ``access=ssh``
+first.
 
 Over ssh, ``connect`` logs in with the VBoxLab key as the ssh user of the VM:
 
@@ -455,22 +442,31 @@ When ``-p`` is omitted, VBoxLab scans existing VMs, finds the maximum already
 used serial TCP port, and assigns the next value. If no serial TCP ports are
 configured yet, the automatic sequence starts at ``1024``.
 
-Up to three extra positional arguments configure internal networks:
+Up to three extra positional arguments attach internal networks to ``NIC2``
+through ``NIC4`` in order. ``NIC1`` and the adapters after the given networks
+keep the settings of the base VM; for VMs imported with a setup ``NIC1`` is
+the NAT adapter. ``COM1`` of every clone is a TCP server, also for clones
+reached through ssh, where it serves as a spare console.
 
-- ``nic1`` stays in ``nat`` mode, the requested networks are mapped onto
-  ``nic2`` through ``nic4``, and omitted adapters are left enabled. This
-  layout is used for clones of proto-settings base VMs and for every clone
-  reached through ssh, whose ssh port is forwarded on ``nic1``
-- only a clone of a base VM set to ``access=com`` without protosettings keeps
-  the legacy layout: networks are mapped sequentially onto ``nic1`` through
-  ``nic3``, and omitted adapters are set to ``none``
+A clone copies the access, the lab property and the ssh user of its base VM.
+It also copies the ``vboxlab-ssh`` rule of the base VM; VBoxLab removes that
+copy, because its host port belongs to the base VM. A clone of a base VM with
+ssh access gets its own free port on the NAT adapter of the base VM; the clone
+is refused before anything is created when the base VM has no NAT adapter or
+the networks would replace it. A clone of a base VM that stores no access
+gets no forwarded port.
 
-A clone copies the settings of its base VM, including its ``vboxlab-ssh`` rule;
-VBoxLab removes that copy, because its host port belongs to the base VM, and a
-clone reached through ssh gets its own free port.
+Clones of lab VMs also receive these DMI values, which the lab images use:
 
-If the base VM was previously registered through ``vboxlab protosettings``,
-VBoxLab also applies educational DMI settings to the clone.
+- ``DmiSystemVendor = <CloneVM>``
+- ``DmiSystemSKU = port<Port>[.<net1-name>[.<net2-name>[.<net3-name>]]]``
+
+This behavior is relevant for the following CMC MSU courses:
+
+- `LinuxNetwork <https://uneex.org/LecturesCMC/LinuxNetwork2026>`_
+- `Nets: Introduction <https://asvk.cs.msu.ru/uchebnyj-process/chitaemye-kursy/vvedenie-v-seti-evm/>`_
+- `Methodics of Linux Net Protocols <https://github.com/UsamG1t/Methodics_LinuxNetProtocols>`_
+- `Labs of Linux Net Protocols <https://github.com/UsamG1t/Nets_ASVK_Labs>`_
 
 .. code-block:: text
 
@@ -505,9 +501,6 @@ operation to VMs created as VBoxLab linked clones:
 VBoxLab recognizes clones through the ``vboxlab/kind`` and ``vboxlab/parent``
 metadata written into VirtualBox extra data during cloning, so the clone list
 stays correct without a separate registry file.
-
-When a VM is removed successfully, VBoxLab also removes its name from the
-proto-settings file if it was registered there.
 
 .. code-block:: text
 
@@ -757,7 +750,7 @@ are needed.
 
 Over ssh:
 
-- the VM is running, has a forwarded ssh port (see ``vboxlab plug``) and the
+- the VM is running, has a forwarded ssh port (see ``vboxlab set VM access=ssh``) and the
   VBoxLab key is installed for its ssh user (see ``vboxlab ssh-key``); unlike
   ``connect``, ``extract`` never asks for a password
 - one command prints the ``sha256sum`` of the file and the file itself;
@@ -780,7 +773,7 @@ Over ssh:
 
 On the serial console:
 
-- the VM is running and has a ``UART1`` TCP port (see ``vboxlab plug``)
+- the VM is running and has a ``UART1`` TCP port (see ``vboxlab set VM access=com``)
 - the command also works while ``vboxlab connect`` is attached to the VM:
   VirtualBox serves one client, so ``extract`` asks the attached session to
   run the transfer on its connection. The terminal shows a message in the

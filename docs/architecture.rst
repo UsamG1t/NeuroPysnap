@@ -7,7 +7,6 @@ Package Layout
 --------------
 
 - ``vboxlab.cli`` contains argument parsing and terminal output formatting.
-- ``vboxlab.config`` contains persistent configuration helpers.
 - ``vboxlab.core`` contains domain models and the main application service.
 - ``vboxlab/docs`` stores compiled HTML documentation bundled with the wheel.
 - ``vboxlab.report`` reads session reports recorded inside VMs by the
@@ -33,7 +32,6 @@ Package Relationship Diagram
           node [shape=box, style="rounded,filled", fillcolor="#f6f6f6"];
 
           cli [label="vboxlab.cli"];
-          config [label="vboxlab.config"];
           core [label="vboxlab.core"];
           report [label="vboxlab.report"];
           runtime [label="vboxlab.runtime"];
@@ -44,7 +42,6 @@ Package Relationship Diagram
           cli -> terminal [label="connect"];
           cli -> report [label="report"];
           report -> terminal [label="emulator, UI controls"];
-          core -> config [label="~/.vboxlab/protosettings"];
           core -> runtime [label="session registry"];
           core -> vbox [label="VBoxManage operations"];
           terminal -> core [label="prepare VM"];
@@ -86,11 +83,11 @@ VBoxLab uses ``UART1`` for the serial TCP endpoint of clones. If no explicit
 port is supplied, the service automatically assigns ``max(used_ports) + 1`` or
 ``1024`` when no TCP serial port has been configured yet.
 
-The ``plug`` workflow reuses the same ``UART1 tcpserver`` strategy for existing
-VMs. It only rewrites ``UART1`` when the VM is stopped and the current backend
-is not already occupied by another mode such as ``tcpclient`` or ``file``.
-When needed, the selected TCP port must be available both in VirtualBox and on
-the host system.
+``vboxlab import`` and ``vboxlab set VM access=com`` reuse the same
+``UART1 tcpserver`` strategy for imported and existing VMs; ``set`` changes
+``UART1`` only on a stopped VM. The selected TCP port must be available both
+in VirtualBox and on the host system; an imported VM always gets a free port,
+also when its appliance brings a ``UART1`` TCP server.
 
 Automatic allocation counts the TCP servers of all four serial ports and the
 forwarded ssh ports of all VMs as used. ``vboxlab set`` reads ``COM1``-``COM4`` and every network adapter
@@ -135,25 +132,37 @@ the first key and skips the empty rest. On the alternate screen the mouse
 wheel sends cursor keys, in the application form ``ESC O A`` when the guest
 switched DECCKM on.
 
-Proto Settings Strategy
------------------------
+Lab VM Strategy
+---------------
 
-VBoxLab stores proto-settings base VM names in ``Path.home() / ".vboxlab" / "protosettings"``
-with one VM name per line. When a clone is created from a registered base VM,
-VBoxLab writes additional DMI settings through ``VBoxManage setextradata``:
+A lab VM carries the extra data entry ``vboxlab/lab=true``, written by
+``vboxlab import --lab-vm`` or ``vboxlab set VM lab=yes`` and copied to its
+clones. When a clone is created from a lab VM, VBoxLab writes additional DMI
+settings through ``VBoxManage setextradata``:
 
 - ``DmiSystemVendor = <CloneVM>``
 - ``DmiSystemSKU = port<Port>[.<net1>[.<net2>[.<net3>]]]``
 
 This mode exists for educational VirtualBox images used in CMC MSU courses.
+Earlier versions kept a list of such base VMs in a file of the user; the
+property now lives in the VM, so it travels with the VM and its clones and
+needs no file of its own.
 
 Access Strategy
 ---------------
 
-``vboxlab.core.access.resolve_access`` decides how a guest is reached: an
-explicit ``vboxlab/access`` extra data entry wins, base VMs registered with
-protosettings and their clones use the ``COM1`` serial console, and every other
-VM uses ssh. The ssh user is the ``vboxlab/ssh-user`` extra data entry or
+The access is a property of the VM: ``vboxlab.core.access.resolve_access``
+reads the extra data entry ``vboxlab/access`` (``com`` or ``ssh``) and the lab
+property. ``vboxlab import`` writes them according to its setup option and
+also attaches ``NIC1`` to NAT and makes ``COM1`` a TCP server or forwards an
+ssh port on a free port, so no separate command prepares a VM for
+``connect``. A VM without the entry, for example after ``--clean-import``,
+counts as an ssh VM without a forwarded port and is marked as a default.
+``vboxlab clone`` copies the entries, gives every clone ``COM1`` as a TCP server
+and puts the internal networks strictly on ``NIC2``-``NIC4``, so that ``NIC1``
+keeps the NAT adapter of the base VM; only a base VM that stores ssh access
+passes a forwarded port on. ``vboxlab set`` changes the access and completes
+the connection the same way. The ssh user is the ``vboxlab/ssh-user`` extra data entry or
 ``root``. The ssh port is not stored separately: it is read from the NAT
 port-forwarding rule ``vboxlab-ssh`` (``127.0.0.1:PORT`` to guest port 22), so
 VirtualBox remains the only source of truth. ``showvminfo --machinereadable``

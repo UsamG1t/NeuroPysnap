@@ -379,7 +379,7 @@ class ServiceSettingsTests(unittest.TestCase):
         ))
 
     def test_rebuilds_the_proto_settings_sku(self) -> None:
-        """Keep the DMI SKU of proto-settings clones in line with the settings."""
+        """Keep the DMI SKU of lab clones in line with the settings."""
         self.client.extra_data["first"] = {SKU_KEY: "port2326.left.right"}
         self.service.set_vm_settings("first", ["com1=2600", "nic2=off", "nic3=deep"])
         self.assertEqual(self.client.extra_data["first"][SKU_KEY], "port2600..deep")

@@ -7,23 +7,19 @@ terminal over the serial console or ssh, and removing virtual machines with depe
 
 ## Features
 
-- Import `.ova` and `.ovf` appliances with VirtualBox group normalization.
+- Import `.ova` and `.ovf` appliances with VirtualBox group normalization and
+  set up how VBoxLab reaches them: ssh over a forwarded NAT port (the
+  default), the COM1 serial console, a lab VM (COM1 plus lab settings for its
+  clones) or no settings at all with `--clean-import`.
 - List VirtualBox groups and their member virtual machines.
-- Show VM name, group, and configured serial TCP port.
-- Create linked clones with inherited groups and internal network mapping.
-- Support two clone network layouts: the legacy sequential mapping for ordinary
-  base VMs, and the NAT-preserving ``NIC2``-``NIC4`` mapping for base VMs
-  registered through ``vboxlab protosettings``.
-- Register special base VMs whose clones receive additional DMI settings.
-- Configure `UART1` as a `tcpserver` endpoint.
-- Plug a stopped VM into the VBoxLab connection model by assigning a safe
-  `UART1 tcpserver` port.
+- Show VM name, group, serial TCP port and access.
+- Create linked clones with inherited groups, access and ports of their own;
+  the internal networks always go to ``NIC2``-``NIC4``.
+- Give the clones of lab VMs DMI settings with their name, port and networks.
 - Allocate the next available serial TCP port automatically when `-p` is omitted.
-- Show or change the COM ports and network adapters of a stopped VM with
-  `vboxlab set`: TCP servers, host pipes between VMs, internal networks, NAT.
-- Reach protosettings VMs and their clones through the COM1 serial console and
-  every other VM through ssh over a forwarded NAT port; `vboxlab set` can
-  override the choice and the ssh user.
+- Show or change the COM ports, network adapters and access of a VM with
+  `vboxlab set`: TCP servers, host pipes between VMs, internal networks, NAT,
+  COM1 or ssh access, the lab property and the ssh user.
 - Install a VBoxLab-only ssh key in a guest with `vboxlab ssh-key`, through a
   password login (with an optional `su` for root) or typed on the VM screen.
 - Start virtual machines in headless mode and attach to them through a
@@ -63,14 +59,13 @@ command with its arguments, options and examples.
 ```text
 vboxlab
 vboxlab list
-vboxlab import IMAGE.ova|IMAGE.ovf [VMName]
+vboxlab import IMAGE.ova|IMAGE.ovf [-o NAME] [--lab-vm | --ssh-access-vm | --com-access-vm | --clean-import]
 vboxlab --integration-test IMAGE.ova|IMAGE.ovf
-vboxlab protosettings BASE_VM
 vboxlab docs [--browser BROWSER]
 vboxlab show <VM>
-vboxlab plug <VM>
 vboxlab ssh-key <VM> [--user USER] [--console]
-vboxlab set <VM> [comN=auto|PORT|server:NAME|client:NAME|off] [nicN=NETWORK|nat|off] ...
+vboxlab set <VM> [comN=auto|PORT|server:NAME|client:NAME|off] [nicN=NETWORK|nat|off]
+                 [access=com|ssh] [lab=yes|no] [ssh-user=NAME] ...
 vboxlab connect <VM>
 vboxlab monitor
 vboxlab stop [<VM> | --all]
@@ -106,12 +101,15 @@ Typical workflow:
 
 ## Runtime Examples
 
-Import an appliance with a live progress bar:
+Import an appliance with a live progress bar; it is reached through ssh unless
+another access is chosen:
 
 ```bash
 vboxlab import image.ova
-vboxlab import image.ova renamed-vm
+vboxlab import protocols.ova -o first --lab-vm
 Importing [############################....]  87%
+Imported virtual machines:
+- first (/Lab): COM1 serial console, port 1024 (lab)
 ```
 
 Open the bundled HTML documentation in Firefox by default or in an explicit
@@ -141,14 +139,12 @@ to full-screen programs such as less. Dragging with the left mouse button
 selects visible terminal text, which is copied to the host clipboard when the
 button is released.
 
-Plug a stopped VM into the same serial-console workflow used by imported
-protocol images:
+Change the access of an existing VM; VBoxLab makes COM1 a TCP server or
+forwards an ssh port when needed:
 
 ```bash
-vboxlab plug srv
-Name: srv
-Group: /Lab
-Serial port: 2345
+vboxlab set srv access=com
+vboxlab set web access=ssh ssh-user=student
 ```
 
 Connect two stopped clones through internal networks and a COM2 host pipe:
@@ -165,12 +161,6 @@ vboxlab monitor
 srv (state: Working ; 2345 ; /Lab)
 db (state: Active ; 2346 ; /Lab)
 router (state: Stopping ; 2347 ; /Net)
-```
-
-Register a base VM for educational protocol settings:
-
-```bash
-vboxlab protosettings protocols-jeos-20251218-x86_64
 ```
 
 Stop a single machine or all running machines:
@@ -237,16 +227,16 @@ origin are listed with those signals, the others as ``OK``:
 vboxlab report compare reports/
 ```
 
-## Proto Settings
+## Lab VMs
 
-The ``vboxlab protosettings <BaseVM>`` command marks a base VM so that every
-linked clone created from it receives additional DMI settings. VBoxLab stores
-this base-VM list in ``Path.home() / ".vboxlab" / "protosettings"``, which resolves to the
-current user's home directory on Linux, macOS, and Windows.
+``vboxlab import IMAGE --lab-vm`` imports a lab VM: it is reached through the
+COM1 serial console, and every linked clone created from it receives
+additional DMI settings. The lab property is stored in the VM itself
+(VirtualBox extra data ``vboxlab/lab``); clones copy it, and
+``vboxlab set VM lab=yes|no`` changes it.
 
 This mode exists for the appliance conventions used in the educational program
-of CMC MSU. When the base VM is present in the proto-settings list, VBoxLab
-applies these clone-time changes:
+of CMC MSU. VBoxLab applies these clone-time changes to clones of lab VMs:
 
 - ``DmiSystemVendor = <CloneVM>``
 - ``DmiSystemSKU = port<Port>[.<net1-name>[.<net2-name>[.<net3-name>]]]``
