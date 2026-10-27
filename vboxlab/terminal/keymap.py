@@ -51,9 +51,32 @@ def key_press_to_bytes(key_press: KeyPress) -> bytes | None:
         if key in SPECIAL_KEY_SEQUENCES:
             return SPECIAL_KEY_SEQUENCES[key]
         if key == Keys.BracketedPaste:
-            return data.encode("utf-8", errors="replace")
+            return paste_to_bytes(data, bracketed=False)
         if data and not data.startswith("<"):
             return data.encode("utf-8", errors="replace")
         return None
 
     return str(key).encode("utf-8", errors="replace")
+
+
+PASTE_START = "\x1b[200~"
+PASTE_END = "\x1b[201~"
+
+
+def paste_to_bytes(text: str, *, bracketed: bool) -> bytes:
+    """Return pasted text as the bytes a terminal sends for it.
+
+    Line breaks of any system (``CR LF``, ``LF``) become ``CR``, the Enter key
+    of a terminal, so a text copied on Windows does not give empty lines. When
+    the guest asked for bracketed paste (``ESC [ ? 2004 h``, as bash and vim
+    do), the text is put between ``ESC [ 200 ~`` and ``ESC [ 201 ~``; markers
+    inside the text are removed, so that it cannot end the paste early.
+
+    :param text: Pasted text.
+    :param bracketed: Whether the guest enabled bracketed paste.
+    :returns: UTF-8 bytes for the guest.
+    """
+    text = text.replace("\r\n", "\r").replace("\n", "\r")
+    if bracketed:
+        text = PASTE_START + text.replace(PASTE_START, "").replace(PASTE_END, "") + PASTE_END
+    return text.encode("utf-8", errors="replace")

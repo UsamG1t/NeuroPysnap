@@ -12,6 +12,7 @@ from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.data_structures import Size
 from prompt_toolkit.output.vt100 import Vt100_Output
 
+from vboxlab.terminal import clipboard
 from vboxlab.terminal.emulator import TerminalEmulator
 from vboxlab.terminal.session import SessionStatus, SessionTransport, TerminalSession
 from vboxlab.tests.test_connect_ssh import _Service, _Writer
@@ -108,7 +109,7 @@ class KeyTests(unittest.TestCase):
         """Ctrl-] q detaches; Ctrl-] Ctrl-] sends Ctrl-]; other keys only leave the mode."""
         session = _Session().run(b"\x1d", b"\x1d", b"\x1d", b"x", b"\x1d", b"\x03", b"\x1d", b"\x1b", b"a", b"\x1d", b"q", b"z")
         self.assertEqual(session.sent, b"\x1da")
-        self.assertIn("q detach, Up/Down/PgUp/PgDn/Home/End scroll, Esc back", session.messages)
+        self.assertIn("q detach, v paste, arrows/PgUp/PgDn scroll, Esc", session.messages)
         self.assertIn("Detached.", session.messages)
 
     def test_command_mode_scrolls(self) -> None:
@@ -124,6 +125,48 @@ class KeyTests(unittest.TestCase):
         session = _Session(paused=True).run(b"a", b"\x03", b"\x1d", b"\x1d", b"\x1d", b"q")
         self.assertEqual(session.sent, b"")
         self.assertIn("Detached.", session.messages)
+
+
+class PasteTests(unittest.TestCase):
+    """Verify pastes of the terminal and of the host clipboard."""
+
+    PASTE = b"\x1b[200~echo one\r\necho two\r\n\x1b[201~"
+
+    def test_terminal_paste_follows_the_guest(self) -> None:
+        """Send CR line breaks, marked only when the guest enabled bracketed paste."""
+        self.assertEqual(_Session().run(self.PASTE).sent, b"echo one\recho two\r")
+        self.assertEqual(
+            _Session(b"\x1b[?2004h").run(self.PASTE).sent,
+            b"\x1b[200~echo one\recho two\r\x1b[201~",
+        )
+
+    def test_ctrl_bracket_v_pastes_the_host_clipboard(self) -> None:
+        """Read the clipboard on Ctrl-] v and send it like a paste."""
+        with patch("vboxlab.terminal.session.clipboard.read_host_clipboard", return_value="ls -l\r\n"):
+            session = _Session(b"\x1b[?2004h").run(b"\x1d", b"v", pause=0.3)
+        self.assertEqual(session.sent, b"\x1b[200~ls -l\r\x1b[201~")
+        self.assertIn("Pasted 7 characters from the host clipboard.", session.messages)
+        with patch("vboxlab.terminal.session.clipboard.read_host_clipboard", return_value="x"):
+            plain = _Session().run(b"v")
+        self.assertEqual(plain.sent, b"v")
+
+    def test_clipboard_problems_send_nothing(self) -> None:
+        """Explain an unreadable or empty clipboard and paused keys."""
+        failing = patch(
+            "vboxlab.terminal.session.clipboard.read_host_clipboard",
+            side_effect=clipboard.ClipboardError("no clipboard program found"),
+        )
+        with failing:
+            session = _Session().run(b"\x1d", b"v", pause=0.3)
+        self.assertEqual(session.sent, b"")
+        self.assertIn("Cannot read the host clipboard: no clipboard program found.", session.messages)
+        with patch("vboxlab.terminal.session.clipboard.read_host_clipboard", return_value=""):
+            session = _Session().run(b"\x1d", b"v", pause=0.3)
+        self.assertIn("The host clipboard holds no text.", session.messages)
+        with patch("vboxlab.terminal.session.clipboard.read_host_clipboard", return_value="x"):
+            session = _Session(paused=True).run(b"\x1d", b"v", pause=0.3)
+        self.assertEqual(session.sent, b"")
+        self.assertIn("Keys are paused; nothing was pasted.", session.messages)
 
 
 class MouseTests(unittest.TestCase):

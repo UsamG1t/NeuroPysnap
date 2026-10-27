@@ -119,6 +119,14 @@ while the ``Ctrl-]`` command keys are active (a ``Condition`` on
 ``mouse_support``), for wheel scrolling of the local history on Linux, and
 ``prompt_toolkit`` turns mouse reporting off again when the mode ends.
 
+Pasted text arrives as one ``BracketedPaste`` key. ``paste_to_bytes`` turns
+its line breaks into ``CR`` and, while the guest has the DEC mode 2004 on (the
+emulator reads it from ``pyte``), puts it between ``ESC [ 200 ~`` and
+``ESC [ 201 ~`` after removing such markers from the text. The ``Ctrl-]``
+``v`` paste reads the host clipboard in a worker thread
+(``vboxlab.terminal.clipboard``: the Win32 API through ``ctypes``,
+``pbpaste``, ``wl-paste``, ``xclip`` or ``xsel``) and sends it the same way.
+
 Key Strategy
 ------------
 

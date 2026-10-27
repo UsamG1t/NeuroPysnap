@@ -9,6 +9,14 @@ vboxlab.terminal package
 Submodules
 ----------
 
+vboxlab.terminal.clipboard module
+---------------------------------
+
+.. automodule:: vboxlab.terminal.clipboard
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 vboxlab.terminal.emulator module
 --------------------------------
 
