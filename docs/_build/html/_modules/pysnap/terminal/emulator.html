@@ -4,12 +4,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pysnap.terminal.emulator &#8212; PySnap 2.2.1 documentation</title>
+    <title>pysnap.terminal.emulator &#8212; PySnap 2.2.2 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
-    <script src="../../../_static/documentation_options.js?v=16656018"></script>
+    <script src="../../../_static/documentation_options.js?v=219dea72"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -74,8 +74,6 @@
 <span class="c1"># A control string that never ends would hide all further output; after this</span>
 <span class="c1"># many bytes the rest is shown again.</span>
 <span class="n">_MAX_STRING_LENGTH</span> <span class="o">=</span> <span class="mi">65536</span>
-<span class="c1"># ``pyte`` keeps private DEC modes shifted by five bits; mode 1 is DECCKM.</span>
-<span class="n">_DECCKM</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">5</span>
 
 
 <div class="viewcode-block" id="SequenceFilter">
@@ -584,20 +582,13 @@
             <span class="k">continue</span></div>
 
 
-<div class="viewcode-block" id="TerminalEmulator.application_cursor_keys">
-<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.application_cursor_keys">[docs]</a>
+<div class="viewcode-block" id="TerminalEmulator.bracketed_paste">
+<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.bracketed_paste">[docs]</a>
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">application_cursor_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Return whether the guest asked for application cursor keys (DECCKM)."""</span>
-        <span class="k">return</span> <span class="n">_DECCKM</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">mode</span></div>
-
-
-<div class="viewcode-block" id="TerminalEmulator.in_alternate_screen">
-<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.in_alternate_screen">[docs]</a>
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">in_alternate_screen</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Return whether a full-screen program shows the alternate screen."""</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">in_alternate_screen</span></div>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bracketed_paste</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return whether the guest asked for bracketed paste (mode 2004)."""</span>
+        <span class="c1"># ``pyte`` keeps private DEC modes shifted by five bits.</span>
+        <span class="k">return</span> <span class="p">(</span><span class="mi">2004</span> <span class="o">&lt;&lt;</span> <span class="mi">5</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">mode</span></div>
 
 
 <div class="viewcode-block" id="TerminalEmulator.is_scrollback_active">
@@ -610,13 +601,9 @@
 
 <div class="viewcode-block" id="TerminalEmulator.as_formatted_text">
 <a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.as_formatted_text">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">as_formatted_text</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">selection</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">as_formatted_text</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">"""Render the current screen buffer as prompt_toolkit fragments.</span>
 
-<span class="sd">        :param selection: Optional inclusive start/end cell coordinates.</span>
 <span class="sd">        :returns: A list of ``(style, text)`` fragments.</span>
 <span class="sd">        """</span>
         <span class="n">fragments</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
@@ -628,8 +615,6 @@
             <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
                 <span class="n">char</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="n">x</span><span class="p">]</span>
                 <span class="n">style</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cell_style</span><span class="p">(</span><span class="n">char</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">selection</span> <span class="ow">and</span> <span class="n">_cell_in_selection</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="n">selection</span><span class="p">):</span>
-                    <span class="n">style</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">style</span><span class="si">}</span><span class="s2"> reverse"</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">cursor</span><span class="o">.</span><span class="n">hidden</span> <span class="ow">and</span> <span class="n">cursor</span><span class="o">.</span><span class="n">x</span> <span class="o">==</span> <span class="n">x</span> <span class="ow">and</span> <span class="n">cursor</span><span class="o">.</span><span class="n">y</span> <span class="o">==</span> <span class="n">y</span><span class="p">:</span>
                     <span class="n">style</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">style</span><span class="si">}</span><span class="s2"> reverse"</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
                 <span class="k">if</span> <span class="n">style</span> <span class="o">!=</span> <span class="n">run_style</span> <span class="ow">and</span> <span class="n">run_characters</span><span class="p">:</span>
@@ -642,34 +627,6 @@
             <span class="k">if</span> <span class="n">y</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">lines</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="n">fragments</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">""</span><span class="p">,</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">fragments</span></div>
-
-
-<div class="viewcode-block" id="TerminalEmulator.selected_text">
-<a class="viewcode-back" href="../../../api/pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.selected_text">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">selected_text</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">selection</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Return the textual content inside a visible selection range.</span>
-
-<span class="sd">        :param selection: Inclusive start/end cell coordinates.</span>
-<span class="sd">        :returns: Selected text with newline joins between screen rows.</span>
-<span class="sd">        """</span>
-        <span class="k">if</span> <span class="n">selection</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="s2">""</span>
-
-        <span class="p">(</span><span class="n">start_row</span><span class="p">,</span> <span class="n">start_col</span><span class="p">),</span> <span class="p">(</span><span class="n">end_row</span><span class="p">,</span> <span class="n">end_col</span><span class="p">)</span> <span class="o">=</span> <span class="n">selection</span>
-        <span class="n">selected_lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-
-        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start_row</span><span class="p">,</span> <span class="n">end_row</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
-            <span class="n">left</span> <span class="o">=</span> <span class="n">start_col</span> <span class="k">if</span> <span class="n">row</span> <span class="o">==</span> <span class="n">start_row</span> <span class="k">else</span> <span class="mi">0</span>
-            <span class="n">right</span> <span class="o">=</span> <span class="n">end_col</span> <span class="k">if</span> <span class="n">row</span> <span class="o">==</span> <span class="n">end_row</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">columns</span> <span class="o">-</span> <span class="mi">1</span>
-            <span class="n">line</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">buffer</span><span class="p">[</span><span class="n">row</span><span class="p">]</span>
-            <span class="n">selected_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="n">column</span><span class="p">]</span><span class="o">.</span><span class="n">data</span> <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
-            <span class="p">)</span>
-
-        <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">selected_lines</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_scroll_history_up</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lines</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
@@ -794,24 +751,6 @@
         <span class="k">return</span> <span class="sa">f</span><span class="s2">"#</span><span class="si">{</span><span class="n">color</span><span class="si">}</span><span class="s2">"</span>
     <span class="k">return</span> <span class="n">color</span>
 
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_cell_in_selection</span><span class="p">(</span>
-    <span class="o">*</span><span class="p">,</span>
-    <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">selection</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Return whether one visible cell belongs to the active selection."""</span>
-    <span class="p">(</span><span class="n">start_row</span><span class="p">,</span> <span class="n">start_col</span><span class="p">),</span> <span class="p">(</span><span class="n">end_row</span><span class="p">,</span> <span class="n">end_col</span><span class="p">)</span> <span class="o">=</span> <span class="n">selection</span>
-    <span class="k">if</span> <span class="n">y</span> <span class="o">&lt;</span> <span class="n">start_row</span> <span class="ow">or</span> <span class="n">y</span> <span class="o">&gt;</span> <span class="n">end_row</span><span class="p">:</span>
-        <span class="k">return</span> <span class="kc">False</span>
-    <span class="k">if</span> <span class="n">start_row</span> <span class="o">==</span> <span class="n">end_row</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">y</span> <span class="o">==</span> <span class="n">start_row</span> <span class="ow">and</span> <span class="n">start_col</span> <span class="o">&lt;=</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="n">end_col</span>
-    <span class="k">if</span> <span class="n">y</span> <span class="o">==</span> <span class="n">start_row</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">x</span> <span class="o">&gt;=</span> <span class="n">start_col</span>
-    <span class="k">if</span> <span class="n">y</span> <span class="o">==</span> <span class="n">end_row</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="n">end_col</span>
-    <span class="k">return</span> <span class="kc">True</span>
 </pre></div>
 
           </div>

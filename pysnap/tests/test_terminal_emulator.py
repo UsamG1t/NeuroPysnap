@@ -122,25 +122,5 @@ class TerminalEmulatorTests(unittest.TestCase):
         rendered_lines = "".join(text for _, text in fragments).split("\n")
         self.assertEqual([line.rstrip() for line in rendered_lines], ["alpha", "", ""])
 
-    def test_as_formatted_text_merges_selection_into_runs(self) -> None:
-        """Highlight a selected run as one reversed fragment."""
-        emulator = TerminalEmulator(columns=10, lines=3)
-        emulator.feed(b"alpha")
-
-        fragments = emulator.as_formatted_text(selection=((0, 0), (0, 2)))
-
-        self.assertEqual(fragments[0], ("reverse", "alp"))
-        self.assertEqual(fragments[1], ("", "ha"))
-
-    def test_selected_text_reads_visible_range(self) -> None:
-        """Extract selected text from the currently visible screen area."""
-        emulator = TerminalEmulator(columns=10, lines=3)
-        emulator.feed(b"alpha\r\nbeta\r\ngamma\r\n")
-
-        selection = ((0, 1), (1, 2))
-
-        self.assertEqual(emulator.selected_text(selection), "eta\ngam")
-
-
 if __name__ == "__main__":
     unittest.main()

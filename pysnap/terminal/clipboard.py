@@ -1,74 +1,100 @@
-"""Clipboard helpers for copying text out of the terminal session."""
+"""Read the host clipboard for the ``Ctrl-]`` ``v`` paste of ``pysnap connect``.
+
+The clipboard is read only when the user asks for it. Copying and the usual
+paste are left to the terminal of the user; this paste helps where the
+terminal offers none from the keyboard, such as the Windows console without
+its Ctrl key shortcuts.
+
+- Windows: the Win32 clipboard API through ``ctypes``, no external program;
+- macOS: ``pbpaste``;
+- Linux and other systems: ``wl-paste`` under Wayland, then ``xclip`` or
+  ``xsel`` for the X11 clipboard.
+"""
 
 from __future__ import annotations
 
-import base64
+import os
 import shutil
 import subprocess
 import sys
 
-from prompt_toolkit.output.base import Output
+READ_TIMEOUT = 3.0
+_CF_UNICODETEXT = 13
 
 
-def copy_text_to_host_clipboard(text: str, output: Output | None = None) -> bool:
-    """Copy text to the host clipboard.
+class ClipboardError(Exception):
+    """Report that the host clipboard cannot be read."""
 
-    The function first tries native platform clipboard commands. When these are
-    unavailable, it falls back to the OSC 52 terminal clipboard sequence for
-    terminals that support it.
 
-    :param text: Text to copy.
-    :param output: Prompt-toolkit output used for the OSC 52 fallback.
-    :returns: ``True`` when one copy strategy succeeded.
+def read_host_clipboard() -> str:
+    """Return the text in the host clipboard.
+
+    :returns: Clipboard text; empty when the clipboard holds no text.
+    :raises ClipboardError: When no way to read the clipboard works.
     """
-    if not text:
-        return False
-
-    if _copy_with_platform_command(text):
-        return True
-    if output is None:
-        return False
-
-    output.write_raw(_osc52_payload(text))
-    output.flush()
-    return True
-
-
-def _copy_with_platform_command(text: str) -> bool:
-    """Copy text using a platform-specific clipboard command."""
-    for command in _platform_clipboard_commands():
-        executable = command[0]
-        if shutil.which(executable) is None:
-            continue
-        try:
-            subprocess.run(
-                command,
-                input=text,
-                text=True,
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except (OSError, subprocess.SubprocessError):
-            continue
-        return True
-    return False
-
-
-def _platform_clipboard_commands() -> tuple[tuple[str, ...], ...]:
-    """Return clipboard commands to try on the current host platform."""
     if sys.platform == "win32":
-        return (("clip.exe",), ("clip",))
+        return _read_windows_clipboard()
+    commands = _clipboard_commands()
+    available = [command for command in commands if shutil.which(command[0])]
+    if not available:
+        names = ", ".join(command[0] for command in commands)
+        raise ClipboardError(f"no clipboard program found; install one of: {names}")
+    errors = []
+    for command in available:
+        try:
+            result = subprocess.run(
+                command,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                timeout=READ_TIMEOUT,
+            )
+        except (OSError, subprocess.SubprocessError) as error:
+            errors.append(f"{command[0]}: {error}")
+            continue
+        if result.returncode == 0:
+            return result.stdout.decode("utf-8", errors="replace")
+        message = result.stderr.decode("utf-8", errors="replace").strip()
+        errors.append(f"{command[0]}: {message or f'exit status {result.returncode}'}")
+    raise ClipboardError("; ".join(errors))
+
+
+def _clipboard_commands() -> list[tuple[str, ...]]:
+    """Return the programs that print the clipboard, in the order to try."""
     if sys.platform == "darwin":
-        return (("pbcopy",),)
-    return (
-        ("wl-copy",),
-        ("xclip", "-selection", "clipboard"),
-        ("xsel", "--clipboard", "--input"),
-    )
+        return [("pbpaste",)]
+    commands = [
+        ("xclip", "-selection", "clipboard", "-o"),
+        ("xsel", "--clipboard", "--output"),
+    ]
+    if os.environ.get("WAYLAND_DISPLAY"):
+        commands.insert(0, ("wl-paste", "--no-newline"))
+    return commands
 
 
-def _osc52_payload(text: str) -> str:
-    """Encode text as an OSC 52 clipboard sequence."""
-    encoded = base64.b64encode(text.encode("utf-8")).decode("ascii")
-    return f"\x1b]52;c;{encoded}\x07"
+def _read_windows_clipboard() -> str:  # pragma: no cover - Windows only
+    """Return the Unicode text of the Windows clipboard."""
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    user32.GetClipboardData.restype = wintypes.HANDLE
+    user32.GetClipboardData.argtypes = [wintypes.UINT]
+    kernel32.GlobalLock.restype = wintypes.LPVOID
+    kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
+    kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
+    if not user32.OpenClipboard(None):
+        raise ClipboardError("the clipboard is in use by another program")
+    try:
+        handle = user32.GetClipboardData(_CF_UNICODETEXT)
+        if not handle:
+            return ""
+        pointer = kernel32.GlobalLock(handle)
+        if not pointer:
+            raise ClipboardError("the clipboard data cannot be locked")
+        try:
+            return ctypes.wstring_at(pointer)
+        finally:
+            kernel32.GlobalUnlock(handle)
+    finally:
+        user32.CloseClipboard()

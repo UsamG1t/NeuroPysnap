@@ -40,8 +40,6 @@ _MAX_CSI_LENGTH = 256
 # A control string that never ends would hide all further output; after this
 # many bytes the rest is shown again.
 _MAX_STRING_LENGTH = 65536
-# ``pyte`` keeps private DEC modes shifted by five bits; mode 1 is DECCKM.
-_DECCKM = 1 << 5
 
 
 class SequenceFilter:
@@ -486,27 +484,19 @@ class TerminalEmulator:
             continue
 
     @property
-    def application_cursor_keys(self) -> bool:
-        """Return whether the guest asked for application cursor keys (DECCKM)."""
-        return _DECCKM in self.screen.mode
-
-    @property
-    def in_alternate_screen(self) -> bool:
-        """Return whether a full-screen program shows the alternate screen."""
-        return self.screen.in_alternate_screen
+    def bracketed_paste(self) -> bool:
+        """Return whether the guest asked for bracketed paste (mode 2004)."""
+        # ``pyte`` keeps private DEC modes shifted by five bits.
+        return (2004 << 5) in self.screen.mode
 
     @property
     def is_scrollback_active(self) -> bool:
         """Return whether the current view is above the live output bottom."""
         return self.screen.history.position < self.screen.history.size
 
-    def as_formatted_text(
-        self,
-        selection: tuple[tuple[int, int], tuple[int, int]] | None = None,
-    ) -> list[tuple[str, str]]:
+    def as_formatted_text(self) -> list[tuple[str, str]]:
         """Render the current screen buffer as prompt_toolkit fragments.
 
-        :param selection: Optional inclusive start/end cell coordinates.
         :returns: A list of ``(style, text)`` fragments.
         """
         fragments: list[tuple[str, str]] = []
@@ -518,8 +508,6 @@ class TerminalEmulator:
             for x in range(self.screen.columns):
                 char = line[x]
                 style = self._cell_style(char)
-                if selection and _cell_in_selection(y=y, x=x, selection=selection):
-                    style = f"{style} reverse".strip()
                 if not cursor.hidden and cursor.x == x and cursor.y == y:
                     style = f"{style} reverse".strip()
                 if style != run_style and run_characters:
@@ -532,31 +520,6 @@ class TerminalEmulator:
             if y != self.screen.lines - 1:
                 fragments.append(("", "\n"))
         return fragments
-
-    def selected_text(
-        self,
-        selection: tuple[tuple[int, int], tuple[int, int]] | None,
-    ) -> str:
-        """Return the textual content inside a visible selection range.
-
-        :param selection: Inclusive start/end cell coordinates.
-        :returns: Selected text with newline joins between screen rows.
-        """
-        if selection is None:
-            return ""
-
-        (start_row, start_col), (end_row, end_col) = selection
-        selected_lines: list[str] = []
-
-        for row in range(start_row, end_row + 1):
-            left = start_col if row == start_row else 0
-            right = end_col if row == end_row else self.screen.columns - 1
-            line = self.screen.buffer[row]
-            selected_lines.append(
-                "".join(line[column].data for column in range(left, right + 1)).rstrip()
-            )
-
-        return "\n".join(selected_lines).rstrip("\n")
 
     def _scroll_history_up(self, lines: int) -> bool:
         """Move the local viewport upward through retained history.
@@ -679,21 +642,3 @@ def _normalize_style_color(color: str) -> str | None:
         return f"#{color}"
     return color
 
-
-def _cell_in_selection(
-    *,
-    y: int,
-    x: int,
-    selection: tuple[tuple[int, int], tuple[int, int]],
-) -> bool:
-    """Return whether one visible cell belongs to the active selection."""
-    (start_row, start_col), (end_row, end_col) = selection
-    if y < start_row or y > end_row:
-        return False
-    if start_row == end_row:
-        return y == start_row and start_col <= x <= end_col
-    if y == start_row:
-        return x >= start_col
-    if y == end_row:
-        return x <= end_col
-    return True

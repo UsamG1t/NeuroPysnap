@@ -1,6 +1,6 @@
 # PySnap
 
-PySnap 2.2.1 is a Python 3.11+ command line package for importing VirtualBox OVA/OVF
+PySnap 2.2.2 is a Python 3.11+ command line package for importing VirtualBox OVA/OVF
 appliances, creating linked clones, configuring internal networks, starting
 virtual machines in headless mode, attaching to them through a built-in
 terminal over the serial console or ssh, and removing virtual machines with dependency checks.
@@ -30,8 +30,10 @@ terminal over the serial console or ssh, and removing virtual machines with depe
   cross-platform Python terminal interface.
 - Track outer-terminal resize events during ``connect`` sessions and answer
   xterm-compatible size queries for guest-side tools.
-- Select terminal text with the mouse; it is copied to the host clipboard
-  when the button is released.
+- Leave selection, copy and paste to the terminal of the user, so they work
+  as in any other program; pastes reach the guest with Enter line breaks and
+  bracketed-paste markers when the guest asks for them, and ``Ctrl+]`` ``v``
+  pastes the host clipboard where the terminal has no paste key.
 - Open the bundled HTML documentation directly from the installed package.
 - Monitor active and changing virtual machines with compact runtime states.
 - Stop one running VM or all running VMs through `acpipowerbutton`.
@@ -135,11 +137,11 @@ current terminal size. On Linux guests, xterm-compatible tools such as
 All keys go to the guest, so editors such as vim and nano work as in a
 regular terminal. PySnap commands start with ``Ctrl+]``: then ``q`` detaches,
 ``Up``/``Down``/``PgUp``/``PgDn``/``Home``/``End`` scroll the local scrollback
-buffer, ``Ctrl+]`` sends ``Ctrl+]`` to the guest and ``Esc`` goes back. On
-Linux, the mouse wheel drives the same local scrollback, or sends cursor keys
-to full-screen programs such as less. Dragging with the left mouse button
-selects visible terminal text, which is copied to the host clipboard when the
-button is released.
+buffer, ``v`` pastes the host clipboard, ``Ctrl+]`` sends ``Ctrl+]`` to the
+guest and ``Esc`` goes back; on
+Linux the mouse wheel scrolls the same buffer while these keys are active.
+Otherwise the mouse belongs to your terminal, so its own selection, copy and
+paste work as in any other program.
 
 Plug a stopped VM into the same serial-console workflow used by imported
 protocol images:

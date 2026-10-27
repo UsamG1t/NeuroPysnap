@@ -181,7 +181,7 @@ class _Service:
         self.session_registry = _Registry()
         self.states = states
 
-    def get_monitor_state_label(self, vm_name: str) -> str:
+    def get_session_state_label(self, vm_name: str) -> str:
         return self.states.pop(0) if len(self.states) > 1 else self.states[0]
 
 
@@ -216,7 +216,8 @@ class SessionLoopTests(unittest.TestCase):
             with create_pipe_input() as pipe_input, create_app_session(input=pipe_input, output=DummyOutput()):
                 await TerminalSession(service=service)._run_async("vm", transport, paused=paused)
 
-        with patch("pysnap.terminal.session.SessionStatus", Status):
+        with patch("pysnap.terminal.session.SessionStatus", Status), \
+                patch("pysnap.terminal.session.STATE_POLL_INTERVAL", 0.3):
             asyncio.run(scenario())
         return bytes(writer.data), service.session_registry.records, messages, closed
 

@@ -5,12 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>pysnap package &#8212; PySnap 2.2.1 documentation</title>
+    <title>pysnap package &#8212; PySnap 2.2.2 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
-    <script src="../_static/documentation_options.js?v=16656018"></script>
+    <script src="../_static/documentation_options.js?v=219dea72"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -231,6 +231,7 @@
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.run_integration_test"><code class="docutils literal notranslate"><span class="pre">PySnapService.run_integration_test()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.list_groups"><code class="docutils literal notranslate"><span class="pre">PySnapService.list_groups()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.list_monitored_vms"><code class="docutils literal notranslate"><span class="pre">PySnapService.list_monitored_vms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.get_session_state_label"><code class="docutils literal notranslate"><span class="pre">PySnapService.get_session_state_label()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.get_monitor_state_label"><code class="docutils literal notranslate"><span class="pre">PySnapService.get_monitor_state_label()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.prepare_vm_connection"><code class="docutils literal notranslate"><span class="pre">PySnapService.prepare_vm_connection()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.core.html#pysnap.core.service.PySnapService.stop_runtime_vm"><code class="docutils literal notranslate"><span class="pre">PySnapService.stop_runtime_vm()</span></code></a></li>
@@ -743,7 +744,8 @@
 <li class="toctree-l1"><a class="reference internal" href="pysnap.terminal.html">pysnap.terminal package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="pysnap.terminal.html#submodules">Submodules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pysnap.terminal.html#module-pysnap.terminal.clipboard">pysnap.terminal.clipboard module</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.clipboard.copy_text_to_host_clipboard"><code class="docutils literal notranslate"><span class="pre">copy_text_to_host_clipboard()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.clipboard.ClipboardError"><code class="docutils literal notranslate"><span class="pre">ClipboardError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.clipboard.read_host_clipboard"><code class="docutils literal notranslate"><span class="pre">read_host_clipboard()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="pysnap.terminal.html#module-pysnap.terminal.emulator">pysnap.terminal.emulator module</a><ul>
@@ -778,17 +780,16 @@
 <li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.scroll_down"><code class="docutils literal notranslate"><span class="pre">TerminalEmulator.scroll_down()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.scroll_to_top"><code class="docutils literal notranslate"><span class="pre">TerminalEmulator.scroll_to_top()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.scroll_to_bottom"><code class="docutils literal notranslate"><span class="pre">TerminalEmulator.scroll_to_bottom()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.application_cursor_keys"><code class="docutils literal notranslate"><span class="pre">TerminalEmulator.application_cursor_keys</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.in_alternate_screen"><code class="docutils literal notranslate"><span class="pre">TerminalEmulator.in_alternate_screen</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.bracketed_paste"><code class="docutils literal notranslate"><span class="pre">TerminalEmulator.bracketed_paste</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.is_scrollback_active"><code class="docutils literal notranslate"><span class="pre">TerminalEmulator.is_scrollback_active</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.as_formatted_text"><code class="docutils literal notranslate"><span class="pre">TerminalEmulator.as_formatted_text()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.emulator.TerminalEmulator.selected_text"><code class="docutils literal notranslate"><span class="pre">TerminalEmulator.selected_text()</span></code></a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="pysnap.terminal.html#module-pysnap.terminal.keymap">pysnap.terminal.keymap module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.keymap.key_press_to_bytes"><code class="docutils literal notranslate"><span class="pre">key_press_to_bytes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.keymap.paste_to_bytes"><code class="docutils literal notranslate"><span class="pre">paste_to_bytes()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="pysnap.terminal.html#module-pysnap.terminal.protocol">pysnap.terminal.protocol module</a><ul>
@@ -818,27 +819,6 @@
 <li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.SessionTransport.opener"><code class="docutils literal notranslate"><span class="pre">SessionTransport.opener</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.SessionTransport.for_serial"><code class="docutils literal notranslate"><span class="pre">SessionTransport.for_serial()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.SessionTransport.for_ssh"><code class="docutils literal notranslate"><span class="pre">SessionTransport.for_ssh()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.TerminalSelection"><code class="docutils literal notranslate"><span class="pre">TerminalSelection</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.TerminalSelection.anchor_row"><code class="docutils literal notranslate"><span class="pre">TerminalSelection.anchor_row</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.TerminalSelection.anchor_column"><code class="docutils literal notranslate"><span class="pre">TerminalSelection.anchor_column</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.TerminalSelection.row"><code class="docutils literal notranslate"><span class="pre">TerminalSelection.row</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.TerminalSelection.column"><code class="docutils literal notranslate"><span class="pre">TerminalSelection.column</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.TerminalSelection.normalized"><code class="docutils literal notranslate"><span class="pre">TerminalSelection.normalized</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.TerminalSelection.is_collapsed"><code class="docutils literal notranslate"><span class="pre">TerminalSelection.is_collapsed</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.SelectionTracker"><code class="docutils literal notranslate"><span class="pre">SelectionTracker</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.selection"><code class="docutils literal notranslate"><span class="pre">SelectionTracker.selection</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.captured_text"><code class="docutils literal notranslate"><span class="pre">SelectionTracker.captured_text</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.is_active"><code class="docutils literal notranslate"><span class="pre">SelectionTracker.is_active</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.begin"><code class="docutils literal notranslate"><span class="pre">SelectionTracker.begin()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.update"><code class="docutils literal notranslate"><span class="pre">SelectionTracker.update()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.finish"><code class="docutils literal notranslate"><span class="pre">SelectionTracker.finish()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.take_captured_text"><code class="docutils literal notranslate"><span class="pre">SelectionTracker.take_captured_text()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.clear_highlight"><code class="docutils literal notranslate"><span class="pre">SelectionTracker.clear_highlight()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.SelectionTracker.clear"><code class="docutils literal notranslate"><span class="pre">SelectionTracker.clear()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="pysnap.terminal.html#pysnap.terminal.session.ScrollableTerminalControl"><code class="docutils literal notranslate"><span class="pre">ScrollableTerminalControl</span></code></a><ul>

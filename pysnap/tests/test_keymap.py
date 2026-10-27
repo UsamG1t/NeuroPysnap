@@ -23,6 +23,10 @@ class KeymapTests(unittest.TestCase):
         """Pass regular text keys through as UTF-8 bytes."""
         self.assertEqual(key_press_to_bytes(KeyPress("x", "x")), b"x")
 
+    def test_paste_uses_enter_for_line_breaks(self) -> None:
+        """Send a pasted text with CR line breaks, without paste markers."""
+        self.assertEqual(key_press_to_bytes(KeyPress(Keys.BracketedPaste, "a\r\nb\n")), b"a\rb\r")
+
     def test_unsupported_virtual_key_returns_none(self) -> None:
         """Ignore prompt-toolkit virtual keys that have no serial mapping."""
         self.assertIsNone(key_press_to_bytes(KeyPress(Keys.CPRResponse, "")))

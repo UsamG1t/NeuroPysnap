@@ -5,12 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Architecture &#8212; PySnap 2.2.1 documentation</title>
+    <title>Architecture &#8212; PySnap 2.2.2 documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
-    <script src="_static/documentation_options.js?v=16656018"></script>
+    <script src="_static/documentation_options.js?v=219dea72"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -57,34 +57,8 @@ key mapping, terminal-query responder, and interactive UI session logic.</p></li
 </section>
 <section id="package-relationship-diagram">
 <h2>Package Relationship Diagram<a class="headerlink" href="#package-relationship-diagram" title="Link to this heading">¶</a></h2>
-<figure class="align-default" id="id1">
-<div class="graphviz"><object data="_images/graphviz-add07dbfa4d30468c0e141a4408bf99feb0e4c0e.svg" type="image/svg+xml" class="graphviz">
-<p class="warning">digraph package_relationships {
-    rankdir=LR;
-    node [shape=box, style=&quot;rounded,filled&quot;, fillcolor=&quot;#f6f6f6&quot;];
-
-    cli [label=&quot;pysnap.cli&quot;];
-    config [label=&quot;pysnap.config&quot;];
-    core [label=&quot;pysnap.core&quot;];
-    report [label=&quot;pysnap.report&quot;];
-    runtime [label=&quot;pysnap.runtime&quot;];
-    terminal [label=&quot;pysnap.terminal&quot;];
-    vbox [label=&quot;pysnap.vbox&quot;];
-
-    cli -&gt; core [label=&quot;command dispatch&quot;];
-    cli -&gt; terminal [label=&quot;connect&quot;];
-    cli -&gt; report [label=&quot;report&quot;];
-    report -&gt; terminal [label=&quot;emulator, UI controls&quot;];
-    core -&gt; config [label=&quot;.ptotosettings&quot;];
-    core -&gt; runtime [label=&quot;session registry&quot;];
-    core -&gt; vbox [label=&quot;VBoxManage operations&quot;];
-    terminal -&gt; core [label=&quot;prepare VM&quot;];
-    terminal -&gt; runtime [label=&quot;live session&quot;];
-}</p></object></div>
-<figcaption>
-<p><span class="caption-text">High-level relationships between PySnap packages.</span><a class="headerlink" href="#id1" title="Link to this image">¶</a></p>
-</figcaption>
-</figure>
+<p>Graphviz relationship diagrams are enabled automatically when the <code class="docutils literal notranslate"><span class="pre">dot</span></code>
+executable is available on the build host.</p>
 </section>
 <section id="execution-flow">
 <h2>Execution Flow<a class="headerlink" href="#execution-flow" title="Link to this heading">¶</a></h2>
@@ -134,15 +108,26 @@ serial TCP does not offer a PTY-style <code class="docutils literal notranslate"
 also replies to xterm-compatible in-band terminal queries such as <code class="docutils literal notranslate"><span class="pre">CSI</span> <span class="pre">18</span> <span class="pre">t</span></code>
 and <code class="docutils literal notranslate"><span class="pre">CSI</span> <span class="pre">6</span> <span class="pre">n</span></code> so guest-side Linux tools can rediscover the current geometry.</p>
 </section>
-<section id="terminal-selection-strategy">
-<h2>Terminal Selection Strategy<a class="headerlink" href="#terminal-selection-strategy" title="Link to this heading">¶</a></h2>
-<p>Mouse selection in <code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code> copies the text to the host clipboard
-when the button is released: many terminal emulators keep <code class="docutils literal notranslate"><span class="pre">Ctrl-Shift-C</span></code>
-for their own copy command and never pass it on. Where it does arrive,
-<code class="docutils literal notranslate"><span class="pre">Ctrl-Shift-C</span></code> and <code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code> are the same <code class="docutils literal notranslate"><span class="pre">ETX</span></code> byte, so PySnap resolves
-the chord by selection state: with a selected text it copies again, without
-one it forwards a real interrupt to the guest. Incoming guest output drops
-only the visible highlight and keeps the selected text.</p>
+<section id="mouse-and-clipboard-strategy">
+<h2>Mouse and Clipboard Strategy<a class="headerlink" href="#mouse-and-clipboard-strategy" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">pysnap</span> <span class="pre">connect</span></code> leaves selection, copy and paste to the terminal of the
+user. Earlier versions took the mouse to select text themselves and copied
+it through <code class="docutils literal notranslate"><span class="pre">xclip</span></code>, <code class="docutils literal notranslate"><span class="pre">xsel</span></code>, <code class="docutils literal notranslate"><span class="pre">wl-copy</span></code> or OSC 52, but every terminal and
+system differs: many terminals keep <code class="docutils literal notranslate"><span class="pre">Ctrl-Shift-C</span></code> for themselves, Linux
+has two selections, GNOME Terminal and the Windows console ignore OSC 52,
+and a program that takes the mouse disables the native selection, the
+middle-button paste on Linux and the right-button paste and QuickEdit of
+the Windows console. The application therefore enables mouse support only
+while the <code class="docutils literal notranslate"><span class="pre">Ctrl-]</span></code> command keys are active (a <code class="docutils literal notranslate"><span class="pre">Condition</span></code> on
+<code class="docutils literal notranslate"><span class="pre">mouse_support</span></code>), for wheel scrolling of the local history on Linux, and
+<code class="docutils literal notranslate"><span class="pre">prompt_toolkit</span></code> turns mouse reporting off again when the mode ends.</p>
+<p>Pasted text arrives as one <code class="docutils literal notranslate"><span class="pre">BracketedPaste</span></code> key. <code class="docutils literal notranslate"><span class="pre">paste_to_bytes</span></code> turns
+its line breaks into <code class="docutils literal notranslate"><span class="pre">CR</span></code> and, while the guest has the DEC mode 2004 on (the
+emulator reads it from <code class="docutils literal notranslate"><span class="pre">pyte</span></code>), puts it between <code class="docutils literal notranslate"><span class="pre">ESC</span> <span class="pre">[</span> <span class="pre">200</span> <span class="pre">~</span></code> and
+<code class="docutils literal notranslate"><span class="pre">ESC</span> <span class="pre">[</span> <span class="pre">201</span> <span class="pre">~</span></code> after removing such markers from the text. The <code class="docutils literal notranslate"><span class="pre">Ctrl-]</span></code>
+<code class="docutils literal notranslate"><span class="pre">v</span></code> paste reads the host clipboard in a worker thread
+(<code class="docutils literal notranslate"><span class="pre">pysnap.terminal.clipboard</span></code>: the Win32 API through <code class="docutils literal notranslate"><span class="pre">ctypes</span></code>,
+<code class="docutils literal notranslate"><span class="pre">pbpaste</span></code>, <code class="docutils literal notranslate"><span class="pre">wl-paste</span></code>, <code class="docutils literal notranslate"><span class="pre">xclip</span></code> or <code class="docutils literal notranslate"><span class="pre">xsel</span></code>) and sends it the same way.</p>
 </section>
 <section id="key-strategy">
 <h2>Key Strategy<a class="headerlink" href="#key-strategy" title="Link to this heading">¶</a></h2>
@@ -156,9 +141,7 @@ included, just leaves the mode. As no binding starts with <code class="docutils 
 of an escape sequence instead of after the half-second key binding timeout.
 <code class="docutils literal notranslate"><span class="pre">key_press_to_bytes</span></code> sends a sequence that <code class="docutils literal notranslate"><span class="pre">prompt_toolkit</span></code> splits into
 several keys, such as <code class="docutils literal notranslate"><span class="pre">ESC</span> <span class="pre">[</span> <span class="pre">1</span> <span class="pre">;</span> <span class="pre">3</span> <span class="pre">A</span></code> (<code class="docutils literal notranslate"><span class="pre">Alt+Up</span></code> on an xterm), once with
-the first key and skips the empty rest. On the alternate screen the mouse
-wheel sends cursor keys, in the application form <code class="docutils literal notranslate"><span class="pre">ESC</span> <span class="pre">O</span> <span class="pre">A</span></code> when the guest
-switched DECCKM on.</p>
+the first key and skips the empty rest.</p>
 </section>
 <section id="proto-settings-strategy">
 <h2>Proto Settings Strategy<a class="headerlink" href="#proto-settings-strategy" title="Link to this heading">¶</a></h2>
@@ -221,6 +204,10 @@ channel) run only for the serial transport.</p>
 <code class="docutils literal notranslate"><span class="pre">Active</span></code> and <code class="docutils literal notranslate"><span class="pre">Paused</span></code>. <code class="docutils literal notranslate"><span class="pre">PauseTracker</span></code> follows pause and resume: while
 paused, keys are not forwarded, and a session that started on a paused VM
 wakes the console after the resume only when no guest output arrived yet.</p>
+<p>The session checks the state once a second with a single <code class="docutils literal notranslate"><span class="pre">VBoxManage</span>
+<span class="pre">showvminfo</span></code> call (<code class="docutils literal notranslate"><span class="pre">get_session_state_label</span></code>) in a worker thread. VBoxManage
+can take long to start, for example on a computer booted from the network;
+the event loop keeps forwarding keys and guest output meanwhile.</p>
 </section>
 <section id="host-cleanup-strategy">
 <h2>Host Cleanup Strategy<a class="headerlink" href="#host-cleanup-strategy" title="Link to this heading">¶</a></h2>
@@ -475,7 +462,7 @@ without requiring Sphinx at runtime.</p>
 <li class="toctree-l2"><a class="reference internal" href="#execution-flow">Execution Flow</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#metadata-strategy">Metadata Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#serial-port-strategy">Serial Port Strategy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#terminal-selection-strategy">Terminal Selection Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#mouse-and-clipboard-strategy">Mouse and Clipboard Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#key-strategy">Key Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#proto-settings-strategy">Proto Settings Strategy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#access-strategy">Access Strategy</a></li>
