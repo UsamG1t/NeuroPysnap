@@ -337,6 +337,7 @@ PySnap commands start with ``Ctrl-]``, which guest programs hardly use, as in
   ``PgUp`` and ``PgDn`` by one screen, ``Home`` jumps to the oldest retained
   output and ``End`` back to the live output; the command keys stay active
   for further scrolling
+- ``v`` pastes the text of the host clipboard (see below)
 - ``Ctrl-]`` sends ``Ctrl-]`` itself to the guest
 - ``Esc`` or any other key leaves the command keys without sending anything
 - on Linux, the mouse wheel or touchpad scroll gesture moves the local
@@ -349,6 +350,19 @@ Linux, ``Ctrl-C``/``Ctrl-V`` or the right button in Windows Terminal, the
 right button in the Windows console and ``Cmd-C``/``Cmd-V`` on macOS. Text
 in the local scrollback can be selected after scrolling to it with the
 command keys. ``Ctrl-C`` always goes to the guest as an interrupt.
+
+A pasted text reaches the guest the way a terminal sends it: line breaks of
+any system become the Enter key (``CR``), so a text copied on Windows gives no
+empty lines, and when the guest asked for bracketed paste, as bash and vim
+do, the text is marked as a paste; bash then waits for Enter instead of
+running each pasted line, and vim does not indent it again. ``Ctrl-]`` ``v``
+pastes the host clipboard in the same way for terminals without a paste key,
+for example the Windows console without its Ctrl key shortcuts, where
+``Ctrl-V`` reaches the guest as ``^V``. The clipboard is read only then: on
+Windows through the system API, on macOS with ``pbpaste``, elsewhere with
+``wl-paste`` (Wayland), ``xclip`` or ``xsel``; the status line tells when none
+is installed. Over the serial console a long paste can lose characters, because
+the console has no flow control.
 
 Full-screen programs such as vim, nano and less use the alternate screen:
 while they run, the local scrollback is off, and they scroll with their own

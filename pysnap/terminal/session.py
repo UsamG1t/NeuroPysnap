@@ -26,7 +26,8 @@ from pysnap.ssh import client as ssh_client
 from pysnap.ssh.client import SshTarget
 from pysnap.ssh.keys import SshKeyStore
 from pysnap.terminal.emulator import TerminalEmulator
-from pysnap.terminal.keymap import key_press_to_bytes
+from pysnap.terminal import clipboard
+from pysnap.terminal.keymap import key_press_to_bytes, paste_to_bytes
 from pysnap.terminal.protocol import TerminalQueryResponder
 from pysnap.terminal.transport import open_serial_connection
 
@@ -142,7 +143,7 @@ class SessionTransport:
 
 DETACH_HINT = "Ctrl-] q detaches."
 PAUSED_MESSAGE = f"VM is paused; keys wait for pysnap resume. {DETACH_HINT}"
-COMMAND_MESSAGE = "q detach, Up/Down/PgUp/PgDn/Home/End scroll, Esc back"
+COMMAND_MESSAGE = "q detach, v paste, arrows/PgUp/PgDn scroll, Esc"
 # Lines one mouse wheel step scrolls; on the alternate screen the same number
 # of cursor keys goes to the guest.
 WHEEL_LINES = 3
@@ -343,6 +344,28 @@ class TerminalSession:
             stop_event.set()
             event.app.exit()
 
+        async def paste_host_clipboard() -> None:
+            try:
+                text = await asyncio.to_thread(clipboard.read_host_clipboard)
+            except clipboard.ClipboardError as error:
+                status.message = f"Cannot read the host clipboard: {error}."
+            else:
+                if not text:
+                    status.message = "The host clipboard holds no text."
+                elif not guest_accepts_keys():
+                    status.message = "Keys are paused; nothing was pasted."
+                else:
+                    writer.write(paste_to_bytes(text, bracketed=emulator.bracketed_paste))
+                    status.message = f"Pasted {len(text)} characters from the host clipboard."
+            app.invalidate()
+
+        @bindings.add("v", filter=in_command_mode)
+        def _paste(event) -> None:
+            """Paste the host clipboard, for terminals without a paste key."""
+            leave_command_mode("Reading the host clipboard...")
+            event.app.invalidate()
+            event.app.create_background_task(paste_host_clipboard())
+
         @bindings.add(Keys.ControlSquareClose, filter=in_command_mode)
         def _send_command_key(event) -> None:
             """Send Ctrl-] itself to the guest."""
@@ -383,7 +406,12 @@ class TerminalSession:
                 event.app.invalidate()
                 return
             key_press = event.key_sequence[-1]
-            payload = key_press_to_bytes(key_press)
+            if key_press.key == Keys.BracketedPaste:
+                # A paste of the terminal: like the terminal itself would,
+                # mark it when the guest asked for bracketed paste.
+                payload = paste_to_bytes(key_press.data, bracketed=emulator.bracketed_paste)
+            else:
+                payload = key_press_to_bytes(key_press)
             if payload is None:
                 return
             writer.write(payload)

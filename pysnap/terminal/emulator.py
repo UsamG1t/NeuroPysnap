@@ -484,6 +484,12 @@ class TerminalEmulator:
             continue
 
     @property
+    def bracketed_paste(self) -> bool:
+        """Return whether the guest asked for bracketed paste (mode 2004)."""
+        # ``pyte`` keeps private DEC modes shifted by five bits.
+        return (2004 << 5) in self.screen.mode
+
+    @property
     def is_scrollback_active(self) -> bool:
         """Return whether the current view is above the live output bottom."""
         return self.screen.history.position < self.screen.history.size
