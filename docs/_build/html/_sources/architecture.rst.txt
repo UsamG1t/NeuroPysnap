@@ -107,16 +107,28 @@ serial TCP does not offer a PTY-style ``SIGWINCH`` path into the guest, PySnap
 also replies to xterm-compatible in-band terminal queries such as ``CSI 18 t``
 and ``CSI 6 n`` so guest-side Linux tools can rediscover the current geometry.
 
-Terminal Selection Strategy
----------------------------
+Mouse and Clipboard Strategy
+----------------------------
 
-Mouse selection in ``pysnap connect`` copies the text to the host clipboard
-when the button is released: many terminal emulators keep ``Ctrl-Shift-C``
-for their own copy command and never pass it on. Where it does arrive,
-``Ctrl-Shift-C`` and ``Ctrl-C`` are the same ``ETX`` byte, so PySnap resolves
-the chord by selection state: with a selected text it copies again, without
-one it forwards a real interrupt to the guest. Incoming guest output drops
-only the visible highlight and keeps the selected text.
+``pysnap connect`` leaves selection, copy and paste to the terminal of the
+user. Earlier versions took the mouse to select text themselves and copied
+it through ``xclip``, ``xsel``, ``wl-copy`` or OSC 52, but every terminal and
+system differs: many terminals keep ``Ctrl-Shift-C`` for themselves, Linux
+has two selections, GNOME Terminal and the Windows console ignore OSC 52,
+and a program that takes the mouse disables the native selection, the
+middle-button paste on Linux and the right-button paste and QuickEdit of
+the Windows console. The application therefore enables mouse support only
+while the ``Ctrl-]`` command keys are active (a ``Condition`` on
+``mouse_support``), for wheel scrolling of the local history on Linux, and
+``prompt_toolkit`` turns mouse reporting off again when the mode ends.
+
+Pasted text arrives as one ``BracketedPaste`` key. ``paste_to_bytes`` turns
+its line breaks into ``CR`` and, while the guest has the DEC mode 2004 on (the
+emulator reads it from ``pyte``), puts it between ``ESC [ 200 ~`` and
+``ESC [ 201 ~`` after removing such markers from the text. The ``Ctrl-]``
+``v`` paste reads the host clipboard in a worker thread
+(``pysnap.terminal.clipboard``: the Win32 API through ``ctypes``,
+``pbpaste``, ``wl-paste``, ``xclip`` or ``xsel``) and sends it the same way.
 
 Key Strategy
 ------------
@@ -131,9 +143,7 @@ included, just leaves the mode. As no binding starts with ``Escape``, a lone
 of an escape sequence instead of after the half-second key binding timeout.
 ``key_press_to_bytes`` sends a sequence that ``prompt_toolkit`` splits into
 several keys, such as ``ESC [ 1 ; 3 A`` (``Alt+Up`` on an xterm), once with
-the first key and skips the empty rest. On the alternate screen the mouse
-wheel sends cursor keys, in the application form ``ESC O A`` when the guest
-switched DECCKM on.
+the first key and skips the empty rest.
 
 Proto Settings Strategy
 -----------------------
@@ -201,6 +211,11 @@ A ``pysnap connect`` session ends on every label except ``Working``,
 ``Active`` and ``Paused``. ``PauseTracker`` follows pause and resume: while
 paused, keys are not forwarded, and a session that started on a paused VM
 wakes the console after the resume only when no guest output arrived yet.
+
+The session checks the state once a second with a single ``VBoxManage
+showvminfo`` call (``get_session_state_label``) in a worker thread. VBoxManage
+can take long to start, for example on a computer booted from the network;
+the event loop keeps forwarding keys and guest output meanwhile.
 
 Host Cleanup Strategy
 ---------------------
