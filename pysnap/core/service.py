@@ -350,6 +350,21 @@ class PySnapService:
             )
         return sorted(records, key=lambda record: record.name)
 
+    def get_session_state_label(self, vm_name: str) -> str:
+        """Return the runtime label of the VM of a ``connect`` session cheaply.
+
+        A session asks for the state every second, so this runs one
+        ``VBoxManage showvminfo`` and skips the existence check and the extra
+        data of :meth:`get_monitor_state_label`.
+
+        :param vm_name: VM name.
+        :returns: User-facing monitor label.
+        """
+        return self._display_state(
+            raw_state=self.client.get_vm_state(vm_name),
+            has_live_session=self.session_registry.get_live_session(vm_name) is not None,
+        )
+
     def get_monitor_state_label(self, vm_name: str) -> str:
         """Return the user-facing runtime label for one VM.
 

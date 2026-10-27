@@ -149,6 +149,8 @@ COMMAND_MESSAGE = "q detach, Up/Down/PgUp/PgDn/Home/End scroll, Esc back"
 WHEEL_LINES = 3
 # A paused VM may not accept the serial connection; do not wait long for it.
 PAUSED_CONNECT_TIMEOUT = 3.0
+# Seconds between two state checks of the VM during a session.
+STATE_POLL_INTERVAL = 1.0
 
 
 @dataclass
@@ -705,8 +707,13 @@ class TerminalSession:
         async def watcher_loop() -> None:
             try:
                 while not stop_event.is_set():
-                    await asyncio.sleep(0.5)
-                    current_state = self.service.get_monitor_state_label(vm_name)
+                    await asyncio.sleep(STATE_POLL_INTERVAL)
+                    # VBoxManage can be slow, for example on a computer booted
+                    # from the network; a worker thread keeps keys and guest
+                    # output flowing meanwhile.
+                    current_state = await asyncio.to_thread(
+                        self.service.get_session_state_label, vm_name
+                    )
                     status.vm_state = current_state
                     change = pause_tracker.observe(current_state)
                     if change == "exit":

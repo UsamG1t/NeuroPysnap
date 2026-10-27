@@ -202,6 +202,11 @@ A ``pysnap connect`` session ends on every label except ``Working``,
 paused, keys are not forwarded, and a session that started on a paused VM
 wakes the console after the resume only when no guest output arrived yet.
 
+The session checks the state once a second with a single ``VBoxManage
+showvminfo`` call (``get_session_state_label``) in a worker thread. VBoxManage
+can take long to start, for example on a computer booted from the network;
+the event loop keeps forwarding keys and guest output meanwhile.
+
 Host Cleanup Strategy
 ---------------------
 
