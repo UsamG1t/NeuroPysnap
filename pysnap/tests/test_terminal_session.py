@@ -19,7 +19,6 @@ from pysnap.core.models import VMInfo
 from pysnap.terminal.emulator import TerminalEmulator
 from pysnap.terminal.session import (
     ScrollableTerminalControl,
-    SelectionTracker,
     TerminalSession,
     _resize_emulator_to_output,
     _safe_exit_application,
@@ -233,110 +232,6 @@ class TerminalSessionTests(unittest.TestCase):
         control.mouse_handler(down_event)
 
         self.assertEqual(events, ["up", "down"])
-
-    def test_scrollable_terminal_control_handles_selection_drag_callbacks(self) -> None:
-        """Translate left-button drag events into selection callbacks."""
-        events: list[tuple[str, int, int]] = []
-        control = ScrollableTerminalControl(
-            text="terminal",
-            on_selection_start=lambda x, y: events.append(("start", x, y)),
-            on_selection_update=lambda x, y: events.append(("move", x, y)),
-            on_selection_finish=lambda x, y: events.append(("stop", x, y)),
-        )
-        down_event = MouseEvent(
-            position=Point(x=1, y=2),
-            event_type=MouseEventType.MOUSE_DOWN,
-            button=MouseButton.LEFT,
-            modifiers=frozenset(),
-        )
-        move_event = MouseEvent(
-            position=Point(x=3, y=4),
-            event_type=MouseEventType.MOUSE_MOVE,
-            button=MouseButton.LEFT,
-            modifiers=frozenset(),
-        )
-        up_event = MouseEvent(
-            position=Point(x=5, y=6),
-            event_type=MouseEventType.MOUSE_UP,
-            button=MouseButton.LEFT,
-            modifiers=frozenset(),
-        )
-
-        control.mouse_handler(down_event)
-        control.mouse_handler(move_event)
-        control.mouse_handler(up_event)
-
-        self.assertEqual(
-            events,
-            [("start", 1, 2), ("move", 3, 4), ("stop", 5, 6)],
-        )
-
-    def test_selection_tracker_captures_dragged_text(self) -> None:
-        """Capture selected text on drag finish without copying it anywhere."""
-        emulator = TerminalEmulator(columns=10, lines=3)
-        emulator.feed(b"alpha\r\nbeta\r\ngamma\r\n")
-        tracker = SelectionTracker(emulator)
-
-        tracker.begin(1, 0)
-        tracker.update(2, 0)
-        captured = tracker.finish(2, 1)
-
-        self.assertTrue(captured)
-        self.assertTrue(tracker.is_active)
-        self.assertEqual(tracker.captured_text, "eta\ngam")
-
-    def test_selection_tracker_treats_plain_click_as_clear(self) -> None:
-        """Drop a selection that never left its anchor cell."""
-        emulator = TerminalEmulator(columns=10, lines=3)
-        emulator.feed(b"alpha\r\n")
-        tracker = SelectionTracker(emulator)
-        tracker.begin(0, 0)
-        tracker.update(4, 0)
-        tracker.finish(4, 0)
-
-        tracker.begin(2, 0)
-        captured = tracker.finish(2, 0)
-
-        self.assertFalse(captured)
-        self.assertFalse(tracker.is_active)
-        self.assertIsNone(tracker.captured_text)
-
-    def test_selection_tracker_keeps_captured_text_without_highlight(self) -> None:
-        """Preserve captured text when guest output invalidates the highlight."""
-        emulator = TerminalEmulator(columns=10, lines=3)
-        emulator.feed(b"alpha\r\n")
-        tracker = SelectionTracker(emulator)
-        tracker.begin(0, 0)
-        tracker.finish(4, 0)
-
-        tracker.clear_highlight()
-
-        self.assertIsNone(tracker.selection)
-        self.assertTrue(tracker.is_active)
-        self.assertEqual(tracker.captured_text, "alpha")
-
-    def test_selection_tracker_take_captured_text_resets_state(self) -> None:
-        """Hand out the captured text exactly once."""
-        emulator = TerminalEmulator(columns=10, lines=3)
-        emulator.feed(b"alpha\r\n")
-        tracker = SelectionTracker(emulator)
-        tracker.begin(0, 0)
-        tracker.finish(4, 0)
-
-        self.assertEqual(tracker.take_captured_text(), "alpha")
-        self.assertIsNone(tracker.take_captured_text())
-        self.assertFalse(tracker.is_active)
-
-    def test_selection_tracker_clamps_mouse_coordinates(self) -> None:
-        """Keep selections inside the visible screen area."""
-        emulator = TerminalEmulator(columns=10, lines=3)
-        emulator.feed(b"alpha\r\n")
-        tracker = SelectionTracker(emulator)
-
-        tracker.begin(-5, -5)
-        tracker.update(99, 99)
-
-        self.assertEqual(tracker.selection.normalized, ((0, 0), (2, 9)))
 
     def test_safe_exit_exits_running_application_once(self) -> None:
         """Exit a live application successfully."""

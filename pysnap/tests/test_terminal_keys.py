@@ -1,14 +1,16 @@
-"""Tests for the keys, the mouse wheel and copying in pysnap connect."""
+"""Tests for the keys and the mouse wheel in pysnap connect."""
 
 from __future__ import annotations
 
 import asyncio
+import io
 import unittest
 from unittest.mock import patch
 
 from prompt_toolkit.application import create_app_session
 from prompt_toolkit.input import create_pipe_input
-from prompt_toolkit.output import DummyOutput
+from prompt_toolkit.data_structures import Size
+from prompt_toolkit.output.vt100 import Vt100_Output
 
 from pysnap.terminal.emulator import TerminalEmulator
 from pysnap.terminal.session import SessionStatus, SessionTransport, TerminalSession
@@ -27,7 +29,7 @@ class _Session:
         self.writer = _Writer()
         self.messages: list[str] = []
         self.scrolls: list[tuple[str, int]] = []
-        self.copies: list[str] = []
+        self.terminal_output = io.StringIO()
         self.emulator: TerminalEmulator | None = None
 
     def run(self, *steps: bytes, pause: float = 0.15) -> "_Session":
@@ -66,7 +68,8 @@ class _Session:
                 return reader, self.writer, None
 
             transport = SessionTransport("ssh", "ssh:1", 1, False, opener)
-            with create_pipe_input() as pipe_input, create_app_session(input=pipe_input, output=DummyOutput()):
+            output = Vt100_Output(self.terminal_output, lambda: Size(rows=24, columns=80), term="xterm")
+            with create_pipe_input() as pipe_input, create_app_session(input=pipe_input, output=output):
                 async def type_keys() -> None:
                     await asyncio.sleep(0.3)
                     for step in steps:
@@ -81,13 +84,8 @@ class _Session:
                 )
                 typing.cancel()
 
-        def copy(text, output=None):
-            self.copies.append(text)
-            return True
-
         with patch("pysnap.terminal.session.SessionStatus", Status), \
-                patch("pysnap.terminal.session.TerminalEmulator", Emulator), \
-                patch("pysnap.terminal.session.copy_text_to_host_clipboard", copy):
+                patch("pysnap.terminal.session.TerminalEmulator", Emulator):
             asyncio.run(scenario())
         return self
 
@@ -128,39 +126,44 @@ class KeyTests(unittest.TestCase):
         self.assertIn("Detached.", session.messages)
 
 
-class WheelTests(unittest.TestCase):
-    """Verify the mouse wheel on the shell and on full-screen programs."""
+class MouseTests(unittest.TestCase):
+    """Leave the mouse to the terminal except for wheel scrolling in command mode."""
 
-    def test_wheel_scrolls_the_local_history(self) -> None:
-        """Move three lines per step on the shell screen."""
+    MOUSE_ON = "\x1b[?1000h"
+    MOUSE_OFF = "\x1b[?1000l"
+
+    def test_mouse_is_taken_only_in_command_mode(self) -> None:
+        """Ask the terminal for mouse events after Ctrl-] and stop after leaving the mode."""
         with patch("pysnap.terminal.session._should_enable_mouse_scrolling", return_value=True):
-            session = _Session(b"x\r\n" * 60).run(WHEEL_UP, WHEEL_DOWN)
+            session = _Session().run(b"x", b"\x1d", b"\x1b", pause=0.3)
+        text = session.terminal_output.getvalue()
+        self.assertIn(self.MOUSE_ON, text)
+        self.assertLess(text.index(self.MOUSE_ON), text.rindex(self.MOUSE_OFF))
+        with patch("pysnap.terminal.session._should_enable_mouse_scrolling", return_value=True):
+            plain = _Session().run(b"x", b"y")
+        self.assertNotIn(self.MOUSE_ON, plain.terminal_output.getvalue())
+        with patch("pysnap.terminal.session._should_enable_mouse_scrolling", return_value=False):
+            other = _Session().run(b"\x1d", b"\x1b")
+        self.assertNotIn(self.MOUSE_ON, other.terminal_output.getvalue())
+
+    def test_wheel_scrolls_the_local_history_in_command_mode(self) -> None:
+        """Move three lines per step in command mode and ignore the wheel otherwise."""
+        with patch("pysnap.terminal.session._should_enable_mouse_scrolling", return_value=True):
+            session = _Session(b"x\r\n" * 60).run(WHEEL_UP, b"\x1d", WHEEL_UP, WHEEL_DOWN, b"\x1b", WHEEL_DOWN)
         self.assertEqual(session.scrolls, [("up", 3), ("down", 3)])
         self.assertEqual(session.sent, b"")
 
-    def test_wheel_sends_cursor_keys_to_full_screen_programs(self) -> None:
-        """Send three cursor keys in the mode the guest asked for."""
+    def test_full_screen_programs_get_nothing_from_the_wheel(self) -> None:
+        """Send no cursor keys: editors and pagers scroll with their own keys."""
         with patch("pysnap.terminal.session._should_enable_mouse_scrolling", return_value=True):
-            normal = _Session(b"\x1b[?1049h").run(WHEEL_UP, WHEEL_DOWN)
-            application = _Session(b"\x1b[?1049h\x1b[?1h").run(WHEEL_DOWN)
-        self.assertEqual(normal.sent, b"\x1b[A" * 3 + b"\x1b[B" * 3)
-        self.assertEqual(application.sent, b"\x1bOB" * 3)
-        self.assertEqual(normal.scrolls, [])
-        with patch("pysnap.terminal.session._should_enable_mouse_scrolling", return_value=True):
-            paused = _Session(b"\x1b[?1049h", paused=True).run(WHEEL_DOWN)
-        self.assertEqual(paused.sent, b"")
+            session = _Session(b"\x1b[?1049h\x1b[?1h").run(b"\x1d", WHEEL_DOWN, WHEEL_UP, b"\x1b")
+        self.assertEqual(session.sent, b"")
 
-
-class CopyTests(unittest.TestCase):
-    """Verify copying selected text to the host."""
-
-    def test_release_copies_and_ctrl_c_copies_again(self) -> None:
-        """Copy when the button is released; Ctrl-C then copies instead of interrupting."""
+    def test_ctrl_c_always_interrupts(self) -> None:
+        """Send Ctrl-C to the guest; a drag does not turn it into a copy."""
         drag = b"\x1b[<0;1;1M\x1b[<32;5;1M\x1b[<0;5;1m"
         session = _Session(b"hello world").run(drag, b"\x03", b"\x03")
-        self.assertEqual(session.copies, ["hello", "hello"])
-        self.assertIn("Selection copied.", session.messages)
-        self.assertEqual(session.sent, b"\x03")
+        self.assertEqual(session.sent, b"\x03\x03")
 
 
 if __name__ == "__main__":
